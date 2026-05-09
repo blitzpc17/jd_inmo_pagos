@@ -23,7 +23,7 @@
                 <tr>
                     <th style="width:70px;">#</th>
                     @foreach($catalog['datatable'] as $col)
-                        <th>{{ ucfirst(str_replace('_', ' ', $col)) }}</th>
+                        <th>{{ $col['title'] }}</th>
                     @endforeach
                     <th style="width:110px;">Acciones</th>
                 </tr>
@@ -115,7 +115,6 @@
         form.reset();
         recordId.value = '';
         clearErrors();
-
         $('.select2-field').val(null).trigger('change');
     }
 
@@ -131,6 +130,8 @@
 
         const fieldMeta = catalog.fields[fieldName];
         if (fieldMeta.type === 'select_nullable') {
+            select.innerHTML += `<option value="">Seleccione...</option>`;
+        } else {
             select.innerHTML += `<option value="">Seleccione...</option>`;
         }
 
@@ -167,7 +168,10 @@
         }];
 
         catalog.datatable.forEach(col => {
-            columns.push({ data: col, defaultContent: '' });
+            columns.push({
+                data: col.data,
+                defaultContent: ''
+            });
         });
 
         columns.push({
@@ -203,6 +207,8 @@
         const json = await res.json();
 
         resetForm();
+        await loadAllSelects();
+
         recordId.value = json.data.id;
 
         for (const key in catalog.fields) {
@@ -344,8 +350,7 @@
     form.addEventListener('submit', saveRecord);
 
     $('#tblCatalogo').on('click', '.btn-edit', async function () {
-        await loadAllSelects();
-        editRecord(this.dataset.id);
+        await editRecord(this.dataset.id);
     });
 
     $('#tblCatalogo').on('click', '.btn-delete', function () {

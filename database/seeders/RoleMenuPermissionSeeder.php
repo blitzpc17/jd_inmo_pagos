@@ -10,10 +10,9 @@ class RoleMenuPermissionSeeder extends Seeder
     public function run(): void
     {
         $adminRoleId = DB::table('roles')->where('nombre', 'Admin')->value('id');
+        $menuIds = DB::table('menus')->pluck('id');
 
-        $menus = DB::table('menus')->pluck('id');
-
-        foreach ($menus as $menuId) {
+        foreach ($menuIds as $menuId) {
             DB::table('role_menu_permissions')->updateOrInsert(
                 [
                     'role_id' => $adminRoleId,
@@ -24,8 +23,8 @@ class RoleMenuPermissionSeeder extends Seeder
                     'can_create' => true,
                     'can_update' => true,
                     'can_delete' => true,
-                    'updated_at' => now(),
                     'created_at' => now(),
+                    'updated_at' => now(),
                 ]
             );
         }

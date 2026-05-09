@@ -1,4 +1,3 @@
-
 <?php
 
 return [
@@ -12,7 +11,10 @@ return [
             'clave' => ['label' => 'Clave', 'type' => 'text', 'required' => true],
             'nombre' => ['label' => 'Nombre', 'type' => 'text', 'required' => true],
         ],
-        'datatable' => ['id', 'clave', 'nombre', 'created_at'],
+        'datatable' => [
+            ['data' => 'clave', 'title' => 'Clave'],
+            ['data' => 'nombre', 'title' => 'Nombre'],
+        ],
         'filters' => [],
         'default_order' => ['id', 'desc'],
     ],
@@ -37,7 +39,11 @@ return [
             'clave' => ['label' => 'Clave', 'type' => 'text', 'required' => true],
             'nombre' => ['label' => 'Nombre', 'type' => 'text', 'required' => true],
         ],
-        'datatable' => ['id', 'process_name', 'clave', 'nombre', 'created_at'],
+        'datatable' => [
+            ['data' => 'process_name', 'title' => 'Proceso'],
+            ['data' => 'clave', 'title' => 'Clave'],
+            ['data' => 'nombre', 'title' => 'Nombre'],
+        ],
         'joins' => [
             ['table' => 'processes', 'alias' => 'p', 'first' => 'statuses.process_id', 'operator' => '=', 'second' => 'p.id'],
         ],
@@ -61,7 +67,10 @@ return [
                 'required' => true,
             ],
         ],
-        'datatable' => ['id', 'nombre', 'status_name', 'created_at'],
+        'datatable' => [
+            ['data' => 'nombre', 'title' => 'Nombre'],
+            ['data' => 'status_name', 'title' => 'Estado'],
+        ],
         'joins' => [
             ['table' => 'statuses', 'alias' => 's', 'first' => 'positions.status_id', 'operator' => '=', 'second' => 's.id'],
         ],
@@ -85,7 +94,10 @@ return [
                 'required' => true,
             ],
         ],
-        'datatable' => ['id', 'nombre', 'status_name', 'created_at'],
+        'datatable' => [
+            ['data' => 'nombre', 'title' => 'Nombre'],
+            ['data' => 'status_name', 'title' => 'Estado'],
+        ],
         'joins' => [
             ['table' => 'statuses', 'alias' => 's', 'first' => 'roles.status_id', 'operator' => '=', 'second' => 's.id'],
         ],
@@ -109,7 +121,10 @@ return [
                 'required' => true,
             ],
         ],
-        'datatable' => ['id', 'nombre', 'status_name', 'created_at'],
+        'datatable' => [
+            ['data' => 'nombre', 'title' => 'Nombre'],
+            ['data' => 'status_name', 'title' => 'Estado'],
+        ],
         'joins' => [
             ['table' => 'statuses', 'alias' => 's', 'first' => 'charge_types.status_id', 'operator' => '=', 'second' => 's.id'],
         ],
@@ -133,7 +148,10 @@ return [
                 'required' => true,
             ],
         ],
-        'datatable' => ['id', 'nombre', 'status_name', 'created_at'],
+        'datatable' => [
+            ['data' => 'nombre', 'title' => 'Nombre'],
+            ['data' => 'status_name', 'title' => 'Estado'],
+        ],
         'joins' => [
             ['table' => 'statuses', 'alias' => 's', 'first' => 'contract_payment_types.status_id', 'operator' => '=', 'second' => 's.id'],
         ],
@@ -158,7 +176,11 @@ return [
                 'required' => true,
             ],
         ],
-        'datatable' => ['id', 'nombre', 'color', 'status_name', 'created_at'],
+        'datatable' => [
+            ['data' => 'nombre', 'title' => 'Nombre'],
+            ['data' => 'color', 'title' => 'Color'],
+            ['data' => 'status_name', 'title' => 'Estado'],
+        ],
         'joins' => [
             ['table' => 'statuses', 'alias' => 's', 'first' => 'offices.status_id', 'operator' => '=', 'second' => 's.id'],
         ],
@@ -193,7 +215,11 @@ return [
                 'required' => true,
             ],
         ],
-        'datatable' => ['id', 'nombre', 'office_name', 'status_name', 'created_at'],
+        'datatable' => [
+            ['data' => 'nombre', 'title' => 'Nombre'],
+            ['data' => 'office_name', 'title' => 'Oficina'],
+            ['data' => 'status_name', 'title' => 'Estado'],
+        ],
         'joins' => [
             ['table' => 'offices', 'alias' => 'o', 'first' => 'payment_methods.office_id', 'operator' => '=', 'second' => 'o.id'],
             ['table' => 'statuses', 'alias' => 's', 'first' => 'payment_methods.status_id', 'operator' => '=', 'second' => 's.id'],
@@ -220,7 +246,11 @@ return [
                 'required' => true,
             ],
         ],
-        'datatable' => ['id', 'nombre', 'color', 'status_name', 'created_at'],
+        'datatable' => [
+            ['data' => 'nombre', 'title' => 'Nombre'],
+            ['data' => 'color', 'title' => 'Color'],
+            ['data' => 'status_name', 'title' => 'Estado'],
+        ],
         'joins' => [
             ['table' => 'statuses', 'alias' => 's', 'first' => 'partners.status_id', 'operator' => '=', 'second' => 's.id'],
         ],
@@ -260,7 +290,14 @@ return [
                 'required' => true,
             ],
         ],
-        'datatable' => ['id', 'nombre', 'clave', 'ruta', 'parent_name', 'orden', 'status_name'],
+        'datatable' => [
+            ['data' => 'nombre', 'title' => 'Nombre'],
+            ['data' => 'clave', 'title' => 'Clave'],
+            ['data' => 'ruta', 'title' => 'Ruta'],
+            ['data' => 'parent_name', 'title' => 'Padre'],
+            ['data' => 'orden', 'title' => 'Orden'],
+            ['data' => 'status_name', 'title' => 'Estado'],
+        ],
         'joins' => [
             ['table' => 'menus', 'alias' => 'pm', 'first' => 'menus.parent_id', 'operator' => '=', 'second' => 'pm.id'],
             ['table' => 'statuses', 'alias' => 's', 'first' => 'menus.status_id', 'operator' => '=', 'second' => 's.id'],
