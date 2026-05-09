@@ -218,6 +218,14 @@ class MenuSeeder extends Seeder
                 'parent' => 'operation_root',
                 'orden' => 8,
             ],
+            [
+                'nombre' => 'Lotificaciones',
+                'clave' => 'developments_module',
+                'ruta' => 'lotificaciones',
+                'icono' => 'fa-solid fa-map-location-dot',
+                'parent' => 'operation_root',
+                'orden' => 1,
+            ],
         ];
 
         foreach ($items as $item) {

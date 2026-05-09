@@ -12,6 +12,9 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\SellerController;
 use App\Http\Controllers\SupplierController;
 
+use App\Http\Controllers\DevelopmentController;
+use App\Http\Controllers\DevelopmentLotController;
+
 Route::get('/', fn () => redirect()->route('login'));
 
 Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -93,4 +96,26 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::put('/{id}', [SupplierController::class, 'update'])->name('update');
         Route::delete('/{id}', [SupplierController::class, 'destroy'])->name('destroy');
     });
+
+    Route::prefix('lotificaciones')->name('lotificaciones.')->group(function () {
+        Route::get('/', [DevelopmentController::class, 'index'])->name('index');
+        Route::get('/datatable', [DevelopmentController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [DevelopmentController::class, 'options'])->name('options');
+        Route::post('/', [DevelopmentController::class, 'store'])->name('store');
+        Route::get('/{id}', [DevelopmentController::class, 'show'])->name('show');
+        Route::put('/{id}', [DevelopmentController::class, 'update'])->name('update');
+        Route::delete('/{id}', [DevelopmentController::class, 'destroy'])->name('destroy');
+
+        Route::get('/{developmentId}/detalle', [DevelopmentLotController::class, 'index'])->name('detalle');
+        Route::get('/{developmentId}/lots/datatable', [DevelopmentLotController::class, 'datatable'])->name('lots.datatable');
+        Route::get('/{developmentId}/lots/options', [DevelopmentLotController::class, 'options'])->name('lots.options');
+
+        Route::post('/{developmentId}/lots', [DevelopmentLotController::class, 'store'])->name('lots.store');
+        Route::get('/{developmentId}/lots/{lotId}', [DevelopmentLotController::class, 'show'])->name('lots.show');
+        Route::put('/{developmentId}/lots/{lotId}', [DevelopmentLotController::class, 'update'])->name('lots.update');
+        Route::delete('/{developmentId}/lots/{lotId}', [DevelopmentLotController::class, 'destroy'])->name('lots.destroy');
+
+        Route::post('/{developmentId}/lots/generate', [DevelopmentLotController::class, 'generate'])->name('lots.generate');
+    });
+    
 });
