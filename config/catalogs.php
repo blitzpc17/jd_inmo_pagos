@@ -169,7 +169,7 @@ return [
         'soft_field' => 'fecha_baja',
         'fields' => [
             'nombre' => ['label' => 'Nombre', 'type' => 'text', 'required' => true],
-            'color' => ['label' => 'Color', 'type' => 'text', 'required' => false],
+            'color' => ['label' => 'Color', 'type' => 'color', 'required' => false],
             'status_id' => [
                 'label' => 'Estado',
                 'type' => 'general_status',
@@ -239,7 +239,7 @@ return [
         'soft_field' => 'fecha_baja',
         'fields' => [
             'nombre' => ['label' => 'Nombre', 'type' => 'text', 'required' => true],
-            'color' => ['label' => 'Color', 'type' => 'text', 'required' => false],
+            'color' => ['label' => 'Color', 'type' => 'color', 'required' => false],
             'status_id' => [
                 'label' => 'Estado',
                 'type' => 'general_status',

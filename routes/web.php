@@ -7,6 +7,11 @@ use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PermissionController;
 
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\SellerController;
+use App\Http\Controllers\SupplierController;
+
 Route::get('/', fn () => redirect()->route('login'));
 
 Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -47,5 +52,45 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
 
         Route::get('/usuarios/{userId}/tree', [PermissionController::class, 'userTree'])->name('users.tree');
         Route::post('/usuarios/{userId}/save', [PermissionController::class, 'saveUserPermissions'])->name('users.save');
+    });
+
+    Route::prefix('clientes')->name('clientes.')->group(function () {
+        Route::get('/', [ClientController::class, 'index'])->name('index');
+        Route::get('/datatable', [ClientController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [ClientController::class, 'options'])->name('options');
+        Route::post('/', [ClientController::class, 'store'])->name('store');
+        Route::get('/{id}', [ClientController::class, 'show'])->name('show');
+        Route::put('/{id}', [ClientController::class, 'update'])->name('update');
+        Route::delete('/{id}', [ClientController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('empleados')->name('empleados.')->group(function () {
+        Route::get('/', [EmployeeController::class, 'index'])->name('index');
+        Route::get('/datatable', [EmployeeController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [EmployeeController::class, 'options'])->name('options');
+        Route::post('/', [EmployeeController::class, 'store'])->name('store');
+        Route::get('/{id}', [EmployeeController::class, 'show'])->name('show');
+        Route::put('/{id}', [EmployeeController::class, 'update'])->name('update');
+        Route::delete('/{id}', [EmployeeController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('vendedores')->name('vendedores.')->group(function () {
+        Route::get('/', [SellerController::class, 'index'])->name('index');
+        Route::get('/datatable', [SellerController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [SellerController::class, 'options'])->name('options');
+        Route::post('/', [SellerController::class, 'store'])->name('store');
+        Route::get('/{id}', [SellerController::class, 'show'])->name('show');
+        Route::put('/{id}', [SellerController::class, 'update'])->name('update');
+        Route::delete('/{id}', [SellerController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('proveedores')->name('proveedores.')->group(function () {
+        Route::get('/', [SupplierController::class, 'index'])->name('index');
+        Route::get('/datatable', [SupplierController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [SupplierController::class, 'options'])->name('options');
+        Route::post('/', [SupplierController::class, 'store'])->name('store');
+        Route::get('/{id}', [SupplierController::class, 'show'])->name('show');
+        Route::put('/{id}', [SupplierController::class, 'update'])->name('update');
+        Route::delete('/{id}', [SupplierController::class, 'destroy'])->name('destroy');
     });
 });

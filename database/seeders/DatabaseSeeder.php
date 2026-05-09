@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             MenuSeeder::class,
             AdminUserSeeder::class,
             RoleMenuPermissionSeeder::class,
+            GlobalVariableSeeder::class,
+            LotStatusSeeder::class,
         ]);
     }
 }

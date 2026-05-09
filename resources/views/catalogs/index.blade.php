@@ -49,14 +49,40 @@
                             <div class="col-md-6">
                                 <label class="form-label">{{ $meta['label'] }}</label>
 
-                                @if(in_array($meta['type'], ['text', 'number']))
+                                @if($meta['type'] === 'text')
                                     <input
-                                        type="{{ $meta['type'] === 'number' ? 'number' : 'text' }}"
+                                        type="text"
                                         class="form-control"
                                         name="{{ $field }}"
                                         id="{{ $field }}"
                                         {{ !empty($meta['required']) ? 'required' : '' }}
                                     >
+                                @elseif($meta['type'] === 'number')
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        class="form-control"
+                                        name="{{ $field }}"
+                                        id="{{ $field }}"
+                                        {{ !empty($meta['required']) ? 'required' : '' }}
+                                    >
+                                @elseif($meta['type'] === 'color')
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input
+                                            type="color"
+                                            class="form-control form-control-color"
+                                            name="{{ $field }}"
+                                            id="{{ $field }}"
+                                            value="#000000"
+                                            style="width:64px;min-width:64px;"
+                                        >
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            id="{{ $field }}_text"
+                                            placeholder="#000000"
+                                        >
+                                    </div>
                                 @elseif(in_array($meta['type'], ['select', 'select_nullable', 'general_status']))
                                     <select
                                         class="form-select select2-field"
@@ -111,11 +137,47 @@
         form.querySelectorAll('.invalid-feedback').forEach(el => el.textContent = '');
     }
 
+    function syncColorInputs() {
+        Object.keys(catalog.fields).forEach(field => {
+            const meta = catalog.fields[field];
+            if (meta.type === 'color') {
+                const colorInput = document.getElementById(field);
+                const textInput = document.getElementById(`${field}_text`);
+
+                if (!colorInput || !textInput) return;
+
+                colorInput.addEventListener('input', function () {
+                    textInput.value = this.value.toUpperCase();
+                });
+
+                textInput.addEventListener('input', function () {
+                    let value = this.value.trim();
+                    if (!value) return;
+                    if (!value.startsWith('#')) value = '#' + value;
+                    if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                        colorInput.value = value;
+                        this.value = value.toUpperCase();
+                    }
+                });
+            }
+        });
+    }
+
     function resetForm() {
         form.reset();
         recordId.value = '';
         clearErrors();
         $('.select2-field').val(null).trigger('change');
+
+        Object.keys(catalog.fields).forEach(field => {
+            const meta = catalog.fields[field];
+            if (meta.type === 'color') {
+                const colorInput = document.getElementById(field);
+                const textInput = document.getElementById(`${field}_text`);
+                if (colorInput) colorInput.value = '#000000';
+                if (textInput) textInput.value = '#000000';
+            }
+        });
     }
 
     async function loadSelect(fieldName) {
@@ -126,14 +188,7 @@
         const res = await fetch(url);
         const items = await res.json();
 
-        select.innerHTML = '';
-
-        const fieldMeta = catalog.fields[fieldName];
-        if (fieldMeta.type === 'select_nullable') {
-            select.innerHTML += `<option value="">Seleccione...</option>`;
-        } else {
-            select.innerHTML += `<option value="">Seleccione...</option>`;
-        }
+        select.innerHTML = '<option value="">Seleccione...</option>';
 
         items.forEach(item => {
             select.innerHTML += `<option value="${item.value}">${item.text}</option>`;
@@ -220,6 +275,11 @@
 
             if (meta.type === 'checkbox') {
                 el.checked = !!value;
+            } else if (meta.type === 'color') {
+                const colorValue = value || '#000000';
+                el.value = colorValue;
+                const textInput = document.getElementById(`${key}_text`);
+                if (textInput) textInput.value = colorValue.toUpperCase();
             } else {
                 $(el).val(value).trigger('change');
             }
@@ -238,8 +298,14 @@
 
         Object.keys(catalog.fields).forEach(field => {
             const meta = catalog.fields[field];
+
             if (meta.type === 'checkbox' && !formData.has(field)) {
                 formData.append(field, '0');
+            }
+
+            if (meta.type === 'color') {
+                const colorInput = document.getElementById(field);
+                formData.set(field, colorInput.value || '#000000');
             }
         });
 
@@ -358,6 +424,7 @@
     });
 
     initSelect2();
+    syncColorInputs();
     initTable();
 })();
 </script>
