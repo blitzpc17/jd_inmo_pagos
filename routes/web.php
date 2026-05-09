@@ -22,6 +22,8 @@ use App\Http\Controllers\ReservationComplementController;
 
 use App\Http\Controllers\ChargeController;
 
+ use App\Http\Controllers\DevelopmentAssignmentController;
+
 
 
 Route::get('/', fn () => redirect()->route('login'));
@@ -107,25 +109,30 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     });
 
     Route::prefix('lotificaciones')->name('lotificaciones.')->group(function () {
-        Route::get('/', [DevelopmentController::class, 'index'])->name('index');
-        Route::get('/datatable', [DevelopmentController::class, 'datatable'])->name('datatable');
-        Route::get('/options', [DevelopmentController::class, 'options'])->name('options');
-        Route::post('/', [DevelopmentController::class, 'store'])->name('store');
-        Route::get('/{id}', [DevelopmentController::class, 'show'])->name('show');
-        Route::put('/{id}', [DevelopmentController::class, 'update'])->name('update');
-        Route::delete('/{id}', [DevelopmentController::class, 'destroy'])->name('destroy');
 
-        Route::get('/{developmentId}/detalle', [DevelopmentLotController::class, 'index'])->name('detalle');
-        Route::get('/{developmentId}/lots/datatable', [DevelopmentLotController::class, 'datatable'])->name('lots.datatable');
-        Route::get('/{developmentId}/lots/options', [DevelopmentLotController::class, 'options'])->name('lots.options');
+    // módulo principal de lotificaciones
+    Route::get('/', [DevelopmentController::class, 'index'])->name('index');
+    Route::get('/datatable', [DevelopmentController::class, 'datatable'])->name('datatable');
+    Route::get('/options', [DevelopmentController::class, 'options'])->name('options');
+    Route::post('/', [DevelopmentController::class, 'store'])->name('store');
+    Route::get('/{id}', [DevelopmentController::class, 'show'])->name('show');
+    Route::put('/{id}', [DevelopmentController::class, 'update'])->name('update');
+    Route::delete('/{id}', [DevelopmentController::class, 'destroy'])->name('destroy');
 
-        Route::post('/{developmentId}/lots', [DevelopmentLotController::class, 'store'])->name('lots.store');
-        Route::get('/{developmentId}/lots/{lotId}', [DevelopmentLotController::class, 'show'])->name('lots.show');
-        Route::put('/{developmentId}/lots/{lotId}', [DevelopmentLotController::class, 'update'])->name('lots.update');
-        Route::delete('/{developmentId}/lots/{lotId}', [DevelopmentLotController::class, 'destroy'])->name('lots.destroy');
+    // módulo hijo de lotes por lotificación
+        Route::prefix('{developmentId}/lotes')->name('lots.')->group(function () {
+            Route::get('/', [DevelopmentLotController::class, 'index'])->name('index');
+            Route::get('/datatable', [DevelopmentLotController::class, 'datatable'])->name('datatable');
+            Route::get('/options', [DevelopmentLotController::class, 'options'])->name('options');
 
-        Route::post('/{developmentId}/lots/generate', [DevelopmentLotController::class, 'generate'])->name('lots.generate');
-        Route::post('/{developmentId}/lots/bulk-update', [DevelopmentLotController::class, 'bulkUpdate'])->name('lots.bulk-update');
+            Route::post('/generate', [DevelopmentLotController::class, 'generate'])->name('generate');
+            Route::post('/generate-bulk', [DevelopmentLotController::class, 'generateBulk'])->name('generate.bulk');
+
+            Route::get('/{lotId}', [DevelopmentLotController::class, 'show'])->name('show');
+            Route::put('/{lotId}', [DevelopmentLotController::class, 'update'])->name('update');
+            Route::post('/bulk-update', [DevelopmentLotController::class, 'bulkUpdate'])->name('bulk-update');
+            Route::delete('/{lotId}', [DevelopmentLotController::class, 'destroy'])->name('destroy');
+        });
     });
 
     Route::prefix('apartados')->name('apartados.')->group(function () {
@@ -147,6 +154,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::post('/', [ReservationComplementController::class, 'store'])->name('store');
     });
 
+
     Route::prefix('contratos')->name('contratos.')->group(function () {
         Route::get('/', [ContractController::class, 'index'])->name('index');
         Route::get('/datatable', [ContractController::class, 'datatable'])->name('datatable');
@@ -154,7 +162,12 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
 
         Route::get('/client/{clientId}/reservations', [ContractController::class, 'clientReservations'])->name('client.reservations');
         Route::get('/client/{clientId}/developments', [ContractController::class, 'clientDevelopments'])->name('client.developments');
+
         Route::get('/development/{developmentId}/lots', [ContractController::class, 'developmentLots'])->name('development.lots');
+        Route::get('/development/{developmentId}/offices', [ContractController::class, 'developmentOffices'])->name('development.offices');
+
+        Route::get('/office/{officeId}/payment-methods', [ContractController::class, 'officePaymentMethods'])->name('office.payment-methods');
+
         Route::get('/reservation/{reservationId}', [ContractController::class, 'reservationData'])->name('reservation.data');
         Route::get('/seller/{sellerId}', [ContractController::class, 'sellerData'])->name('seller.data');
 
@@ -169,6 +182,26 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
 
         Route::get('/contract/{contractId}/summary', [ChargeController::class, 'contractSummary'])->name('contract.summary');
         Route::post('/', [ChargeController::class, 'store'])->name('store');
+    });
+
+   
+
+    Route::prefix('asignacion-lotificaciones')->name('asignacion_lotificaciones.')->group(function () {
+        Route::get('/', [DevelopmentAssignmentController::class, 'index'])->name('index');
+        Route::get('/options', [DevelopmentAssignmentController::class, 'options'])->name('options');
+
+        Route::get('/role/{roleId}', [DevelopmentAssignmentController::class, 'roleAssignments'])->name('role.assignments');
+        Route::post('/role/{roleId}', [DevelopmentAssignmentController::class, 'saveRoleAssignments'])->name('role.save');
+
+        Route::get('/user/{userId}', [DevelopmentAssignmentController::class, 'userAssignments'])->name('user.assignments');
+        Route::post('/user/{userId}', [DevelopmentAssignmentController::class, 'saveUserAssignments'])->name('user.save');
+    });
+
+
+    Route::prefix('calendario-pagos')->name('calendario_pagos.')->group(function () {
+        Route::get('/', [PaymentScheduleController::class, 'index'])->name('index');
+        Route::get('/options', [PaymentScheduleController::class, 'options'])->name('options');
+        Route::get('/contract/{contractId}', [PaymentScheduleController::class, 'byContract'])->name('by-contract');
     });
     
 });

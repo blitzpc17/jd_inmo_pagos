@@ -304,26 +304,10 @@
         });
     }
 
-    async function loadOptions() {
-        if (optionsCache) return optionsCache;
-
-        const res = await fetch('/contratos/options');
-        optionsCache = await res.json();
-
-        fillSelect('client_id', optionsCache.clients);
-        fillSelect('reservation_id', []);
-        fillSelect('development_id', []);
-        fillSelect('lot_ids', [], true);
-        fillSelect('contract_payment_type_id', optionsCache.contract_payment_types);
-        fillSelect('office_id', optionsCache.offices);
-        fillSelect('seller_id', optionsCache.sellers);
-        fillSelect('difference_payment_method_id', optionsCache.payment_methods);
-
-        return optionsCache;
-    }
-
     function fillSelect(id, items, multiple = false) {
         const el = document.getElementById(id);
+        if (!el) return;
+
         el.innerHTML = multiple ? '' : '<option value="">Seleccione...</option>';
 
         items.forEach(item => {
@@ -338,11 +322,11 @@
     }
 
     function resetSummary() {
-        document.getElementById('r_cliente').value = '';
-        document.getElementById('r_lotificacion').value = '';
-        document.getElementById('r_apartado').value = '';
-        document.getElementById('r_pagos_previos').value = '';
-        document.getElementById('contractLotsBody').innerHTML = '';
+        $('#r_cliente').val('');
+        $('#r_lotificacion').val('');
+        $('#r_apartado').val('');
+        $('#r_pagos_previos').val('');
+        $('#contractLotsBody').html('');
     }
 
     function resetForm() {
@@ -355,33 +339,36 @@
         fillSelect('reservation_id', []);
         fillSelect('development_id', []);
         fillSelect('lot_ids', [], true);
+        fillSelect('office_id', []);
+        fillSelect('difference_payment_method_id', []);
         resetSummary();
         document.getElementById('monto_pago_inicial').dataset.userEdited = '';
+        toggleContractFields();
     }
 
-    function initTable() {
-        table = $('#tblContratos').DataTable({
-            ajax: { url: '/contratos/datatable', dataSrc: 'data' },
-            columns: [
-                { data: null, render: (_, __, ___, meta) => meta.row + 1 },
-                { data: 'numero_referencia' },
-                { data: 'fecha_emision' },
-                { data: 'cliente' },
-                { data: 'lotificacion' },
-                { data: 'tipo_pago' },
-                { data: 'importe' },
-                { data: 'estado_badge', orderable: false, searchable: false },
-                { data: 'acciones', orderable: false, searchable: false }
-            ],
-            pageLength: 10,
-            order: [],
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
-        });
+    async function loadOptions() {
+        if (optionsCache) return optionsCache;
+
+        const res = await fetch('/contratos/options');
+        optionsCache = await res.json();
+
+        fillSelect('client_id', optionsCache.clients);
+        fillSelect('reservation_id', []);
+        fillSelect('development_id', []);
+        fillSelect('lot_ids', [], true);
+        fillSelect('contract_payment_type_id', optionsCache.contract_payment_types);
+        fillSelect('office_id', []);
+        fillSelect('seller_id', optionsCache.sellers);
+        fillSelect('difference_payment_method_id', []);
+
+        return optionsCache;
     }
 
     async function loadClientData(clientId, preserveReservation = false) {
         fillSelect('development_id', []);
         fillSelect('lot_ids', [], true);
+        fillSelect('office_id', []);
+        fillSelect('difference_payment_method_id', []);
         directLotsCache = [];
         reservationContext = null;
 
@@ -410,18 +397,37 @@
             $('#reservation_id').val(currentReservation).trigger('change');
         }
 
-        document.getElementById('r_cliente').value = $('#client_id option:selected').text() || '';
+        $('#r_cliente').val($('#client_id option:selected').text() || '');
+    }
+
+    async function loadDevelopmentOffices(developmentId) {
+        fillSelect('office_id', []);
+        fillSelect('difference_payment_method_id', []);
+        if (!developmentId) return;
+
+        const res = await fetch(`/contratos/development/${developmentId}/offices`);
+        const offices = await res.json();
+        fillSelect('office_id', offices);
+    }
+
+    async function loadOfficePaymentMethods(officeId) {
+        fillSelect('difference_payment_method_id', []);
+        if (!officeId) return;
+
+        const res = await fetch(`/contratos/office/${officeId}/payment-methods`);
+        const methods = await res.json();
+        fillSelect('difference_payment_method_id', methods);
     }
 
     async function loadReservationData(reservationId) {
         reservationContext = null;
         fillSelect('lot_ids', [], true);
-        document.getElementById('contractLotsBody').innerHTML = '';
+        $('#contractLotsBody').html('');
 
         if (!reservationId) {
-            document.getElementById('r_apartado').value = '';
-            document.getElementById('r_lotificacion').value = $('#development_id option:selected').text() || '';
-            document.getElementById('r_pagos_previos').value = '';
+            $('#r_apartado').val('');
+            $('#r_lotificacion').val($('#development_id option:selected').text() || '');
+            $('#r_pagos_previos').val('');
             recalculateContract();
             return;
         }
@@ -442,10 +448,12 @@
         suppressReservationReload = true;
         $('#development_id').val(String(json.data.development_id)).trigger('change');
 
-        document.getElementById('r_cliente').value = json.data.client_name || '';
-        document.getElementById('r_lotificacion').value = json.data.development_name || '';
-        document.getElementById('r_apartado').value = json.data.numero_referencia || '';
-        document.getElementById('r_pagos_previos').value = json.data.pagos_previos_total || 0;
+        await loadDevelopmentOffices(json.data.development_id);
+
+        $('#r_cliente').val(json.data.client_name || '');
+        $('#r_lotificacion').val(json.data.development_name || '');
+        $('#r_apartado').val(json.data.numero_referencia || '');
+        $('#r_pagos_previos').val(json.data.pagos_previos_total || 0);
 
         fillSelect('lot_ids', (json.data.lots || []).map(lot => ({
             value: lot.id,
@@ -473,16 +481,16 @@
         fillSelect('lot_ids', directLotsCache, true);
         $('#lot_ids').val(null).trigger('change');
 
-        document.getElementById('r_lotificacion').value = $('#development_id option:selected').text() || '';
-        document.getElementById('r_apartado').value = '';
-        document.getElementById('r_pagos_previos').value = '';
+        $('#r_lotificacion').val($('#development_id option:selected').text() || '');
+        $('#r_apartado').val('');
+        $('#r_pagos_previos').val('');
         renderLotsTable([]);
         recalculateContract();
     }
 
     async function loadSellerData(sellerId) {
         if (!sellerId) {
-            document.getElementById('commission_amount').value = '';
+            $('#commission_amount').val('');
             return;
         }
 
@@ -490,7 +498,7 @@
         const json = await res.json();
 
         if (res.ok) {
-            document.getElementById('commission_amount').value = json.data.monto_comision ?? 0;
+            $('#commission_amount').val(json.data.monto_comision ?? 0);
         }
     }
 
@@ -529,42 +537,83 @@
         });
     }
 
+    function isContadoSelected() {
+        const text = ($('#contract_payment_type_id option:selected').text() || '').toUpperCase();
+        return text.includes('CONTADO');
+    }
+
+    function isCreditoSelected() {
+        const text = ($('#contract_payment_type_id option:selected').text() || '').toUpperCase();
+        return text.includes('CRÉDITO') || text.includes('CREDITO');
+    }
+
+    function toggleContractFields() {
+        const contado = isContadoSelected();
+        const credito = isCreditoSelected();
+
+        const mesesWrap = $('#meses').closest('.col-md-3');
+        const diaPagoWrap = $('#dia_pago').closest('.col-md-3');
+        const cuotaWrap = $('#cuota_mensual').closest('.col-md-3');
+        const saldoWrap = $('#saldo_financiado').closest('.col-md-3');
+
+        if (contado) {
+            mesesWrap.hide();
+            diaPagoWrap.hide();
+            cuotaWrap.hide();
+            saldoWrap.hide();
+
+            $('#meses').val(0);
+            $('#dia_pago').val('');
+            $('#cuota_mensual').val('0.00');
+            $('#saldo_financiado').val('0.00');
+        } else if (credito) {
+            mesesWrap.show();
+            diaPagoWrap.show();
+            cuotaWrap.show();
+            saldoWrap.show();
+        } else {
+            mesesWrap.show();
+            diaPagoWrap.show();
+            cuotaWrap.show();
+            saldoWrap.show();
+        }
+    }
+
     function recalculateContract() {
         const lots = getSelectedLots();
-        const paymentTypeText = ($('#contract_payment_type_id option:selected').text() || '').toUpperCase();
-        const isCredit = paymentTypeText.includes('CRÉDITO') || paymentTypeText.includes('CREDITO');
-        const isContado = paymentTypeText.includes('CONTADO');
+        const isCredit = isCreditoSelected();
+        const isContado = isContadoSelected();
 
         let total = 0;
         lots.forEach(lot => {
             total += parseFloat(isCredit ? (lot.precio_credito || 0) : (lot.precio_contado || 0));
         });
 
-        document.getElementById('importe').value = total.toFixed(2);
+        $('#importe').val(total.toFixed(2));
         renderLotsTable(lots);
 
         const pagosPrevios = reservationContext ? parseFloat(reservationContext.pagos_previos_total || 0) : 0;
 
         if (reservationContext && !document.getElementById('monto_pago_inicial').dataset.userEdited) {
-            document.getElementById('monto_pago_inicial').value = pagosPrevios.toFixed(2);
+            $('#monto_pago_inicial').val(pagosPrevios.toFixed(2));
         }
 
-        const pagoInicial = parseFloat(document.getElementById('monto_pago_inicial').value || 0);
-        const meses = parseInt(document.getElementById('meses').value || 0, 10);
+        const pagoInicial = parseFloat($('#monto_pago_inicial').val() || 0);
+        const meses = parseInt($('#meses').val() || 0, 10);
 
         if (isContado) {
-            document.getElementById('saldo_financiado').value = '0.00';
-            document.getElementById('cuota_mensual').value = '0.00';
+            $('#saldo_financiado').val('0.00');
+            $('#cuota_mensual').val('0.00');
             return;
         }
 
         const saldo = Math.max(0, total - pagoInicial);
-        document.getElementById('saldo_financiado').value = saldo.toFixed(2);
+        $('#saldo_financiado').val(saldo.toFixed(2));
 
         if (isCredit && meses > 0) {
-            document.getElementById('cuota_mensual').value = (saldo / meses).toFixed(2);
+            $('#cuota_mensual').val((saldo / meses).toFixed(2));
         } else {
-            document.getElementById('cuota_mensual').value = '0.00';
+            $('#cuota_mensual').val('0.00');
         }
     }
 
@@ -578,22 +627,22 @@
         const res = await fetch(`/contratos/${id}`);
         const json = await res.json();
 
-        document.getElementById('dc_referencia').value = json.data.numero_referencia || '';
-        document.getElementById('dc_fecha').value = json.data.fecha_emision || '';
-        document.getElementById('dc_cliente').value = json.data.cliente || '';
-        document.getElementById('dc_lotificacion').value = json.data.lotificacion || '';
-        document.getElementById('dc_tipo').value = json.data.tipo_pago || '';
-        document.getElementById('dc_estado').value = json.data.estado || '';
-        document.getElementById('dc_oficina').value = json.data.oficina || '';
-        document.getElementById('dc_vendedor').value = json.data.vendedor || '';
-        document.getElementById('dc_comision').value = json.data.comision || '';
-        document.getElementById('dc_meses').value = json.data.meses || '';
-        document.getElementById('dc_importe').value = json.data.importe || '';
-        document.getElementById('dc_pago_inicial').value = json.data.monto_pago_inicial || '';
-        document.getElementById('dc_saldo').value = json.data.saldo_financiado || '';
-        document.getElementById('dc_dia_pago').value = json.data.dia_pago || '';
-        document.getElementById('dc_cuota').value = json.data.cuota_mensual || '';
-        document.getElementById('dc_observaciones').value = json.data.observaciones || '';
+        $('#dc_referencia').val(json.data.numero_referencia || '');
+        $('#dc_fecha').val(json.data.fecha_emision || '');
+        $('#dc_cliente').val(json.data.cliente || '');
+        $('#dc_lotificacion').val(json.data.lotificacion || '');
+        $('#dc_tipo').val(json.data.tipo_pago || '');
+        $('#dc_estado').val(json.data.estado || '');
+        $('#dc_oficina').val(json.data.oficina || '');
+        $('#dc_vendedor').val(json.data.vendedor || '');
+        $('#dc_comision').val(json.data.comision || '');
+        $('#dc_meses').val(json.data.meses || '');
+        $('#dc_importe').val(json.data.importe || '');
+        $('#dc_pago_inicial').val(json.data.monto_pago_inicial || '');
+        $('#dc_saldo').val(json.data.saldo_financiado || '');
+        $('#dc_dia_pago').val(json.data.dia_pago || '');
+        $('#dc_cuota').val(json.data.cuota_mensual || '');
+        $('#dc_observaciones').val(json.data.observaciones || '');
 
         const tbody = document.getElementById('detalleContratoLotesBody');
         tbody.innerHTML = '';
@@ -672,25 +721,33 @@
             await loadReservationData(this.value);
         } else {
             reservationContext = null;
-            document.getElementById('r_apartado').value = '';
-            document.getElementById('r_pagos_previos').value = '';
+            $('#r_apartado').val('');
+            $('#r_pagos_previos').val('');
             fillSelect('lot_ids', [], true);
 
             const devId = $('#development_id').val();
             if (devId) {
+                await loadDevelopmentOffices(devId);
                 await loadDevelopmentLots(devId);
             } else {
-                document.getElementById('contractLotsBody').innerHTML = '';
+                $('#contractLotsBody').html('');
                 recalculateContract();
             }
         }
     });
 
     $('#development_id').on('change', async function () {
+        await loadDevelopmentOffices(this.value);
+
         if ($('#reservation_id').val()) {
             return;
         }
+
         await loadDevelopmentLots(this.value);
+    });
+
+    $('#office_id').on('change', function () {
+        loadOfficePaymentMethods(this.value);
     });
 
     $('#seller_id').on('change', function () {
@@ -698,6 +755,7 @@
     });
 
     $('#lot_ids, #contract_payment_type_id').on('change', function () {
+        toggleContractFields();
         recalculateContract();
     });
 

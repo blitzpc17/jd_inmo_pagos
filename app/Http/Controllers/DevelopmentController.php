@@ -5,9 +5,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Support\DevelopmentVisibility;
+
 
 class DevelopmentController extends Controller
 {
+    use DevelopmentVisibility;
+
     public function index()
     {
         return view('lotificaciones.index');
@@ -15,34 +19,94 @@ class DevelopmentController extends Controller
 
     public function datatable()
     {
-        $rows = DB::table('developments as d')
+        $userId = session('auth_user.id');
+
+        $user = DB::table('users')->where('id', $userId)->first();
+        $role = $user ? DB::table('roles')->where('id', $user->role_id)->first() : null;
+        $isAdmin = $role && mb_strtolower(trim($role->nombre)) === 'admin';
+
+        $visibleIds = [];
+
+        if (!$isAdmin && $user) {
+            $roleIds = DB::table('role_developments')
+                ->where('role_id', $user->role_id)
+                ->pluck('development_id')
+                ->map(fn ($v) => (int) $v)
+                ->all();
+
+            $userIds = DB::table('user_developments')
+                ->where('user_id', $userId)
+                ->pluck('development_id')
+                ->map(fn ($v) => (int) $v)
+                ->all();
+
+            $visibleIds = array_values(array_unique(array_merge($roleIds, $userIds)));
+        }
+
+        $query = DB::table('developments as d')
             ->join('statuses as s', 's.id', '=', 'd.status_id')
+            ->leftJoin('development_partners as dp', 'dp.development_id', '=', 'd.id')
+            ->leftJoin('partners as p', 'p.id', '=', 'dp.partner_id')
+            ->leftJoin('development_offices as do', 'do.development_id', '=', 'd.id')
+            ->leftJoin('offices as o', 'o.id', '=', 'do.office_id')
             ->whereNull('d.fecha_baja')
             ->select([
                 'd.id',
                 'd.nombre',
                 'd.manzanas',
                 'd.lotes',
+                'd.created_at',
+                'd.updated_at',
                 's.nombre as estado',
+                's.clave as estado_clave',
+                DB::raw("STRING_AGG(DISTINCT p.nombre, ', ') as socios"),
+                DB::raw("STRING_AGG(DISTINCT o.nombre, ', ') as oficinas"),
             ])
-            ->orderByDesc('d.id')
-            ->get()
-            ->map(function ($r) {
-                $r->acciones = '
-                    <div class="d-flex gap-1">
-                        <a href="'.route('lotificaciones.detalle', $r->id).'" class="btn btn-sm btn-outline-info">
-                            <i class="fa-solid fa-table-cells-large"></i>
-                        </a>
-                        <button class="btn btn-sm btn-outline-primary btn-edit" data-id="'.$r->id.'">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger btn-delete" data-id="'.$r->id.'">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </div>
-                ';
-                return $r;
-            });
+            ->groupBy(
+                'd.id',
+                'd.nombre',
+                'd.manzanas',
+                'd.lotes',
+                'd.created_at',
+                'd.updated_at',
+                's.nombre',
+                's.clave'
+            )
+            ->orderByDesc('d.id');
+
+        if (!$isAdmin) {
+            if (empty($visibleIds)) {
+                return response()->json(['data' => []]);
+            }
+
+            $query->whereIn('d.id', $visibleIds);
+        }
+
+        $rows = $query->get()->map(function ($r) {
+            $badgeStyle = match ($r->estado_clave) {
+                'ACTIVE' => 'background:#16a34a;color:#fff;',
+                'INACTIVE' => 'background:#dc2626;color:#fff;',
+                default => 'background:#6b7280;color:#fff;',
+            };
+
+            $r->estado_badge = '<span class="badge rounded-pill px-3 py-2" style="'.$badgeStyle.'">'.$r->estado.'</span>';
+
+            $r->acciones = '
+                <div class="d-flex gap-1 flex-wrap">
+                    <button class="btn btn-sm btn-outline-primary btn-edit" data-id="'.$r->id.'" title="Editar">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <a class="btn btn-sm btn-outline-info" href="'.route('lotificaciones.lots.index', $r->id).'" title="Detalle / lotes">
+                        <i class="fa-solid fa-table-cells-large"></i>
+                    </a>
+                    <button class="btn btn-sm btn-outline-danger btn-delete" data-id="'.$r->id.'" title="Dar de baja">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            ';
+
+            return $r;
+        });
 
         return response()->json(['data' => $rows]);
     }

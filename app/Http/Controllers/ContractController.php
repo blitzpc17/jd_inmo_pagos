@@ -88,12 +88,10 @@ class ContractController extends Controller
 
         $contractPaymentTypes = DB::table('contract_payment_types')
             ->orderBy('nombre')
-            ->get(['id as value', 'nombre as text']);
-
-        $offices = DB::table('offices')
-            ->whereNull('fecha_baja')
-            ->orderBy('nombre')
-            ->get(['id as value', 'nombre as text']);
+            ->get([
+                'id as value',
+                'nombre as text'
+            ]);
 
         $sellers = DB::table('sellers as s')
             ->join('personal as p', 'p.id', '=', 's.personal_id')
@@ -104,19 +102,13 @@ class ContractController extends Controller
                 DB::raw("s.clave || ' - ' || p.nombres || ' ' || p.apellidos as text")
             ]);
 
-        $paymentMethods = DB::table('payment_methods')
-            ->orderBy('nombre')
-            ->get(['id as value', 'nombre as text']);
-
         return response()->json([
             'clients' => $clients,
             'contract_payment_types' => $contractPaymentTypes,
-            'offices' => $offices,
             'sellers' => $sellers,
-            'payment_methods' => $paymentMethods,
         ]);
     }
-
+    
     public function clientReservations(int $clientId)
     {
         $vigenteId = $this->getReservationStatusId('VIGENTE');
@@ -684,5 +676,41 @@ class ContractController extends Controller
         }
 
         return (int) $id;
+    }
+
+    public function developmentOffices(int $developmentId)
+    {
+        $rows = DB::table('development_offices as do')
+            ->join('offices as o', 'o.id', '=', 'do.office_id')
+            ->join('statuses as s', 's.id', '=', 'o.status_id')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('do.development_id', $developmentId)
+            ->whereNull('o.fecha_baja')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->orderBy('o.nombre')
+            ->get([
+                'o.id as value',
+                'o.nombre as text'
+            ]);
+
+        return response()->json($rows);
+    }
+
+    public function officePaymentMethods(int $officeId)
+    {
+        $rows = DB::table('payment_methods as pm')
+            ->join('statuses as s', 's.id', '=', 'pm.status_id')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('pm.office_id', $officeId)
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->orderBy('pm.nombre')
+            ->get([
+                'pm.id as value',
+                'pm.nombre as text'
+            ]);
+
+        return response()->json($rows);
     }
 }
