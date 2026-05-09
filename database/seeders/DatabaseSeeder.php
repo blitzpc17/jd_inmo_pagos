@@ -9,17 +9,21 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            ProcessSeeder::class,
-            GeneralStatusSeeder::class,
-            PositionSeeder::class,
-            RoleSeeder::class,
-            ChargeTypeSeeder::class,
-            ContractPaymentTypeSeeder::class,
-            MenuSeeder::class,
-            AdminUserSeeder::class,
-            RoleMenuPermissionSeeder::class,
-            GlobalVariableSeeder::class,
-            LotStatusSeeder::class,
+               ProcessSeeder::class,
+                GeneralStatusSeeder::class,
+                PositionSeeder::class,
+                RoleSeeder::class,
+                MenuSeeder::class,
+                AdminUserSeeder::class,
+                RoleMenuPermissionSeeder::class,
+                GlobalVariableSeeder::class,
+                LotStatusSeeder::class,
+
+                ReservationStatusSeeder::class,
+                ContractStatusSeeder::class,
+                ChargeStatusSeeder::class,
+                ChargeTypeSeeder::class,
+                ContractPaymentTypeSeeder::class,
         ]);
     }
 }

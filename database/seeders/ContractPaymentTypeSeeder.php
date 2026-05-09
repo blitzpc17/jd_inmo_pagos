@@ -9,21 +9,24 @@ class ContractPaymentTypeSeeder extends Seeder
 {
     public function run(): void
     {
-        $activeId = DB::table('statuses')
-            ->join('processes', 'processes.id', '=', 'statuses.process_id')
-            ->where('processes.clave', 'GENERAL')
-            ->where('statuses.clave', 'ACTIVE')
-            ->value('statuses.id');
+        $activeId = DB::table('statuses as s')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->value('s.id');
 
-        $items = ['Contado', 'Crédito', 'Mixto'];
+        $rows = [
+            'Contado',
+            'Crédito',
+        ];
 
-        foreach ($items as $item) {
+        foreach ($rows as $nombre) {
             DB::table('contract_payment_types')->updateOrInsert(
-                ['nombre' => $item],
+                ['nombre' => $nombre],
                 [
                     'status_id' => $activeId,
-                    'updated_at' => now(),
                     'created_at' => now(),
+                    'updated_at' => now(),
                 ]
             );
         }

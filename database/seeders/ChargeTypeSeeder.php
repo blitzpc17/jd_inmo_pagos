@@ -9,21 +9,31 @@ class ChargeTypeSeeder extends Seeder
 {
     public function run(): void
     {
-        $activeId = DB::table('statuses')
-            ->join('processes', 'processes.id', '=', 'statuses.process_id')
-            ->where('processes.clave', 'GENERAL')
-            ->where('statuses.clave', 'ACTIVE')
-            ->value('statuses.id');
+        $activeId = DB::table('statuses as s')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->value('s.id');
 
-        $items = ['Abono', 'Enganche', 'Recargo', 'Apartado', 'Pago total'];
+        $rows = [
+            'APARTADO_INICIAL' => 'Apartado inicial',
+            'COMPLEMENTO_APARTADO' => 'Complemento de apartado',
+            'ENGANCHE' => 'Enganche',
+            'MENSUALIDAD' => 'Mensualidad',
+            'MENSUALIDAD_ADELANTADA' => 'Mensualidad adelantada',
+            'RECARGO' => 'Recargo',
+            'LIQUIDACION_CONTADO' => 'Liquidación contado',
+            'ABONO_CAPITAL' => 'Abono a capital',
+            'OTRO' => 'Otro',
+        ];
 
-        foreach ($items as $item) {
+        foreach ($rows as $clave => $nombre) {
             DB::table('charge_types')->updateOrInsert(
-                ['nombre' => $item],
+                ['nombre' => $nombre],
                 [
                     'status_id' => $activeId,
-                    'updated_at' => now(),
                     'created_at' => now(),
+                    'updated_at' => now(),
                 ]
             );
         }
