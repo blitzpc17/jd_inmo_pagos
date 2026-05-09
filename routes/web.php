@@ -15,6 +15,8 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\DevelopmentController;
 use App\Http\Controllers\DevelopmentLotController;
 
+use App\Http\Controllers\ReservationController;
+
 Route::get('/', fn () => redirect()->route('login'));
 
 Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -117,6 +119,16 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
 
         Route::post('/{developmentId}/lots/generate', [DevelopmentLotController::class, 'generate'])->name('lots.generate');
         Route::post('/{developmentId}/lots/bulk-update', [DevelopmentLotController::class, 'bulkUpdate'])->name('lots.bulk-update');
+    });
+
+    Route::prefix('apartados')->name('apartados.')->group(function () {
+        Route::get('/', [ReservationController::class, 'index'])->name('index');
+        Route::get('/datatable', [ReservationController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [ReservationController::class, 'options'])->name('options');
+        Route::get('/development/{developmentId}/lots', [ReservationController::class, 'developmentLots'])->name('development.lots');
+        Route::post('/', [ReservationController::class, 'store'])->name('store');
+        Route::get('/{id}', [ReservationController::class, 'show'])->name('show');
+        Route::delete('/{id}', [ReservationController::class, 'destroy'])->name('destroy');
     });
     
 });
