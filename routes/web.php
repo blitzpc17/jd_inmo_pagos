@@ -24,6 +24,8 @@ use App\Http\Controllers\ChargeController;
 
  use App\Http\Controllers\DevelopmentAssignmentController;
 
+ use App\Http\Controllers\SupplierPaymentController;
+
 
 
 Route::get('/', fn () => redirect()->route('login'));
@@ -202,6 +204,15 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::get('/', [PaymentScheduleController::class, 'index'])->name('index');
         Route::get('/options', [PaymentScheduleController::class, 'options'])->name('options');
         Route::get('/contract/{contractId}', [PaymentScheduleController::class, 'byContract'])->name('by-contract');
+    });
+
+
+    Route::prefix('pagos-proveedores')->name('pagos_proveedores.')->group(function () {
+        Route::get('/', [SupplierPaymentController::class, 'index'])->name('index');
+        Route::get('/datatable', [SupplierPaymentController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [SupplierPaymentController::class, 'options'])->name('options');
+        Route::post('/', [SupplierPaymentController::class, 'store'])->name('store');
+        Route::get('/{id}', [SupplierPaymentController::class, 'show'])->name('show');
     });
     
 });
