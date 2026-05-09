@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -51,21 +50,29 @@ class ReservationController extends Controller
                 $r->cliente = trim(($r->nombres ?? '') . ' ' . ($r->apellidos ?? ''));
                 $r->estado_badge = '<span class="badge rounded-pill px-3 py-2" style="'.$badgeStyle.'">'.$r->estado.'</span>';
 
-                $canDelete = $r->estado_clave === 'VIGENTE';
+                $buttons = '
+                    <button class="btn btn-sm btn-outline-info btn-view" data-id="'.$r->id.'">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                ';
 
-                $r->acciones = '
-                    <div class="d-flex gap-1">
-                        <button class="btn btn-sm btn-outline-info btn-view" data-id="'.$r->id.'">
-                            <i class="fa-solid fa-eye"></i>
-                        </button>
-                        '.($canDelete ? '
+                if ($r->estado_clave === 'VIGENTE') {
+                    $buttons .= '
                         <button class="btn btn-sm btn-outline-danger btn-delete" data-id="'.$r->id.'">
                             <i class="fa-solid fa-trash"></i>
                         </button>
-                        ' : '').'
-                    </div>
-                ';
+                    ';
+                }
 
+                if ($r->estado_clave === 'VENCIDO') {
+                    $buttons .= '
+                        <button class="btn btn-sm btn-outline-warning btn-close-status" data-id="'.$r->id.'">
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                        </button>
+                    ';
+                }
+
+                $r->acciones = '<div class="d-flex gap-1">'.$buttons.'</div>';
                 return $r;
             });
 
@@ -100,29 +107,9 @@ class ReservationController extends Controller
                 'd.nombre as text'
             ]);
 
-        $statuses = DB::table('statuses as s')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('p.clave', 'RESERVATION_STATUS')
-            ->orderByRaw("
-                CASE s.clave
-                    WHEN 'VIGENTE' THEN 1
-                    WHEN 'VENCIDO' THEN 2
-                    WHEN 'APLICADO' THEN 3
-                    WHEN 'SALDO_FAVOR' THEN 4
-                    WHEN 'DEVOLUCION' THEN 5
-                    ELSE 99
-                END
-            ")
-            ->get([
-                's.id as value',
-                's.nombre as text',
-                's.clave',
-            ]);
-
         return response()->json([
             'clients' => $clients,
             'developments' => $developments,
-            'statuses' => $statuses,
         ]);
     }
 
@@ -224,11 +211,7 @@ class ReservationController extends Controller
         $apartadoLotStatusId = $this->getLotStatusId('APARTADO');
         $freeLotStatusId = $this->getLotStatusId('LIBRE');
 
-        $lotIds = collect($data['lot_ids'])
-            ->map(fn ($v) => (int) $v)
-            ->unique()
-            ->values()
-            ->all();
+        $lotIds = collect($data['lot_ids'])->map(fn ($v) => (int)$v)->unique()->values()->all();
 
         $lots = DB::table('lots')
             ->whereIn('id', $lotIds)
@@ -236,23 +219,17 @@ class ReservationController extends Controller
             ->get();
 
         if ($lots->count() !== count($lotIds)) {
-            return response()->json([
-                'message' => 'Uno o más lotes no existen o están dados de baja.'
-            ], 422);
+            return response()->json(['message' => 'Uno o más lotes no existen o están dados de baja.'], 422);
         }
 
-        $invalidDevelopment = $lots->first(fn ($l) => (int) $l->development_id !== (int) $data['development_id']);
+        $invalidDevelopment = $lots->first(fn ($l) => (int)$l->development_id !== (int)$data['development_id']);
         if ($invalidDevelopment) {
-            return response()->json([
-                'message' => 'Todos los lotes deben pertenecer a la lotificación seleccionada.'
-            ], 422);
+            return response()->json(['message' => 'Todos los lotes deben pertenecer a la lotificación seleccionada.'], 422);
         }
 
-        $notFree = $lots->first(fn ($l) => (int) $l->status_id !== (int) $freeLotStatusId);
+        $notFree = $lots->first(fn ($l) => (int)$l->status_id !== (int)$freeLotStatusId);
         if ($notFree) {
-            return response()->json([
-                'message' => 'Solo puedes apartar lotes en estado libre.'
-            ], 422);
+            return response()->json(['message' => 'Solo puedes apartar lotes en estado libre.'], 422);
         }
 
         DB::beginTransaction();
@@ -318,18 +295,13 @@ class ReservationController extends Controller
             ->join('statuses as s', 's.id', '=', 'r.status_id')
             ->where('r.id', $id)
             ->whereNull('r.fecha_baja')
-            ->select([
-                'r.*',
-                's.clave as estado_clave',
-            ])
+            ->select(['r.*', 's.clave as estado_clave'])
             ->first();
 
         abort_if(!$reservation, 404, 'Apartado no encontrado');
 
         if ($reservation->estado_clave !== 'VIGENTE') {
-            return response()->json([
-                'message' => 'Solo se puede cancelar un apartado vigente.'
-            ], 422);
+            return response()->json(['message' => 'Solo se puede cancelar un apartado vigente.'], 422);
         }
 
         $freeLotStatusId = $this->getLotStatusId('LIBRE');
@@ -338,7 +310,7 @@ class ReservationController extends Controller
         $lotIds = DB::table('reservation_lots')
             ->where('reservation_id', $id)
             ->pluck('lot_id')
-            ->map(fn ($v) => (int) $v)
+            ->map(fn ($v) => (int)$v)
             ->all();
 
         DB::beginTransaction();
@@ -374,6 +346,51 @@ class ReservationController extends Controller
         }
     }
 
+    public function closeStatus(Request $request, int $id)
+    {
+        $this->expireOverdueReservations();
+
+        $data = Validator::make($request->all(), [
+            'target_status' => ['required', 'string'],
+        ])->validate();
+
+        $reservation = DB::table('reservations as r')
+            ->join('statuses as s', 's.id', '=', 'r.status_id')
+            ->where('r.id', $id)
+            ->whereNull('r.fecha_baja')
+            ->select(['r.id', 'r.status_id', 's.clave as estado_clave'])
+            ->first();
+
+        abort_if(!$reservation, 404, 'Apartado no encontrado');
+
+        if ($reservation->estado_clave !== 'VENCIDO') {
+            return response()->json([
+                'message' => 'Solo los apartados vencidos pueden pasar a saldo a favor o devolución.'
+            ], 422);
+        }
+
+        $target = strtoupper(trim($data['target_status']));
+        if (!in_array($target, ['SALDO_FAVOR', 'DEVOLUCION'], true)) {
+            return response()->json([
+                'message' => 'Estado destino inválido.'
+            ], 422);
+        }
+
+        $targetStatusId = $this->getReservationStatusId($target);
+
+        DB::table('reservations')
+            ->where('id', $id)
+            ->update([
+                'status_id' => $targetStatusId,
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Estado del apartado actualizado correctamente.',
+        ]);
+    }
+
     protected function expireOverdueReservations(): void
     {
         $vigenteStatusId = $this->getReservationStatusId('VIGENTE');
@@ -404,7 +421,7 @@ class ReservationController extends Controller
                 $lotIds = DB::table('reservation_lots')
                     ->where('reservation_id', $reservation->id)
                     ->pluck('lot_id')
-                    ->map(fn ($v) => (int) $v)
+                    ->map(fn ($v) => (int)$v)
                     ->all();
 
                 if (!empty($lotIds)) {

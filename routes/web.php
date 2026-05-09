@@ -17,6 +17,13 @@ use App\Http\Controllers\DevelopmentLotController;
 
 use App\Http\Controllers\ReservationController;
 
+use App\Http\Controllers\ContractController;
+use App\Http\Controllers\ReservationComplementController;
+
+use App\Http\Controllers\ChargeController;
+
+
+
 Route::get('/', fn () => redirect()->route('login'));
 
 Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -129,6 +136,39 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::post('/', [ReservationController::class, 'store'])->name('store');
         Route::get('/{id}', [ReservationController::class, 'show'])->name('show');
         Route::delete('/{id}', [ReservationController::class, 'destroy'])->name('destroy');
+
+        Route::post('/{id}/close-status', [ReservationController::class, 'closeStatus'])->name('close-status');
+    });
+
+    Route::prefix('apartados-complementos')->name('apartados_complementos.')->group(function () {
+        Route::get('/', [ReservationComplementController::class, 'index'])->name('index');
+        Route::get('/datatable', [ReservationComplementController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [ReservationComplementController::class, 'options'])->name('options');
+        Route::post('/', [ReservationComplementController::class, 'store'])->name('store');
+    });
+
+    Route::prefix('contratos')->name('contratos.')->group(function () {
+        Route::get('/', [ContractController::class, 'index'])->name('index');
+        Route::get('/datatable', [ContractController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [ContractController::class, 'options'])->name('options');
+
+        Route::get('/client/{clientId}/reservations', [ContractController::class, 'clientReservations'])->name('client.reservations');
+        Route::get('/client/{clientId}/developments', [ContractController::class, 'clientDevelopments'])->name('client.developments');
+        Route::get('/development/{developmentId}/lots', [ContractController::class, 'developmentLots'])->name('development.lots');
+        Route::get('/reservation/{reservationId}', [ContractController::class, 'reservationData'])->name('reservation.data');
+        Route::get('/seller/{sellerId}', [ContractController::class, 'sellerData'])->name('seller.data');
+
+        Route::post('/', [ContractController::class, 'store'])->name('store');
+        Route::get('/{id}', [ContractController::class, 'show'])->name('show');
+    });
+
+    Route::prefix('cobros')->name('cobros.')->group(function () {
+        Route::get('/', [ChargeController::class, 'index'])->name('index');
+        Route::get('/datatable', [ChargeController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [ChargeController::class, 'options'])->name('options');
+
+        Route::get('/contract/{contractId}/summary', [ChargeController::class, 'contractSummary'])->name('contract.summary');
+        Route::post('/', [ChargeController::class, 'store'])->name('store');
     });
     
 });

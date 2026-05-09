@@ -92,44 +92,20 @@
 
             <div class="modal-body">
                 <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label">Referencia</label>
-                        <input type="text" class="form-control" id="d_numero_referencia" readonly>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Cliente</label>
-                        <input type="text" class="form-control" id="d_cliente" readonly>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Lotificación</label>
-                        <input type="text" class="form-control" id="d_lotificacion" readonly>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Fecha emisión</label>
-                        <input type="text" class="form-control" id="d_fecha_emision" readonly>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Fecha vencimiento</label>
-                        <input type="text" class="form-control" id="d_fecha_vencimiento" readonly>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Importe</label>
-                        <input type="text" class="form-control" id="d_importe_apartado" readonly>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Estado</label>
-                        <input type="text" class="form-control" id="d_estado" readonly>
-                    </div>
-                    <div class="col-md-12">
-                        <label class="form-label">Observaciones</label>
-                        <textarea class="form-control" id="d_observaciones" rows="3" readonly></textarea>
-                    </div>
+                    <div class="col-md-4"><label class="form-label">Referencia</label><input type="text" class="form-control" id="d_numero_referencia" readonly></div>
+                    <div class="col-md-4"><label class="form-label">Cliente</label><input type="text" class="form-control" id="d_cliente" readonly></div>
+                    <div class="col-md-4"><label class="form-label">Lotificación</label><input type="text" class="form-control" id="d_lotificacion" readonly></div>
+                    <div class="col-md-3"><label class="form-label">Fecha emisión</label><input type="text" class="form-control" id="d_fecha_emision" readonly></div>
+                    <div class="col-md-3"><label class="form-label">Fecha vencimiento</label><input type="text" class="form-control" id="d_fecha_vencimiento" readonly></div>
+                    <div class="col-md-3"><label class="form-label">Importe</label><input type="text" class="form-control" id="d_importe_apartado" readonly></div>
+                    <div class="col-md-3"><label class="form-label">Estado</label><input type="text" class="form-control" id="d_estado" readonly></div>
+                    <div class="col-md-12"><label class="form-label">Observaciones</label><textarea class="form-control" id="d_observaciones" rows="3" readonly></textarea></div>
                 </div>
 
                 <div class="page-card">
                     <h6 class="fw-bold mb-3">Lotes apartados</h6>
                     <div class="table-responsive">
-                        <table class="table table-bordered align-middle mb-0" id="tblDetalleLotes">
+                        <table class="table table-bordered align-middle mb-0">
                             <thead>
                                 <tr>
                                     <th>#</th>
@@ -188,11 +164,7 @@
         el.innerHTML = multiple ? '' : '<option value="">Seleccione...</option>';
 
         items.forEach(item => {
-            let extra = '';
-            if (item.precio_contado !== undefined) {
-                extra = ` data-contado="${item.precio_contado}" data-credito="${item.precio_credito}"`;
-            }
-            el.innerHTML += `<option value="${item.value}"${extra}>${item.text}</option>`;
+            el.innerHTML += `<option value="${item.value}">${item.text}</option>`;
         });
 
         $(el).trigger('change');
@@ -339,6 +311,48 @@
         if (res.ok) table.ajax.reload(null, false);
     }
 
+    async function closeStatus(id) {
+        const { value } = await Swal.fire({
+            title: 'Cerrar apartado vencido',
+            input: 'select',
+            inputOptions: {
+                SALDO_FAVOR: 'Saldo a favor',
+                DEVOLUCION: 'Devolución',
+            },
+            inputPlaceholder: 'Selecciona estado destino',
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            cancelButtonText: 'Cancelar',
+            inputValidator: (value) => {
+                if (!value) return 'Debes seleccionar una opción';
+            }
+        });
+
+        if (!value) return;
+
+        const formData = new FormData();
+        formData.append('target_status', value);
+
+        const res = await fetch(`/apartados/${id}/close-status`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json'
+            },
+            body: formData
+        });
+
+        const json = await res.json();
+
+        Swal.fire({
+            icon: res.ok ? 'success' : 'error',
+            title: res.ok ? 'Correcto' : 'Error',
+            text: json.message || 'No se pudo actualizar'
+        });
+
+        if (res.ok) table.ajax.reload(null, false);
+    }
+
     document.getElementById('btnNuevoApartado').addEventListener('click', openNew);
     form.addEventListener('submit', saveItem);
 
@@ -352,6 +366,10 @@
 
     $('#tblApartados').on('click', '.btn-delete', function () {
         deleteItem(this.dataset.id);
+    });
+
+    $('#tblApartados').on('click', '.btn-close-status', function () {
+        closeStatus(this.dataset.id);
     });
 
     initSelect2();
