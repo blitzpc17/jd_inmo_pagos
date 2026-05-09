@@ -29,7 +29,7 @@
 </div>
 
 <div class="modal fade" id="modalLotificacion" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <form id="formLotificacion">
                 <div class="modal-header">
@@ -49,12 +49,23 @@
                             <input type="number" class="form-control" id="manzanas" name="manzanas" min="0">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Lotes</label>
+                            <label class="form-label">Lotes por manzana / corridos</label>
                             <input type="number" class="form-control" id="lotes" name="lotes" min="0">
                         </div>
-                        <div class="col-md-6">
+
+                        <div class="col-md-4">
                             <label class="form-label">Estado</label>
                             <select class="form-select select2-dev" id="status_id" name="status_id"></select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Oficinas</label>
+                            <select class="form-select select2-dev" id="office_ids" name="office_ids[]" multiple></select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Socios</label>
+                            <select class="form-select select2-dev" id="partner_ids" name="partner_ids[]" multiple></select>
                         </div>
                     </div>
                 </div>
@@ -89,14 +100,22 @@
         if (optionsCache) return optionsCache;
         const res = await fetch('/lotificaciones/options');
         optionsCache = await res.json();
-        fillSelect('status_id', optionsCache.statuses);
+
+        fillSelect('status_id', optionsCache.statuses, false);
+        fillSelect('office_ids', optionsCache.offices, true);
+        fillSelect('partner_ids', optionsCache.partners, true);
+
         return optionsCache;
     }
 
-    function fillSelect(id, items) {
+    function fillSelect(id, items, multiple = false) {
         const el = document.getElementById(id);
-        el.innerHTML = '<option value="">Seleccione...</option>';
-        items.forEach(item => el.innerHTML += `<option value="${item.value}">${item.text}</option>`);
+        el.innerHTML = multiple ? '' : '<option value="">Seleccione...</option>';
+
+        items.forEach(item => {
+            el.innerHTML += `<option value="${item.value}">${item.text}</option>`;
+        });
+
         $(el).trigger('change');
     }
 
@@ -142,6 +161,8 @@
         document.getElementById('manzanas').value = json.data.manzanas || 0;
         document.getElementById('lotes').value = json.data.lotes || 0;
         $('#status_id').val(json.data.status_id).trigger('change');
+        $('#office_ids').val(json.data.office_ids || []).trigger('change');
+        $('#partner_ids').val(json.data.partner_ids || []).trigger('change');
 
         document.getElementById('lotificacionModalTitle').textContent = 'Editar lotificación';
         modal.show();

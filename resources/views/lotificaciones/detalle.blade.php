@@ -8,7 +8,10 @@
             <div class="text-muted">{{ $development->nombre }}</div>
         </div>
 
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-warning" id="btnModificacionMasiva">
+                <i class="fa-solid fa-layer-group me-1"></i> Modificación masiva
+            </button>
             <button class="btn btn-outline-primary" id="btnGenerarLotes">
                 <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generar lotes
             </button>
@@ -47,7 +50,7 @@
 </div>
 
 <div class="modal fade" id="modalLote" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <form id="formLote">
                 <div class="modal-header">
@@ -58,23 +61,32 @@
                     <input type="hidden" id="loteId">
 
                     <div class="row g-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Identificador</label>
                             <input type="text" class="form-control" id="identificador" name="identificador">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Manzana</label>
                             <input type="text" class="form-control" id="manzana" name="manzana">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Estado</label>
-                            <select class="form-select select2-lote" id="status_id" name="status_id"></select>
+                            <input type="text" class="form-control" id="estado_texto" readonly>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-3">
+                            <label class="form-label">Oficinas</label>
+                            <select class="form-select select2-lote" id="office_ids" name="office_ids[]" multiple></select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Socios</label>
+                            <select class="form-select select2-lote" id="partner_ids" name="partner_ids[]" multiple></select>
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label">Precio contado</label>
                             <input type="number" step="0.01" class="form-control" id="precio_contado" name="precio_contado">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <label class="form-label">Precio crédito</label>
                             <input type="number" step="0.01" class="form-control" id="precio_credito" name="precio_credito">
                         </div>
@@ -90,7 +102,7 @@
 </div>
 
 <div class="modal fade" id="modalGenerador" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <form id="formGenerador">
                 <div class="modal-header">
@@ -112,10 +124,20 @@
                     </div>
 
                     <div class="row g-3">
-                        <div class="col-md-12" id="manzanaGroup">
+                        <div class="col-md-4" id="manzanaGroup">
                             <label class="form-label">Manzana</label>
                             <select class="form-select" id="g_manzana" name="manzana"></select>
                             <div class="form-text">Si no marcas “crear todos”, debes seleccionar una manzana.</div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Oficinas</label>
+                            <select class="form-select select2-gen" id="g_office_ids" name="office_ids[]" multiple></select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Socios</label>
+                            <select class="form-select select2-gen" id="g_partner_ids" name="partner_ids[]" multiple></select>
                         </div>
 
                         <div class="col-md-6">
@@ -138,6 +160,68 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalMasiva" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <form id="formMasiva">
+                <div class="modal-header">
+                    <h5 class="modal-title">Modificación masiva de lotes libres</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="alert alert-warning small">
+                        Esta acción solo afectará lotes en estado <strong>LIBRE</strong>.  
+                        Los lotes no libres dentro del rango serán omitidos automáticamente.
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4" id="m_manzana_group">
+                            <label class="form-label">Manzana</label>
+                            <select class="form-select" id="m_manzana" name="manzana"></select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Desde lote</label>
+                            <input type="number" min="1" class="form-control" id="m_desde" name="desde">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Hasta lote</label>
+                            <input type="number" min="1" class="form-control" id="m_hasta" name="hasta">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Oficinas</label>
+                            <select class="form-select select2-masiva" id="m_office_ids" name="office_ids[]" multiple></select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Socios</label>
+                            <select class="form-select select2-masiva" id="m_partner_ids" name="partner_ids[]" multiple></select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Precio contado</label>
+                            <input type="number" step="0.01" class="form-control" id="m_precio_contado" name="precio_contado">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Precio crédito</label>
+                            <input type="number" step="0.01" class="form-control" id="m_precio_credito" name="precio_credito">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cerrar</button>
+                    <button class="btn btn-warning" type="submit">Aplicar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -146,12 +230,16 @@
     const developmentId = @json($development->id);
     const modalLote = new bootstrap.Modal(document.getElementById('modalLote'));
     const modalGenerador = new bootstrap.Modal(document.getElementById('modalGenerador'));
+    const modalMasiva = new bootstrap.Modal(document.getElementById('modalMasiva'));
     const formLote = document.getElementById('formLote');
     const formGenerador = document.getElementById('formGenerador');
+    const formMasiva = document.getElementById('formMasiva');
     const loteId = document.getElementById('loteId');
     const crearTodosChk = document.getElementById('crear_todos');
     const manzanaGroup = document.getElementById('manzanaGroup');
     const manzanaSelect = document.getElementById('g_manzana');
+    const manzanaMasivaGroup = document.getElementById('m_manzana_group');
+    const manzanaMasivaSelect = document.getElementById('m_manzana');
 
     let table = null;
     let optionsCache = null;
@@ -162,6 +250,18 @@
             width: '100%',
             dropdownParent: $('#modalLote')
         });
+
+        $('.select2-gen').select2({
+            theme: 'bootstrap4',
+            width: '100%',
+            dropdownParent: $('#modalGenerador')
+        });
+
+        $('.select2-masiva').select2({
+            theme: 'bootstrap4',
+            width: '100%',
+            dropdownParent: $('#modalMasiva')
+        });
     }
 
     async function loadOptions() {
@@ -170,29 +270,43 @@
         const res = await fetch(`/lotificaciones/${developmentId}/lots/options`);
         optionsCache = await res.json();
 
-        const select = document.getElementById('status_id');
-        select.innerHTML = '<option value="">Seleccione...</option>';
-        optionsCache.lot_statuses.forEach(item => {
-            select.innerHTML += `<option value="${item.value}">${item.text}</option>`;
-        });
-        $('#status_id').trigger('change');
-
-        fillManzanaSelect();
+        fillSelect('office_ids', optionsCache.offices, true);
+        fillSelect('partner_ids', optionsCache.partners, true);
+        fillSelect('g_office_ids', optionsCache.offices, true);
+        fillSelect('g_partner_ids', optionsCache.partners, true);
+        fillSelect('m_office_ids', optionsCache.offices, true);
+        fillSelect('m_partner_ids', optionsCache.partners, true);
+        fillManzanaSelects();
 
         return optionsCache;
     }
 
-    function fillManzanaSelect() {
-        manzanaSelect.innerHTML = '<option value="">Seleccione...</option>';
+    function fillSelect(id, items, multiple = false) {
+        const el = document.getElementById(id);
+        el.innerHTML = multiple ? '' : '<option value="">Seleccione...</option>';
+
+        items.forEach(item => {
+            el.innerHTML += `<option value="${item.value}">${item.text}</option>`;
+        });
+
+        $(el).trigger('change');
+    }
+
+    function fillManzanaSelects() {
+        [manzanaSelect, manzanaMasivaSelect].forEach(select => {
+            select.innerHTML = '<option value="">Seleccione...</option>';
+        });
 
         if (!optionsCache) return;
 
         if ((optionsCache.development.manzanas || 0) > 0) {
             optionsCache.manzanas.forEach(item => {
                 manzanaSelect.innerHTML += `<option value="${item.value}">${item.text}</option>`;
+                manzanaMasivaSelect.innerHTML += `<option value="${item.value}">${item.text}</option>`;
             });
         } else {
             manzanaSelect.innerHTML += `<option value="SM">Sin manzana</option>`;
+            manzanaMasivaSelect.innerHTML += `<option value="SM">Sin manzana</option>`;
         }
     }
 
@@ -214,10 +328,39 @@
         }
     }
 
+    function toggleMasivaMode() {
+        const hasManzanas = optionsCache && (optionsCache.development.manzanas || 0) > 0;
+
+        if (!hasManzanas) {
+            manzanaMasivaGroup.style.display = 'none';
+            manzanaMasivaSelect.required = false;
+            manzanaMasivaSelect.value = 'SM';
+        } else {
+            manzanaMasivaGroup.style.display = '';
+            manzanaMasivaSelect.required = true;
+        }
+    }
+
     function resetLoteForm() {
         formLote.reset();
         loteId.value = '';
-        $('.select2-lote').val(null).trigger('change');
+        $('#office_ids').val(null).trigger('change');
+        $('#partner_ids').val(null).trigger('change');
+        document.getElementById('estado_texto').value = '';
+        document.getElementById('identificador').readOnly = false;
+        document.getElementById('manzana').readOnly = false;
+    }
+
+    function resetGeneratorForm() {
+        formGenerador.reset();
+        $('#g_office_ids').val(null).trigger('change');
+        $('#g_partner_ids').val(null).trigger('change');
+    }
+
+    function resetMasivaForm() {
+        formMasiva.reset();
+        $('#m_office_ids').val(null).trigger('change');
+        $('#m_partner_ids').val(null).trigger('change');
     }
 
     function initTable() {
@@ -242,8 +385,9 @@
         await loadOptions();
         resetLoteForm();
 
-        const libre = optionsCache.lot_statuses.find(x => x.clave === 'LIBRE');
-        if (libre) $('#status_id').val(libre.value).trigger('change');
+        document.getElementById('estado_texto').value = 'Libre';
+        document.getElementById('identificador').readOnly = false;
+        document.getElementById('manzana').readOnly = false;
 
         document.getElementById('loteModalTitle').textContent = 'Nuevo lote';
         modalLote.show();
@@ -261,7 +405,13 @@
         document.getElementById('manzana').value = json.data.manzana || '';
         document.getElementById('precio_contado').value = json.data.precio_contado || 0;
         document.getElementById('precio_credito').value = json.data.precio_credito || 0;
-        $('#status_id').val(json.data.status_id).trigger('change');
+        document.getElementById('estado_texto').value = json.data.estado_nombre || 'Libre';
+
+        document.getElementById('identificador').readOnly = true;
+        document.getElementById('manzana').readOnly = true;
+
+        $('#office_ids').val(json.data.office_ids || []).trigger('change');
+        $('#partner_ids').val(json.data.partner_ids || []).trigger('change');
 
         document.getElementById('loteModalTitle').textContent = 'Editar lote';
         modalLote.show();
@@ -370,6 +520,56 @@
         }
     }
 
+    async function bulkUpdateLots(e) {
+        e.preventDefault();
+
+        if (!optionsCache) {
+            await loadOptions();
+        }
+
+        if (manzanaMasivaGroup.style.display !== 'none' && !manzanaMasivaSelect.value) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Selecciona una manzana'
+            });
+            return;
+        }
+
+        const result = await Swal.fire({
+            icon: 'warning',
+            title: '¿Aplicar modificación masiva?',
+            text: 'Solo afectará lotes en estado libre dentro del rango seleccionado.',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, aplicar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (!result.isConfirmed) return;
+
+        const formData = new FormData(formMasiva);
+
+        try {
+            const res = await fetch(`/lotificaciones/${developmentId}/lots/bulk-update`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json'
+                },
+                body: formData
+            });
+
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || 'No se pudo aplicar la modificación masiva');
+
+            modalMasiva.hide();
+            table.ajax.reload(null, false);
+
+            Swal.fire({ icon: 'success', title: 'Correcto', text: json.message, timer: 1700, showConfirmButton: false });
+        } catch (err) {
+            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+        }
+    }
+
     document.getElementById('btnNuevoLote').addEventListener('click', openNew);
 
     document.getElementById('btnGenerarLotes').addEventListener('click', async function () {
@@ -377,17 +577,29 @@
             await loadOptions();
         }
 
-        formGenerador.reset();
-        fillManzanaSelect();
+        resetGeneratorForm();
+        fillManzanaSelects();
         crearTodosChk.checked = false;
         toggleGeneratorMode();
         modalGenerador.show();
+    });
+
+    document.getElementById('btnModificacionMasiva').addEventListener('click', async function () {
+        if (!optionsCache) {
+            await loadOptions();
+        }
+
+        resetMasivaForm();
+        fillManzanaSelects();
+        toggleMasivaMode();
+        modalMasiva.show();
     });
 
     crearTodosChk.addEventListener('change', toggleGeneratorMode);
 
     formLote.addEventListener('submit', saveLote);
     formGenerador.addEventListener('submit', generateLots);
+    formMasiva.addEventListener('submit', bulkUpdateLots);
 
     $('#tblLotes').on('click', '.btn-edit', function () {
         editItem(this.dataset.id);

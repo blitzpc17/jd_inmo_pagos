@@ -55,8 +55,20 @@ class DevelopmentController extends Controller
             ->orderBy('s.nombre')
             ->get(['s.id as value', 's.nombre as text']);
 
+        $offices = DB::table('offices')
+            ->whereNull('fecha_baja')
+            ->orderBy('nombre')
+            ->get(['id as value', 'nombre as text']);
+
+        $partners = DB::table('partners')
+            ->whereNull('fecha_baja')
+            ->orderBy('nombre')
+            ->get(['id as value', 'nombre as text']);
+
         return response()->json([
             'statuses' => $statuses,
+            'offices' => $offices,
+            'partners' => $partners,
         ]);
     }
 
@@ -65,9 +77,24 @@ class DevelopmentController extends Controller
         $row = DB::table('developments')->where('id', $id)->first();
         abort_if(!$row, 404, 'Lotificación no encontrada');
 
+        $officeIds = DB::table('development_offices')
+            ->where('development_id', $id)
+            ->pluck('office_id')
+            ->map(fn ($v) => (int) $v)
+            ->values();
+
+        $partnerIds = DB::table('development_partners')
+            ->where('development_id', $id)
+            ->pluck('partner_id')
+            ->map(fn ($v) => (int) $v)
+            ->values();
+
         return response()->json([
             'ok' => true,
-            'data' => $row,
+            'data' => array_merge((array) $row, [
+                'office_ids' => $officeIds,
+                'partner_ids' => $partnerIds,
+            ]),
         ]);
     }
 
@@ -75,19 +102,31 @@ class DevelopmentController extends Controller
     {
         $data = $this->validateData($request);
 
-        DB::table('developments')->insert([
-            'nombre' => $data['nombre'],
-            'manzanas' => $data['manzanas'] ?? 0,
-            'lotes' => $data['lotes'] ?? 0,
-            'status_id' => $data['status_id'],
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::beginTransaction();
 
-        return response()->json([
-            'ok' => true,
-            'message' => 'Lotificación creada correctamente',
-        ]);
+        try {
+            $developmentId = DB::table('developments')->insertGetId([
+                'nombre' => $data['nombre'],
+                'manzanas' => $data['manzanas'] ?? 0,
+                'lotes' => $data['lotes'] ?? 0,
+                'status_id' => $data['status_id'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $this->syncOffices($developmentId, $data['office_ids'] ?? []);
+            $this->syncPartners($developmentId, $data['partner_ids'] ?? []);
+
+            DB::commit();
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Lotificación creada correctamente',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     public function update(Request $request, int $id)
@@ -96,20 +135,32 @@ class DevelopmentController extends Controller
 
         $data = $this->validateData($request);
 
-        DB::table('developments')
-            ->where('id', $id)
-            ->update([
-                'nombre' => $data['nombre'],
-                'manzanas' => $data['manzanas'] ?? 0,
-                'lotes' => $data['lotes'] ?? 0,
-                'status_id' => $data['status_id'],
-                'updated_at' => now(),
-            ]);
+        DB::beginTransaction();
 
-        return response()->json([
-            'ok' => true,
-            'message' => 'Lotificación actualizada correctamente',
-        ]);
+        try {
+            DB::table('developments')
+                ->where('id', $id)
+                ->update([
+                    'nombre' => $data['nombre'],
+                    'manzanas' => $data['manzanas'] ?? 0,
+                    'lotes' => $data['lotes'] ?? 0,
+                    'status_id' => $data['status_id'],
+                    'updated_at' => now(),
+                ]);
+
+            $this->syncOffices($id, $data['office_ids'] ?? []);
+            $this->syncPartners($id, $data['partner_ids'] ?? []);
+
+            DB::commit();
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Lotificación actualizada correctamente',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     public function destroy(int $id)
@@ -141,6 +192,56 @@ class DevelopmentController extends Controller
             'manzanas' => ['nullable', 'integer', 'min:0'],
             'lotes' => ['nullable', 'integer', 'min:0'],
             'status_id' => ['required', 'integer', 'exists:statuses,id'],
+            'office_ids' => ['nullable', 'array'],
+            'office_ids.*' => ['integer', 'exists:offices,id'],
+            'partner_ids' => ['nullable', 'array'],
+            'partner_ids.*' => ['integer', 'exists:partners,id'],
         ])->validate();
+    }
+
+    protected function syncOffices(int $developmentId, array $officeIds): void
+    {
+        DB::table('development_offices')
+            ->where('development_id', $developmentId)
+            ->delete();
+
+        $rows = collect($officeIds)
+            ->filter()
+            ->unique()
+            ->map(fn ($officeId) => [
+                'development_id' => $developmentId,
+                'office_id' => (int) $officeId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])
+            ->values()
+            ->all();
+
+        if (!empty($rows)) {
+            DB::table('development_offices')->insert($rows);
+        }
+    }
+
+    protected function syncPartners(int $developmentId, array $partnerIds): void
+    {
+        DB::table('development_partners')
+            ->where('development_id', $developmentId)
+            ->delete();
+
+        $rows = collect($partnerIds)
+            ->filter()
+            ->unique()
+            ->map(fn ($partnerId) => [
+                'development_id' => $developmentId,
+                'partner_id' => (int) $partnerId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])
+            ->values()
+            ->all();
+
+        if (!empty($rows)) {
+            DB::table('development_partners')->insert($rows);
+        }
     }
 }

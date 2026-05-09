@@ -106,9 +106,23 @@ class DevelopmentLotController extends Controller
             ];
         }
 
+        $offices = DB::table('development_offices as do')
+            ->join('offices as o', 'o.id', '=', 'do.office_id')
+            ->where('do.development_id', $developmentId)
+            ->orderBy('o.nombre')
+            ->get(['o.id as value', 'o.nombre as text']);
+
+        $partners = DB::table('development_partners as dp')
+            ->join('partners as p', 'p.id', '=', 'dp.partner_id')
+            ->where('dp.development_id', $developmentId)
+            ->orderBy('p.nombre')
+            ->get(['p.id as value', 'p.nombre as text']);
+
         return response()->json([
             'lot_statuses' => $lotStatuses,
             'manzanas' => $manzanas,
+            'offices' => $offices,
+            'partners' => $partners,
             'development' => [
                 'id' => $development->id,
                 'nombre' => $development->nombre,
@@ -120,87 +134,126 @@ class DevelopmentLotController extends Controller
 
     public function show(int $developmentId, int $lotId)
     {
-        $row = DB::table('lots')
-            ->where('development_id', $developmentId)
-            ->where('id', $lotId)
+        $row = DB::table('lots as l')
+            ->join('statuses as s', 's.id', '=', 'l.status_id')
+            ->where('l.development_id', $developmentId)
+            ->where('l.id', $lotId)
+            ->select([
+                'l.*',
+                's.nombre as estado_nombre',
+                's.clave as estado_clave',
+            ])
             ->first();
 
         abort_if(!$row, 404, 'Lote no encontrado');
+        abort_if($row->estado_clave !== 'LIBRE', 422, 'Solo se pueden editar lotes en estado libre');
 
-        $statusKey = DB::table('statuses')->where('id', $row->status_id)->value('clave');
-        abort_if($statusKey !== 'LIBRE', 422, 'Solo se pueden editar lotes en estado libre');
+        $officeIds = DB::table('lot_offices')
+            ->where('lot_id', $lotId)
+            ->pluck('office_id')
+            ->map(fn ($v) => (int) $v)
+            ->values();
+
+        $partnerIds = DB::table('lot_partners')
+            ->where('lot_id', $lotId)
+            ->pluck('partner_id')
+            ->map(fn ($v) => (int) $v)
+            ->values();
 
         return response()->json([
             'ok' => true,
-            'data' => $row,
+            'data' => array_merge((array) $row, [
+                'office_ids' => $officeIds,
+                'partner_ids' => $partnerIds,
+            ]),
         ]);
     }
 
     public function store(Request $request, int $developmentId)
     {
         $data = $this->validateLot($request, null, $developmentId);
-
         $libreStatusId = $this->getLibreStatusId();
 
-        DB::table('lots')->insert([
-            'development_id' => $developmentId,
-            'identificador' => $data['identificador'],
-            'manzana' => $data['manzana'] ?? null,
-            'precio_contado' => $data['precio_contado'],
-            'precio_credito' => $data['precio_credito'],
-            'status_id' => $data['status_id'] ?? $libreStatusId,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::beginTransaction();
 
-        return response()->json([
-            'ok' => true,
-            'message' => 'Lote creado correctamente',
-        ]);
-    }
-
-    public function update(Request $request, int $developmentId, int $lotId)
-    {
-        $lot = DB::table('lots')
-            ->where('development_id', $developmentId)
-            ->where('id', $lotId)
-            ->first();
-
-        abort_if(!$lot, 404, 'Lote no encontrado');
-
-        $statusKey = DB::table('statuses')->where('id', $lot->status_id)->value('clave');
-        abort_if($statusKey !== 'LIBRE', 422, 'Solo se pueden editar lotes en estado libre');
-
-        $data = $this->validateLot($request, $lotId, $developmentId);
-
-        DB::table('lots')
-            ->where('id', $lotId)
-            ->update([
+        try {
+            $lotId = DB::table('lots')->insertGetId([
+                'development_id' => $developmentId,
                 'identificador' => $data['identificador'],
                 'manzana' => $data['manzana'] ?? null,
                 'precio_contado' => $data['precio_contado'],
                 'precio_credito' => $data['precio_credito'],
-                'status_id' => $data['status_id'],
+                'status_id' => $libreStatusId,
+                'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
-        return response()->json([
-            'ok' => true,
-            'message' => 'Lote actualizado correctamente',
-        ]);
+            $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
+            $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
+
+            DB::commit();
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Lote creado correctamente',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    public function update(Request $request, int $developmentId, int $lotId)
+    {
+        $lot = DB::table('lots as l')
+            ->join('statuses as s', 's.id', '=', 'l.status_id')
+            ->where('l.development_id', $developmentId)
+            ->where('l.id', $lotId)
+            ->select(['l.*', 's.clave as estado_clave'])
+            ->first();
+
+        abort_if(!$lot, 404, 'Lote no encontrado');
+        abort_if($lot->estado_clave !== 'LIBRE', 422, 'Solo se pueden editar lotes en estado libre');
+
+        $data = $this->validateLotUpdate($request);
+
+        DB::beginTransaction();
+
+        try {
+            DB::table('lots')
+                ->where('id', $lotId)
+                ->update([
+                    'precio_contado' => $data['precio_contado'],
+                    'precio_credito' => $data['precio_credito'],
+                    'updated_at' => now(),
+                ]);
+
+            $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
+            $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
+
+            DB::commit();
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Lote actualizado correctamente',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     public function destroy(int $developmentId, int $lotId)
     {
-        $lot = DB::table('lots')
-            ->where('development_id', $developmentId)
-            ->where('id', $lotId)
+        $lot = DB::table('lots as l')
+            ->join('statuses as s', 's.id', '=', 'l.status_id')
+            ->where('l.development_id', $developmentId)
+            ->where('l.id', $lotId)
+            ->select(['l.id', 's.clave as estado_clave'])
             ->first();
 
         abort_if(!$lot, 404, 'Lote no encontrado');
-
-        $statusKey = DB::table('statuses')->where('id', $lot->status_id)->value('clave');
-        abort_if($statusKey !== 'LIBRE', 422, 'Solo se pueden eliminar lotes en estado libre');
+        abort_if($lot->estado_clave !== 'LIBRE', 422, 'Solo se pueden eliminar lotes en estado libre');
 
         DB::table('lots')
             ->where('id', $lotId)
@@ -225,9 +278,10 @@ class DevelopmentLotController extends Controller
             'manzana' => ['nullable', 'string', 'max:20'],
             'precio_contado' => ['required', 'numeric', 'min:0'],
             'precio_credito' => ['required', 'numeric', 'min:0'],
-        ], [
-            'precio_contado.required' => 'El precio contado es obligatorio.',
-            'precio_credito.required' => 'El precio crédito es obligatorio.',
+            'office_ids' => ['nullable', 'array'],
+            'office_ids.*' => ['integer', 'exists:offices,id'],
+            'partner_ids' => ['nullable', 'array'],
+            'partner_ids.*' => ['integer', 'exists:partners,id'],
         ])->validate();
 
         $crearTodos = filter_var($request->input('crear_todos', false), FILTER_VALIDATE_BOOLEAN);
@@ -258,40 +312,38 @@ class DevelopmentLotController extends Controller
                         for ($l = 1; $l <= $lotesPorManzana; $l++) {
                             $identifier = $manzanaCode . ' L' . $l;
 
-                            DB::table('lots')->updateOrInsert(
-                                [
-                                    'development_id' => $developmentId,
-                                    'identificador' => $identifier,
-                                ],
-                                [
-                                    'manzana' => $manzanaCode,
-                                    'precio_contado' => $data['precio_contado'],
-                                    'precio_credito' => $data['precio_credito'],
-                                    'status_id' => $libreStatusId,
-                                    'updated_at' => now(),
-                                    'created_at' => now(),
-                                ]
-                            );
+                            $lotId = DB::table('lots')->insertGetId([
+                                'development_id' => $developmentId,
+                                'identificador' => $identifier,
+                                'manzana' => $manzanaCode,
+                                'precio_contado' => $data['precio_contado'],
+                                'precio_credito' => $data['precio_credito'],
+                                'status_id' => $libreStatusId,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+
+                            $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
+                            $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
                         }
                     }
                 } else {
                     for ($l = 1; $l <= $lotesPorManzana; $l++) {
                         $identifier = 'SM L' . $l;
 
-                        DB::table('lots')->updateOrInsert(
-                            [
-                                'development_id' => $developmentId,
-                                'identificador' => $identifier,
-                            ],
-                            [
-                                'manzana' => null,
-                                'precio_contado' => $data['precio_contado'],
-                                'precio_credito' => $data['precio_credito'],
-                                'status_id' => $libreStatusId,
-                                'updated_at' => now(),
-                                'created_at' => now(),
-                            ]
-                        );
+                        $lotId = DB::table('lots')->insertGetId([
+                            'development_id' => $developmentId,
+                            'identificador' => $identifier,
+                            'manzana' => null,
+                            'precio_contado' => $data['precio_contado'],
+                            'precio_credito' => $data['precio_credito'],
+                            'status_id' => $libreStatusId,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+
+                        $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
+                        $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
                     }
                 }
             } else {
@@ -312,39 +364,37 @@ class DevelopmentLotController extends Controller
                     for ($l = 1; $l <= $lotesPorManzana; $l++) {
                         $identifier = $manzanaCode . ' L' . $l;
 
-                        DB::table('lots')->updateOrInsert(
-                            [
-                                'development_id' => $developmentId,
-                                'identificador' => $identifier,
-                            ],
-                            [
-                                'manzana' => $manzanaCode,
-                                'precio_contado' => $data['precio_contado'],
-                                'precio_credito' => $data['precio_credito'],
-                                'status_id' => $libreStatusId,
-                                'updated_at' => now(),
-                                'created_at' => now(),
-                            ]
-                        );
+                        $lotId = DB::table('lots')->insertGetId([
+                            'development_id' => $developmentId,
+                            'identificador' => $identifier,
+                            'manzana' => $manzanaCode,
+                            'precio_contado' => $data['precio_contado'],
+                            'precio_credito' => $data['precio_credito'],
+                            'status_id' => $libreStatusId,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+
+                        $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
+                        $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
                     }
                 } else {
                     for ($l = 1; $l <= $lotesPorManzana; $l++) {
                         $identifier = 'SM L' . $l;
 
-                        DB::table('lots')->updateOrInsert(
-                            [
-                                'development_id' => $developmentId,
-                                'identificador' => $identifier,
-                            ],
-                            [
-                                'manzana' => null,
-                                'precio_contado' => $data['precio_contado'],
-                                'precio_credito' => $data['precio_credito'],
-                                'status_id' => $libreStatusId,
-                                'updated_at' => now(),
-                                'created_at' => now(),
-                            ]
-                        );
+                        $lotId = DB::table('lots')->insertGetId([
+                            'development_id' => $developmentId,
+                            'identificador' => $identifier,
+                            'manzana' => null,
+                            'precio_contado' => $data['precio_contado'],
+                            'precio_credito' => $data['precio_credito'],
+                            'status_id' => $libreStatusId,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+
+                        $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
+                        $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
                     }
                 }
             }
@@ -361,6 +411,136 @@ class DevelopmentLotController extends Controller
         }
     }
 
+    public function bulkUpdate(Request $request, int $developmentId)
+    {
+        $development = DB::table('developments')->where('id', $developmentId)->first();
+        abort_if(!$development, 404, 'Lotificación no encontrada');
+
+        $data = Validator::make($request->all(), [
+            'manzana' => ['nullable', 'string', 'max:20'],
+            'desde' => ['required', 'integer', 'min:1'],
+            'hasta' => ['required', 'integer', 'min:1'],
+            'precio_contado' => ['required', 'numeric', 'min:0'],
+            'precio_credito' => ['required', 'numeric', 'min:0'],
+            'office_ids' => ['nullable', 'array'],
+            'office_ids.*' => ['integer', 'exists:offices,id'],
+            'partner_ids' => ['nullable', 'array'],
+            'partner_ids.*' => ['integer', 'exists:partners,id'],
+        ], [
+            'desde.required' => 'El lote inicial es obligatorio.',
+            'hasta.required' => 'El lote final es obligatorio.',
+        ])->validate();
+
+        if ((int)$data['hasta'] < (int)$data['desde']) {
+            return response()->json([
+                'message' => 'El rango es inválido.'
+            ], 422);
+        }
+
+        $freeStatusId = $this->getLibreStatusId();
+        $hasManzanas = ((int) ($development->manzanas ?? 0)) > 0;
+
+        if ($hasManzanas && empty($data['manzana'])) {
+            return response()->json([
+                'message' => 'Debes seleccionar una manzana para la modificación masiva.'
+            ], 422);
+        }
+
+        $identifiers = [];
+        if ($hasManzanas) {
+            preg_match('/\d+/', trim($data['manzana']), $matches);
+            $manzanaNumber = $matches[0] ?? null;
+
+            if (!$manzanaNumber) {
+                return response()->json([
+                    'message' => 'La manzana seleccionada es inválida.'
+                ], 422);
+            }
+
+            $manzanaCode = 'M' . $manzanaNumber;
+
+            for ($i = (int)$data['desde']; $i <= (int)$data['hasta']; $i++) {
+                $identifiers[] = $manzanaCode . ' L' . $i;
+            }
+        } else {
+            for ($i = (int)$data['desde']; $i <= (int)$data['hasta']; $i++) {
+                $identifiers[] = 'SM L' . $i;
+            }
+        }
+
+        $lotIds = DB::table('lots')
+            ->where('development_id', $developmentId)
+            ->whereNull('fecha_baja')
+            ->where('status_id', $freeStatusId)
+            ->whereIn('identificador', $identifiers)
+            ->pluck('id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+
+        if (empty($lotIds)) {
+            return response()->json([
+                'message' => 'No se encontraron lotes libres dentro del rango seleccionado.'
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            DB::table('lots')
+                ->whereIn('id', $lotIds)
+                ->update([
+                    'precio_contado' => $data['precio_contado'],
+                    'precio_credito' => $data['precio_credito'],
+                    'updated_at' => now(),
+                ]);
+
+            DB::table('lot_offices')->whereIn('lot_id', $lotIds)->delete();
+            DB::table('lot_partners')->whereIn('lot_id', $lotIds)->delete();
+
+            $officeRows = [];
+            foreach ($lotIds as $lotId) {
+                foreach (array_unique($data['office_ids'] ?? []) as $officeId) {
+                    $officeRows[] = [
+                        'lot_id' => $lotId,
+                        'office_id' => (int) $officeId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+
+            $partnerRows = [];
+            foreach ($lotIds as $lotId) {
+                foreach (array_unique($data['partner_ids'] ?? []) as $partnerId) {
+                    $partnerRows[] = [
+                        'lot_id' => $lotId,
+                        'partner_id' => (int) $partnerId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+
+            if (!empty($officeRows)) {
+                DB::table('lot_offices')->insert($officeRows);
+            }
+
+            if (!empty($partnerRows)) {
+                DB::table('lot_partners')->insert($partnerRows);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Modificación masiva aplicada a los lotes libres del rango seleccionado.',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
     protected function validateLot(Request $request, ?int $lotId = null, ?int $developmentId = null): array
     {
         return Validator::make($request->all(), [
@@ -368,7 +548,10 @@ class DevelopmentLotController extends Controller
             'manzana' => ['nullable', 'string', 'max:50'],
             'precio_contado' => ['required', 'numeric', 'min:0'],
             'precio_credito' => ['required', 'numeric', 'min:0'],
-            'status_id' => ['required', 'integer', 'exists:statuses,id'],
+            'office_ids' => ['nullable', 'array'],
+            'office_ids.*' => ['integer', 'exists:offices,id'],
+            'partner_ids' => ['nullable', 'array'],
+            'partner_ids.*' => ['integer', 'exists:partners,id'],
         ])->after(function ($validator) use ($request, $lotId, $developmentId) {
             $exists = DB::table('lots')
                 ->where('development_id', $developmentId)
@@ -384,6 +567,18 @@ class DevelopmentLotController extends Controller
         })->validate();
     }
 
+    protected function validateLotUpdate(Request $request): array
+    {
+        return Validator::make($request->all(), [
+            'precio_contado' => ['required', 'numeric', 'min:0'],
+            'precio_credito' => ['required', 'numeric', 'min:0'],
+            'office_ids' => ['nullable', 'array'],
+            'office_ids.*' => ['integer', 'exists:offices,id'],
+            'partner_ids' => ['nullable', 'array'],
+            'partner_ids.*' => ['integer', 'exists:partners,id'],
+        ])->validate();
+    }
+
     protected function getLibreStatusId(): int
     {
         $id = DB::table('statuses as s')
@@ -397,5 +592,47 @@ class DevelopmentLotController extends Controller
         }
 
         return (int) $id;
+    }
+
+    protected function syncLotOffices(int $lotId, array $officeIds): void
+    {
+        DB::table('lot_offices')->where('lot_id', $lotId)->delete();
+
+        $rows = collect($officeIds)
+            ->filter()
+            ->unique()
+            ->map(fn ($officeId) => [
+                'lot_id' => $lotId,
+                'office_id' => (int) $officeId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])
+            ->values()
+            ->all();
+
+        if (!empty($rows)) {
+            DB::table('lot_offices')->insert($rows);
+        }
+    }
+
+    protected function syncLotPartners(int $lotId, array $partnerIds): void
+    {
+        DB::table('lot_partners')->where('lot_id', $lotId)->delete();
+
+        $rows = collect($partnerIds)
+            ->filter()
+            ->unique()
+            ->map(fn ($partnerId) => [
+                'lot_id' => $lotId,
+                'partner_id' => (int) $partnerId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])
+            ->values()
+            ->all();
+
+        if (!empty($rows)) {
+            DB::table('lot_partners')->insert($rows);
+        }
     }
 }

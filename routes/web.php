@@ -116,6 +116,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::delete('/{developmentId}/lots/{lotId}', [DevelopmentLotController::class, 'destroy'])->name('lots.destroy');
 
         Route::post('/{developmentId}/lots/generate', [DevelopmentLotController::class, 'generate'])->name('lots.generate');
+        Route::post('/{developmentId}/lots/bulk-update', [DevelopmentLotController::class, 'bulkUpdate'])->name('lots.bulk-update');
     });
     
 });
