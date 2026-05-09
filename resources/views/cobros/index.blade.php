@@ -76,6 +76,9 @@
                         </div>
                     </div>
 
+                    <div id="contractBlockedAlert" class="alert alert-danger d-none"></div>
+                    <div id="contractLateAlert" class="alert alert-warning d-none"></div>
+
                     <div class="page-card">
                         <h6 class="fw-bold mb-3">Resumen contrato</h6>
                         <div class="row g-3 mb-3">
@@ -92,20 +95,21 @@
                                 <input type="text" class="form-control" id="s_tipo" readonly>
                             </div>
                             <div class="col-md-3">
+                                <label class="form-label">Estado contrato</label>
+                                <input type="text" class="form-control" id="s_estado" readonly>
+                            </div>
+
+                            <div class="col-md-3">
                                 <label class="form-label">Pagado total</label>
                                 <input type="text" class="form-control" id="s_pagado" readonly>
                             </div>
                             <div class="col-md-3">
+                                <label class="form-label">Debe total</label>
+                                <input type="text" class="form-control" id="s_debe" readonly>
+                            </div>
+                            <div class="col-md-3">
                                 <label class="form-label">Importe</label>
                                 <input type="text" class="form-control" id="s_importe" readonly>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Inicial</label>
-                                <input type="text" class="form-control" id="s_inicial" readonly>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Saldo financiado</label>
-                                <input type="text" class="form-control" id="s_saldo" readonly>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Cuota mensual</label>
@@ -133,7 +137,7 @@
 
                 <div class="modal-footer">
                     <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cerrar</button>
-                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-primary" type="submit" id="btnGuardarCobro">Guardar</button>
                 </div>
             </form>
         </div>
@@ -148,6 +152,7 @@
     const form = document.getElementById('formCobro');
     let table = null;
     let optionsCache = null;
+    let contractBlocked = false;
 
     function initSelect2() {
         $('.select2-cobro').select2({
@@ -155,20 +160,6 @@
             width: '100%',
             dropdownParent: $('#modalCobro')
         });
-    }
-
-    async function loadOptions() {
-        if (optionsCache) return optionsCache;
-
-        const res = await fetch('/cobros/options');
-        optionsCache = await res.json();
-
-        fillSelect('client_id', optionsCache.clients);
-        fillSelect('contract_id', optionsCache.contracts);
-        fillSelect('charge_type_id', optionsCache.charge_types);
-        fillSelect('payment_method_id', optionsCache.payment_methods);
-
-        return optionsCache;
     }
 
     function fillSelect(id, items) {
@@ -181,15 +172,107 @@
     }
 
     function resetSummary() {
-        ['s_ref','s_cliente','s_tipo','s_pagado','s_importe','s_inicial','s_saldo','s_cuota'].forEach(id => {
+        ['s_ref','s_cliente','s_tipo','s_estado','s_pagado','s_debe','s_importe','s_cuota'].forEach(id => {
             document.getElementById(id).value = '';
         });
         document.getElementById('scheduleBody').innerHTML = '';
+        document.getElementById('contractBlockedAlert').classList.add('d-none');
+        document.getElementById('contractLateAlert').classList.add('d-none');
+        document.getElementById('contractBlockedAlert').innerHTML = '';
+        document.getElementById('contractLateAlert').innerHTML = '';
+        document.getElementById('btnGuardarCobro').disabled = false;
+        contractBlocked = false;
+    }
+
+    async function loadOptions() {
+        if (optionsCache) return optionsCache;
+
+        const res = await fetch('/cobros/options');
+        optionsCache = await res.json();
+
+        fillSelect('client_id', optionsCache.clients);
+        fillSelect('contract_id', []);
+        fillSelect('charge_type_id', optionsCache.charge_types);
+        fillSelect('payment_method_id', optionsCache.payment_methods);
+
+        return optionsCache;
+    }
+
+    async function loadContractsByClient(clientId) {
+        fillSelect('contract_id', []);
+        resetSummary();
+
+        if (!clientId) return;
+
+        const res = await fetch(`/cobros/client/${clientId}/contracts`);
+        const contracts = await res.json();
+        fillSelect('contract_id', contracts);
+    }
+
+    function paintScheduleRows(rows) {
+        const tbody = document.getElementById('scheduleBody');
+        tbody.innerHTML = '';
+
+        (rows || []).forEach(row => {
+            const isLate = ['VENCIDO', 'PARCIAL'].includes((row.status || '').toUpperCase());
+            tbody.innerHTML += `
+                <tr class="${isLate ? 'table-danger' : ''}">
+                    <td>${row.installment_number}</td>
+                    <td>${row.due_date}</td>
+                    <td>${row.amount}</td>
+                    <td>${row.amount_paid}</td>
+                    <td>${row.late_fee_amount}</td>
+                    <td>
+                        <span class="badge ${isLate ? 'bg-danger' : 'bg-secondary'}">
+                            ${row.status}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    async function loadContractSummary(contractId) {
+        resetSummary();
+        if (!contractId) return;
+
+        const res = await fetch(`/cobros/contract/${contractId}/summary`);
+        const json = await res.json();
+        if (!res.ok) return;
+
+        const d = json.data;
+
+        document.getElementById('s_ref').value = d.numero_referencia || '';
+        document.getElementById('s_cliente').value = d.cliente || '';
+        document.getElementById('s_tipo').value = d.tipo_pago || '';
+        document.getElementById('s_estado').value = d.estado || '';
+        document.getElementById('s_pagado').value = d.pagado_total || 0;
+        document.getElementById('s_debe').value = d.debe_total || 0;
+        document.getElementById('s_importe').value = d.importe || 0;
+        document.getElementById('s_cuota').value = d.cuota_mensual || 0;
+
+        if (d.is_late) {
+            const box = document.getElementById('contractLateAlert');
+            box.classList.remove('d-none');
+            box.innerHTML = `El contrato presenta atraso. Tiene ${d.late_count} mensualidad(es) vencidas o parciales.`;
+        }
+
+        if (d.is_blocked) {
+            contractBlocked = true;
+            document.getElementById('btnGuardarCobro').disabled = true;
+
+            const box = document.getElementById('contractBlockedAlert');
+            box.classList.remove('d-none');
+            box.innerHTML = d.blocked_message || 'No se pueden recibir cobros para este contrato.';
+        }
+
+        paintScheduleRows(d.schedules || []);
     }
 
     function resetForm() {
         form.reset();
         $('.select2-cobro').val(null).trigger('change');
+        fillSelect('contract_id', []);
         resetSummary();
     }
 
@@ -209,41 +292,23 @@
             ],
             pageLength: 10,
             order: [],
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
-        });
-    }
-
-    async function loadContractSummary(contractId) {
-        resetSummary();
-        if (!contractId) return;
-
-        const res = await fetch(`/cobros/contract/${contractId}/summary`);
-        const json = await res.json();
-        if (!res.ok) return;
-
-        const d = json.data;
-        document.getElementById('s_ref').value = d.numero_referencia || '';
-        document.getElementById('s_cliente').value = d.cliente || '';
-        document.getElementById('s_tipo').value = d.tipo_pago || '';
-        document.getElementById('s_pagado').value = d.pagado_total || 0;
-        document.getElementById('s_importe').value = d.importe || 0;
-        document.getElementById('s_inicial').value = d.monto_pago_inicial || 0;
-        document.getElementById('s_saldo').value = d.saldo_financiado || 0;
-        document.getElementById('s_cuota').value = d.cuota_mensual || 0;
-
-        const tbody = document.getElementById('scheduleBody');
-        tbody.innerHTML = '';
-        (d.schedules || []).forEach(row => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${row.installment_number}</td>
-                    <td>${row.due_date}</td>
-                    <td>${row.amount}</td>
-                    <td>${row.amount_paid}</td>
-                    <td>${row.late_fee_amount}</td>
-                    <td>${row.status}</td>
-                </tr>
-            `;
+            language: {
+                processing: "Procesando...",
+                lengthMenu: "Mostrar _MENU_ registros",
+                zeroRecords: "No se encontraron resultados",
+                emptyTable: "No hay datos disponibles",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                infoEmpty: "Mostrando 0 a 0 de 0 registros",
+                infoFiltered: "(filtrado de _MAX_ registros totales)",
+                search: "Buscar:",
+                loadingRecords: "Cargando...",
+                paginate: {
+                    first: "Primero",
+                    last: "Último",
+                    next: "Siguiente",
+                    previous: "Anterior"
+                }
+            }
         });
     }
 
@@ -255,6 +320,14 @@
 
     async function saveItem(e) {
         e.preventDefault();
+
+        if (contractBlocked) {
+            return Swal.fire({
+                icon: 'warning',
+                title: 'Contrato no disponible',
+                text: 'Este contrato no admite más cobros.'
+            });
+        }
 
         const formData = new FormData(form);
 
@@ -292,6 +365,10 @@
 
     document.getElementById('btnNuevoCobro').addEventListener('click', openNew);
     form.addEventListener('submit', saveItem);
+
+    $('#client_id').on('change', function () {
+        loadContractsByClient(this.value);
+    });
 
     $('#contract_id').on('change', function () {
         loadContractSummary(this.value);

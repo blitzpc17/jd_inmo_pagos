@@ -96,7 +96,7 @@ class DevelopmentController extends Controller
                     <button class="btn btn-sm btn-outline-primary btn-edit" data-id="'.$r->id.'" title="Editar">
                         <i class="fa-solid fa-pen"></i>
                     </button>
-                    <a class="btn btn-sm btn-outline-info" href="'.route('lotificaciones.lots.index', $r->id).'" title="Detalle / lotes">
+                    <a class="btn btn-sm btn-outline-info" href="'.route('lotificaciones.lots.index', ['developmentId' => $r->id]).'" title="Detalle / lotes">
                         <i class="fa-solid fa-table-cells-large"></i>
                     </a>
                     <button class="btn btn-sm btn-outline-danger btn-delete" data-id="'.$r->id.'" title="Dar de baja">

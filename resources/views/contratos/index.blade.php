@@ -132,7 +132,7 @@
                             <input type="number" step="0.01" class="form-control" id="commission_amount" name="commission_amount">
                         </div>
 
-                        <div class="col-md-3">
+                        <div class="col-md-3 contract-credit-only">
                             <label class="form-label">Meses</label>
                             <input type="number" min="0" class="form-control" id="meses" name="meses">
                         </div>
@@ -147,17 +147,17 @@
                             <input type="number" step="0.01" class="form-control" id="monto_pago_inicial" name="monto_pago_inicial">
                         </div>
 
-                        <div class="col-md-3">
+                        <div class="col-md-3 contract-credit-only">
                             <label class="form-label">Saldo financiado</label>
                             <input type="number" step="0.01" class="form-control" id="saldo_financiado" name="saldo_financiado" readonly>
                         </div>
 
-                        <div class="col-md-3">
+                        <div class="col-md-3 contract-credit-only">
                             <label class="form-label">Día pago</label>
                             <input type="number" min="1" max="31" class="form-control" id="dia_pago" name="dia_pago">
                         </div>
 
-                        <div class="col-md-3">
+                        <div class="col-md-3 contract-credit-only">
                             <label class="form-label">Cuota mensual</label>
                             <input type="number" step="0.01" class="form-control" id="cuota_mensual" name="cuota_mensual" readonly>
                         </div>
@@ -551,31 +551,16 @@
         const contado = isContadoSelected();
         const credito = isCreditoSelected();
 
-        const mesesWrap = $('#meses').closest('.col-md-3');
-        const diaPagoWrap = $('#dia_pago').closest('.col-md-3');
-        const cuotaWrap = $('#cuota_mensual').closest('.col-md-3');
-        const saldoWrap = $('#saldo_financiado').closest('.col-md-3');
-
         if (contado) {
-            mesesWrap.hide();
-            diaPagoWrap.hide();
-            cuotaWrap.hide();
-            saldoWrap.hide();
-
+            $('.contract-credit-only').hide();
             $('#meses').val(0);
             $('#dia_pago').val('');
             $('#cuota_mensual').val('0.00');
             $('#saldo_financiado').val('0.00');
         } else if (credito) {
-            mesesWrap.show();
-            diaPagoWrap.show();
-            cuotaWrap.show();
-            saldoWrap.show();
+            $('.contract-credit-only').show();
         } else {
-            mesesWrap.show();
-            diaPagoWrap.show();
-            cuotaWrap.show();
-            saldoWrap.show();
+            $('.contract-credit-only').show();
         }
     }
 
@@ -615,6 +600,26 @@
         } else {
             $('#cuota_mensual').val('0.00');
         }
+    }
+
+    function initTable() {
+        table = $('#tblContratos').DataTable({
+            ajax: { url: '/contratos/datatable', dataSrc: 'data' },
+            columns: [
+                { data: null, render: (_, __, ___, meta) => meta.row + 1 },
+                { data: 'numero_referencia' },
+                { data: 'fecha_emision' },
+                { data: 'cliente' },
+                { data: 'lotificacion' },
+                { data: 'tipo_pago' },
+                { data: 'importe' },
+                { data: 'estado_badge', orderable: false, searchable: false },
+                { data: 'acciones', orderable: false, searchable: false }
+            ],
+            pageLength: 10,
+            order: [],
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
+        });
     }
 
     async function openNew() {

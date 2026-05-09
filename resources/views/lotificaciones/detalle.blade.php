@@ -365,7 +365,7 @@
 
     function initTable() {
         table = $('#tblLotes').DataTable({
-            ajax: { url: `/lotificaciones/${developmentId}/lots/datatable`, dataSrc: 'data' },
+            ajax: { url: `/lotificaciones/${developmentId}/lotes/datatable`, dataSrc: 'data' },
             columns: [
                 { data: null, render: (_, __, ___, meta) => meta.row + 1 },
                 { data: 'identificador' },

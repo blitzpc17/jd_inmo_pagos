@@ -111,17 +111,14 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     });
 
     Route::prefix('lotificaciones')->name('lotificaciones.')->group(function () {
+        Route::get('/', [DevelopmentController::class, 'index'])->name('index');
+        Route::get('/datatable', [DevelopmentController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [DevelopmentController::class, 'options'])->name('options');
+        Route::post('/', [DevelopmentController::class, 'store'])->name('store');
+        Route::get('/{id}', [DevelopmentController::class, 'show'])->name('show');
+        Route::put('/{id}', [DevelopmentController::class, 'update'])->name('update');
+        Route::delete('/{id}', [DevelopmentController::class, 'destroy'])->name('destroy');
 
-    // módulo principal de lotificaciones
-    Route::get('/', [DevelopmentController::class, 'index'])->name('index');
-    Route::get('/datatable', [DevelopmentController::class, 'datatable'])->name('datatable');
-    Route::get('/options', [DevelopmentController::class, 'options'])->name('options');
-    Route::post('/', [DevelopmentController::class, 'store'])->name('store');
-    Route::get('/{id}', [DevelopmentController::class, 'show'])->name('show');
-    Route::put('/{id}', [DevelopmentController::class, 'update'])->name('update');
-    Route::delete('/{id}', [DevelopmentController::class, 'destroy'])->name('destroy');
-
-    // módulo hijo de lotes por lotificación
         Route::prefix('{developmentId}/lotes')->name('lots.')->group(function () {
             Route::get('/', [DevelopmentLotController::class, 'index'])->name('index');
             Route::get('/datatable', [DevelopmentLotController::class, 'datatable'])->name('datatable');
@@ -184,6 +181,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
 
         Route::get('/contract/{contractId}/summary', [ChargeController::class, 'contractSummary'])->name('contract.summary');
         Route::post('/', [ChargeController::class, 'store'])->name('store');
+        Route::get('/client/{clientId}/contracts', [ChargeController::class, 'clientContracts'])->name('client.contracts');
     });
 
    
