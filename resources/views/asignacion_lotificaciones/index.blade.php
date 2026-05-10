@@ -7,36 +7,36 @@
 </div>
 
 <div class="row g-3">
-    <div class="col-md-6">
+    <div class="col-lg-6">
         <div class="page-card h-100">
             <h5 class="fw-bold mb-3">Asignación por rol</h5>
 
             <div class="mb-3">
                 <label class="form-label">Rol</label>
-                <select class="form-select" id="role_id"></select>
+                <select class="form-select select2-assign" id="role_id"></select>
             </div>
 
             <div class="d-flex gap-2 mb-3">
-                <button class="btn btn-outline-success btn-sm" id="btnRoleAll">Asignar todas</button>
-                <button class="btn btn-outline-danger btn-sm" id="btnRoleNone">Eliminar todas</button>
+                <button class="btn btn-outline-success btn-sm" id="btnRoleAll" type="button">Asignar todas</button>
+                <button class="btn btn-outline-danger btn-sm" id="btnRoleNone" type="button">Eliminar todas</button>
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Lotificaciones</label>
-                <select class="form-select" id="role_development_ids" multiple size="16"></select>
+                <select class="form-select" id="role_development_ids" multiple size="18"></select>
             </div>
 
-            <button class="btn btn-primary" id="btnSaveRole">Guardar rol</button>
+            <button class="btn btn-primary" id="btnSaveRole" type="button">Guardar rol</button>
         </div>
     </div>
 
-    <div class="col-md-6">
+    <div class="col-lg-6">
         <div class="page-card h-100">
             <h5 class="fw-bold mb-3">Asignación por usuario</h5>
 
             <div class="mb-3">
                 <label class="form-label">Usuario</label>
-                <select class="form-select" id="user_id"></select>
+                <select class="form-select select2-assign" id="user_id"></select>
             </div>
 
             <div class="alert alert-light border small">
@@ -49,16 +49,16 @@
             </div>
 
             <div class="d-flex gap-2 mb-3">
-                <button class="btn btn-outline-success btn-sm" id="btnUserAll">Asignar todas</button>
-                <button class="btn btn-outline-danger btn-sm" id="btnUserNone">Eliminar todas</button>
+                <button class="btn btn-outline-success btn-sm" id="btnUserAll" type="button">Asignar todas</button>
+                <button class="btn btn-outline-danger btn-sm" id="btnUserNone" type="button">Eliminar todas</button>
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Extras por usuario</label>
-                <select class="form-select" id="user_development_ids" multiple size="9"></select>
+                <select class="form-select" id="user_development_ids" multiple size="10"></select>
             </div>
 
-            <button class="btn btn-primary" id="btnSaveUser">Guardar usuario</button>
+            <button class="btn btn-primary" id="btnSaveUser" type="button">Guardar usuario</button>
         </div>
     </div>
 </div>
@@ -69,33 +69,52 @@
 (() => {
     let cache = null;
 
-    function fillSelect(id, items, placeholder = true) {
+    function initSelect2() {
+        $('.select2-assign').select2({
+            theme: 'bootstrap4',
+            width: '100%'
+        });
+    }
+
+    function fillSelect(id, items, withPlaceholder = true) {
         const el = document.getElementById(id);
         if (!el) return;
 
         if (el.multiple) {
             el.innerHTML = '';
         } else {
-            el.innerHTML = placeholder ? '<option value="">Seleccione...</option>' : '';
+            el.innerHTML = withPlaceholder ? '<option value="">Seleccione...</option>' : '';
         }
 
-        items.forEach(item => {
+        (items || []).forEach(item => {
             el.innerHTML += `<option value="${item.value}">${item.text}</option>`;
         });
+
+        if (!el.multiple) {
+            $(el).trigger('change.select2');
+        }
     }
 
     async function loadOptions() {
         if (cache) return cache;
-        const res = await fetch('/asignacion-lotificaciones/options');
-        cache = await res.json();
 
-        fillSelect('role_id', cache.roles);
-        fillSelect('user_id', cache.users);
-        fillSelect('role_development_ids', cache.developments, false);
-        fillSelect('user_development_ids', cache.developments, false);
-        fillSelect('role_assigned_ids', cache.developments, false);
+        const res = await fetch('/asignacion-lotificaciones/options');
+        const json = await res.json();
+        cache = json;
+
+        fillSelect('role_id', json.roles || []);
+        fillSelect('user_id', json.users || []);
+        fillSelect('role_development_ids', json.developments || [], false);
+        fillSelect('role_assigned_ids', json.developments || [], false);
+        fillSelect('user_development_ids', json.developments || [], false);
 
         return cache;
+    }
+
+    function clearSelections() {
+        $('#role_development_ids option').prop('selected', false);
+        $('#role_assigned_ids option').prop('selected', false);
+        $('#user_development_ids option').prop('selected', false);
     }
 
     async function loadRoleAssignments(roleId) {
@@ -104,6 +123,7 @@
 
         const res = await fetch(`/asignacion-lotificaciones/role/${roleId}`);
         const json = await res.json();
+
         (json.assigned || []).forEach(id => {
             $(`#role_development_ids option[value="${id}"]`).prop('selected', true);
         });
@@ -118,12 +138,12 @@
         const res = await fetch(`/asignacion-lotificaciones/user/${userId}`);
         const json = await res.json();
 
-        (json.assigned || []).forEach(id => {
-            $(`#user_development_ids option[value="${id}"]`).prop('selected', true);
-        });
-
         (json.role_assigned || []).forEach(id => {
             $(`#role_assigned_ids option[value="${id}"]`).prop('selected', true);
+        });
+
+        (json.assigned || []).forEach(id => {
+            $(`#user_development_ids option[value="${id}"]`).prop('selected', true);
         });
     }
 
@@ -133,25 +153,37 @@
             return Swal.fire({ icon: 'warning', title: 'Selecciona un rol' });
         }
 
-        const ids = $('#role_development_ids').val() || [];
-        const formData = new FormData();
-        ids.forEach(v => formData.append('development_ids[]', v));
+        const ids = ($('#role_development_ids').val() || []);
+        const payload = { development_ids: ids.map(x => parseInt(x, 10)) };
 
-        const res = await fetch(`/asignacion-lotificaciones/role/${roleId}`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                'Accept': 'application/json'
-            },
-            body: formData
-        });
+        try {
+            const res = await fetch(`/asignacion-lotificaciones/role/${roleId}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
 
-        const json = await res.json();
-        Swal.fire({
-            icon: res.ok ? 'success' : 'error',
-            title: res.ok ? 'Correcto' : 'Error',
-            text: json.message || 'No se pudo guardar'
-        });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || 'No se pudo guardar');
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Correcto',
+                text: json.message,
+                timer: 1500,
+                showConfirmButton: false
+            });
+        } catch (err) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: err.message
+            });
+        }
     }
 
     async function saveUser() {
@@ -160,55 +192,70 @@
             return Swal.fire({ icon: 'warning', title: 'Selecciona un usuario' });
         }
 
-        const ids = $('#user_development_ids').val() || [];
-        const formData = new FormData();
-        ids.forEach(v => formData.append('development_ids[]', v));
+        const ids = ($('#user_development_ids').val() || []);
+        const payload = { development_ids: ids.map(x => parseInt(x, 10)) };
 
-        const res = await fetch(`/asignacion-lotificaciones/user/${userId}`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                'Accept': 'application/json'
-            },
-            body: formData
-        });
+        try {
+            const res = await fetch(`/asignacion-lotificaciones/user/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
 
-        const json = await res.json();
-        Swal.fire({
-            icon: res.ok ? 'success' : 'error',
-            title: res.ok ? 'Correcto' : 'Error',
-            text: json.message || 'No se pudo guardar'
-        });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || 'No se pudo guardar');
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Correcto',
+                text: json.message,
+                timer: 1500,
+                showConfirmButton: false
+            });
+        } catch (err) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: err.message
+            });
+        }
     }
 
-    document.getElementById('role_id').addEventListener('change', function() {
+    document.getElementById('role_id').addEventListener('change', function () {
         loadRoleAssignments(this.value);
     });
 
-    document.getElementById('user_id').addEventListener('change', function() {
+    document.getElementById('user_id').addEventListener('change', function () {
         loadUserAssignments(this.value);
     });
 
-    document.getElementById('btnRoleAll').addEventListener('click', function() {
+    document.getElementById('btnRoleAll').addEventListener('click', function () {
         $('#role_development_ids option').prop('selected', true);
     });
 
-    document.getElementById('btnRoleNone').addEventListener('click', function() {
+    document.getElementById('btnRoleNone').addEventListener('click', function () {
         $('#role_development_ids option').prop('selected', false);
     });
 
-    document.getElementById('btnUserAll').addEventListener('click', function() {
+    document.getElementById('btnUserAll').addEventListener('click', function () {
         $('#user_development_ids option').prop('selected', true);
     });
 
-    document.getElementById('btnUserNone').addEventListener('click', function() {
+    document.getElementById('btnUserNone').addEventListener('click', function () {
         $('#user_development_ids option').prop('selected', false);
     });
 
     document.getElementById('btnSaveRole').addEventListener('click', saveRole);
     document.getElementById('btnSaveUser').addEventListener('click', saveUser);
 
-    loadOptions();
+    loadOptions().then(() => {
+        initSelect2();
+        clearSelections();
+    });
 })();
 </script>
 @endpush

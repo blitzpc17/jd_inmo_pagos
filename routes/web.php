@@ -22,9 +22,14 @@ use App\Http\Controllers\ReservationComplementController;
 
 use App\Http\Controllers\ChargeController;
 
- use App\Http\Controllers\DevelopmentAssignmentController;
+use App\Http\Controllers\DevelopmentAssignmentController;
 
- use App\Http\Controllers\SupplierPaymentController;
+use App\Http\Controllers\SupplierPaymentController;
+
+use App\Http\Controllers\CreditorController;
+use App\Http\Controllers\CreditorVoucherController;
+use App\Http\Controllers\CreditorVoucherPaymentController;
+
 
 
 
@@ -211,6 +216,32 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::get('/options', [SupplierPaymentController::class, 'options'])->name('options');
         Route::post('/', [SupplierPaymentController::class, 'store'])->name('store');
         Route::get('/{id}', [SupplierPaymentController::class, 'show'])->name('show');
+    });
+
+
+    Route::prefix('acreedores')->name('acreedores.')->group(function () {
+        Route::get('/', [CreditorController::class, 'index'])->name('index');
+        Route::get('/datatable', [CreditorController::class, 'datatable'])->name('datatable');
+        Route::post('/', [CreditorController::class, 'store'])->name('store');
+        Route::get('/{id}', [CreditorController::class, 'show'])->name('show');
+        Route::put('/{id}', [CreditorController::class, 'update'])->name('update');
+        Route::delete('/{id}', [CreditorController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('pagos-acreedores')->name('pagos_acreedores.')->group(function () {
+        Route::get('/', [CreditorVoucherController::class, 'index'])->name('index');
+        Route::get('/datatable', [CreditorVoucherController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [CreditorVoucherController::class, 'options'])->name('options');
+        Route::post('/', [CreditorVoucherController::class, 'store'])->name('store');
+        Route::get('/{id}', [CreditorVoucherController::class, 'show'])->name('show');
+    });
+
+    Route::prefix('abonos-acreedores')->name('abonos_acreedores.')->group(function () {
+        Route::get('/', [CreditorVoucherPaymentController::class, 'index'])->name('index');
+        Route::get('/options', [CreditorVoucherPaymentController::class, 'options'])->name('options');
+        Route::get('/creditor/{creditorId}/vouchers', [CreditorVoucherPaymentController::class, 'creditorVouchers'])->name('creditor.vouchers');
+        Route::get('/voucher/{voucherId}/summary', [CreditorVoucherPaymentController::class, 'voucherSummary'])->name('voucher.summary');
+        Route::post('/', [CreditorVoucherPaymentController::class, 'store'])->name('store');
     });
     
 });

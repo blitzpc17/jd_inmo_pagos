@@ -15,23 +15,46 @@ class DevelopmentAssignmentController extends Controller
 
     public function options()
     {
-        $roles = DB::table('roles')
-            ->orderBy('nombre')
-            ->get(['id as value', 'nombre as text']);
+        $roles = DB::table('roles as r')
+            ->join('statuses as s', 's.id', '=', 'r.status_id')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->orderBy('r.nombre')
+            ->get([
+                'r.id as value',
+                'r.nombre as text',
+            ]);
 
         $users = DB::table('users as u')
-            ->join('personal as p', 'p.id', '=', 'u.personal_id')
-            ->whereNull('u.fecha_baja')
+            ->leftJoin('personal as pe', 'pe.id', '=', 'u.personal_id')
+            ->join('statuses as s', 's.id', '=', 'u.status_id')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
             ->orderBy('u.alias')
             ->get([
                 'u.id as value',
-                DB::raw("u.alias || ' - ' || p.nombres || ' ' || p.apellidos as text")
+                DB::raw("
+                    CASE
+                        WHEN pe.id IS NOT NULL
+                            THEN u.alias || ' - ' || pe.nombres || ' ' || pe.apellidos
+                        ELSE u.alias
+                    END as text
+                "),
             ]);
 
-        $developments = DB::table('developments')
-            ->whereNull('fecha_baja')
-            ->orderBy('nombre')
-            ->get(['id as value', 'nombre as text']);
+        $developments = DB::table('developments as d')
+            ->join('statuses as s', 's.id', '=', 'd.status_id')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->whereNull('d.fecha_baja')
+            ->orderBy('d.nombre')
+            ->get([
+                'd.id as value',
+                'd.nombre as text',
+            ]);
 
         return response()->json([
             'roles' => $roles,
@@ -45,7 +68,7 @@ class DevelopmentAssignmentController extends Controller
         $assigned = DB::table('role_developments')
             ->where('role_id', $roleId)
             ->pluck('development_id')
-            ->map(fn($v) => (int)$v)
+            ->map(fn ($v) => (int) $v)
             ->values();
 
         return response()->json([
@@ -63,26 +86,28 @@ class DevelopmentAssignmentController extends Controller
 
         $ids = collect($data['development_ids'] ?? [])
             ->unique()
-            ->map(fn($v) => (int)$v)
+            ->map(fn ($v) => (int) $v)
             ->values()
             ->all();
 
         DB::beginTransaction();
 
         try {
-            DB::table('role_developments')->where('role_id', $roleId)->delete();
+            DB::table('role_developments')
+                ->where('role_id', $roleId)
+                ->delete();
 
-            $rows = [];
-            foreach ($ids as $developmentId) {
-                $rows[] = [
-                    'role_id' => $roleId,
-                    'development_id' => $developmentId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
+            if (!empty($ids)) {
+                $rows = [];
+                foreach ($ids as $developmentId) {
+                    $rows[] = [
+                        'role_id' => $roleId,
+                        'development_id' => $developmentId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
 
-            if (!empty($rows)) {
                 DB::table('role_developments')->insert($rows);
             }
 
@@ -90,7 +115,7 @@ class DevelopmentAssignmentController extends Controller
 
             return response()->json([
                 'ok' => true,
-                'message' => 'Asignación por rol guardada correctamente.'
+                'message' => 'Asignación por rol guardada correctamente.',
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -103,7 +128,7 @@ class DevelopmentAssignmentController extends Controller
         $assigned = DB::table('user_developments')
             ->where('user_id', $userId)
             ->pluck('development_id')
-            ->map(fn($v) => (int)$v)
+            ->map(fn ($v) => (int) $v)
             ->values();
 
         $user = DB::table('users')->where('id', $userId)->first();
@@ -113,7 +138,7 @@ class DevelopmentAssignmentController extends Controller
             $roleAssigned = DB::table('role_developments')
                 ->where('role_id', $user->role_id)
                 ->pluck('development_id')
-                ->map(fn($v) => (int)$v)
+                ->map(fn ($v) => (int) $v)
                 ->values();
         }
 
@@ -133,26 +158,28 @@ class DevelopmentAssignmentController extends Controller
 
         $ids = collect($data['development_ids'] ?? [])
             ->unique()
-            ->map(fn($v) => (int)$v)
+            ->map(fn ($v) => (int) $v)
             ->values()
             ->all();
 
         DB::beginTransaction();
 
         try {
-            DB::table('user_developments')->where('user_id', $userId)->delete();
+            DB::table('user_developments')
+                ->where('user_id', $userId)
+                ->delete();
 
-            $rows = [];
-            foreach ($ids as $developmentId) {
-                $rows[] = [
-                    'user_id' => $userId,
-                    'development_id' => $developmentId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
+            if (!empty($ids)) {
+                $rows = [];
+                foreach ($ids as $developmentId) {
+                    $rows[] = [
+                        'user_id' => $userId,
+                        'development_id' => $developmentId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
 
-            if (!empty($rows)) {
                 DB::table('user_developments')->insert($rows);
             }
 
@@ -160,7 +187,7 @@ class DevelopmentAssignmentController extends Controller
 
             return response()->json([
                 'ok' => true,
-                'message' => 'Asignación por usuario guardada correctamente.'
+                'message' => 'Asignación por usuario guardada correctamente.',
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
