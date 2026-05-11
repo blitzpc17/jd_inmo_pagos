@@ -46,8 +46,7 @@ class MenuSeeder extends Seeder
             ['nombre' => 'Complementos apartados', 'clave' => 'reservation_complements_module', 'ruta' => 'apartados-complementos', 'icono' => 'fa-solid fa-circle-plus', 'parent' => 'cobranza_root', 'orden' => 5],
             ['nombre' => 'Contratos', 'clave' => 'contracts_module', 'ruta' => 'contratos', 'icono' => 'fa-solid fa-file-contract', 'parent' => 'cobranza_root', 'orden' => 6],
             ['nombre' => 'Cobros', 'clave' => 'charges_module', 'ruta' => 'cobros', 'icono' => 'fa-solid fa-cash-register', 'parent' => 'cobranza_root', 'orden' => 7],
-            ['nombre' => 'Calendario de pagos', 'clave' => 'payment_schedule_module', 'ruta' => 'calendario-pagos', 'icono' => 'fa-solid fa-calendar-days', 'parent' => 'cobranza_root', 'orden' => 8],
-
+           
             ['nombre' => 'Proveedores', 'clave' => 'suppliers_module', 'ruta' => 'proveedores', 'icono' => 'fa-solid fa-truck', 'parent' => 'pagos_root', 'orden' => 1],
             ['nombre' => 'Pagos proveedores', 'clave' => 'supplier_payments_module', 'ruta' => 'pagos-proveedores', 'icono' => 'fa-solid fa-money-check-dollar', 'parent' => 'pagos_root', 'orden' => 2],
 
