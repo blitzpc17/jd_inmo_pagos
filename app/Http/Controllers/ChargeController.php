@@ -727,6 +727,7 @@ class ChargeController extends Controller
             'pending_payments' => 0,
         ];
         $scheduleGrid = collect();
+        $scheduleColumns = ['left' => collect(), 'right' => collect()];
 
         if (!empty($charge->contract_id)) {
             $contract = DB::table('contracts as c')
@@ -741,9 +742,11 @@ class ChargeController extends Controller
 
             $stats = $pdf->chargePaymentStats((int) $charge->contract_id);
             $scheduleGrid = $pdf->chargeScheduleGrid((int) $charge->contract_id);
+            $scheduleColumns = $pdf->splitGridInTwoColumns($scheduleGrid);
         }
 
-        return $pdf->stream(
+     
+       return $pdf->stream(
             'pdf.receipts.charge',
             [
                 'document_type' => 'RECIBO DE COBRO',

@@ -256,6 +256,7 @@ class CreditorVoucherPaymentController extends Controller
 
         $stats = $pdf->creditorPaymentStats($voucher);
         $scheduleGrid = $pdf->creditorScheduleGrid($voucher);
+        $scheduleColumns = $pdf->splitGridInTwoColumns($scheduleGrid);
 
         return $pdf->stream(
             'pdf.receipts.creditor_payment',

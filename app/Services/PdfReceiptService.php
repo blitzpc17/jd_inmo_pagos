@@ -44,7 +44,7 @@ class PdfReceiptService
         $default = [
             'company_name' => config('app.name', 'Sistema'),
             'company_subtitle' => 'Recibos y comprobantes oficiales',
-            'logo_path' => public_path('images/logo_rect.png'),
+            'logo_path' => public_path('images/logo.png'),
             'footer_text' => 'Documento generado automáticamente por el sistema.',
             'address_line' => 'VISITANOS EN 3 ORIENTE #736 VOL. RICARDO FLORES MAGON TEHUACAN PUEBLA.',
             'phone_line' => 'TELEFONO 238 289 0712',
@@ -64,6 +64,14 @@ class PdfReceiptService
                 return $default;
             }
 
+            /*dd([
+                'company_name' => $json['company_name'] ?? $default['company_name'],
+                'company_subtitle' => $json['company_subtitle'] ?? $default['company_subtitle'],
+                'logo_path' => !empty($json['logo_path']) ? public_path($json['logo_path']) : $default['logo_path'],
+                'footer_text' => $json['footer_text'] ?? $default['footer_text'],
+                'address_line' => $json['address_line'] ?? $default['address_line'],
+                'phone_line' => $json['phone_line'] ?? $default['phone_line'],
+            ]);*/
             return [
                 'company_name' => $json['company_name'] ?? $default['company_name'],
                 'company_subtitle' => $json['company_subtitle'] ?? $default['company_subtitle'],
@@ -166,5 +174,22 @@ class PdfReceiptService
         }
 
         return $rows;
+    }
+   
+
+    public function splitGridInTwoColumns($rows): array
+    {
+        $rows = collect($rows)->values();
+        $half = (int) ceil($rows->count() / 2);
+
+        return [
+            'left' => $rows->slice(0, $half)->values(),
+            'right' => $rows->slice($half)->values(),
+        ];
+    }
+
+    public function shouldBreakCalendar($rows, int $threshold = 18): bool
+    {
+        return collect($rows)->count() > $threshold;
     }
 }
