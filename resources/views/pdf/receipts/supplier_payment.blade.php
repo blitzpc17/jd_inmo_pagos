@@ -1,7 +1,7 @@
 @extends('pdf.layouts.receipt')
 
 @section('content')
-<div class="section-title">Recibo de pago a proveedor</div>
+<div class="section-title">Datos del pago a proveedor</div>
 
 <div class="card">
     <table class="meta-table">
@@ -62,4 +62,13 @@
         @endforeach
     </tbody>
 </table>
+
+<div class="signature-wrap">
+    <div class="signature-box">
+        <div class="signature-line">AUTORIZÓ</div>
+    </div>
+    <div class="signature-box">
+        <div class="signature-line">RECIBIÓ</div>
+    </div>
+</div>
 @endsection

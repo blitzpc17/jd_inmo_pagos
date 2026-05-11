@@ -260,8 +260,8 @@ class CreditorVoucherPaymentController extends Controller
         return $pdf->stream(
             'pdf.receipts.creditor_payment',
             [
-                'title' => 'RECIBO OFICIAL',
-                'folio' => $voucher->numero_referencia,
+                'document_type' => 'RECIBO DE ABONO A ACREEDOR',
+                'folio' => 'REC-ACR-' . str_pad((string) $item->id, 6, '0', STR_PAD_LEFT),
                 'item' => $item,
                 'voucher' => $voucher,
                 'stats' => $stats,

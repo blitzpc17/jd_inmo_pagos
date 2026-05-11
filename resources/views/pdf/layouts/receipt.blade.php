@@ -2,31 +2,47 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>{{ $title ?? 'Recibo' }}</title>
+    <title>{{ $document_type ?? 'Documento' }}</title>
     <style>
-        @page { margin: 140px 36px 90px 36px; }
+        @page { margin: 145px 36px 90px 36px; }
 
         body{
             font-family: DejaVu Sans, sans-serif;
             color: {{ $palette['dark'] }};
             font-size: 11px;
+            position: relative;
+        }
+
+        .watermark{
+            position: fixed;
+            top: 240px;
+            left: 50px;
+            width: 520px;
+            text-align: center;
+            opacity: 0.07;
+            z-index: -1000;
+        }
+
+        .watermark img{
+            width: 100%;
+            height: auto;
         }
 
         header{
             position: fixed;
-            top: -122px;
+            top: -128px;
             left: 0;
             right: 0;
-            height: 112px;
+            height: 118px;
             border-bottom: 4px solid {{ $palette['primary'] }};
         }
 
         footer{
             position: fixed;
-            bottom: -70px;
+            bottom: -68px;
             left: 0;
             right: 0;
-            height: 55px;
+            height: 52px;
             border-top: 2px solid {{ $palette['gray'] }};
             font-size: 10px;
             color: {{ $palette['gray'] }};
@@ -34,7 +50,7 @@
 
         .header-left{
             float: left;
-            width: 74%;
+            width: 73%;
         }
 
         .header-right{
@@ -55,39 +71,43 @@
             font-size: 23px;
             font-weight: bold;
             color: {{ $palette['primary'] }};
+            line-height: 1.1;
         }
 
-        .brand-subtitle{
-            font-size: 11px;
-            color: {{ $palette['gray'] }};
-            margin: 3px 0 6px 0;
+        .document-type{
+            margin-top: 4px;
+            font-size: 15px;
+            font-weight: bold;
+            color: {{ $palette['dark'] }};
+            line-height: 1.2;
         }
 
         .brand-contact{
             font-size: 10px;
             color: {{ $palette['dark'] }};
             line-height: 1.35;
+            margin-top: 4px;
         }
 
-        .folio-box{
-            display: inline-block;
-            background: {{ $palette['blue'] }};
-            color: #fff;
-            padding: 10px 14px;
-            border-radius: 10px;
-            font-size: 12px;
+        .folio-label{
+            font-size: 10px;
+            text-transform: uppercase;
+            color: {{ $palette['gray'] }};
             font-weight: bold;
-            text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 4px;
         }
 
         .folio-number{
-            font-size: 18px;
+            font-size: 17px;
             font-weight: bold;
             color: {{ $palette['danger'] }};
             border: 2px solid {{ $palette['danger'] }};
             border-radius: 10px;
-            padding: 8px 10px;
+            padding: 10px 12px;
+            line-height: 1.25;
+            display: inline-block;
+            min-width: 150px;
+            text-align: center;
         }
 
         .section-title{
@@ -97,6 +117,7 @@
             border-radius: 8px;
             font-weight: bold;
             margin-bottom: 10px;
+            font-size: 12px;
         }
 
         .card{
@@ -104,9 +125,10 @@
             border-radius: 10px;
             padding: 12px;
             margin-bottom: 14px;
+            background: rgba(255,255,255,0.92);
         }
 
-        .meta-table, .detail-table{
+        .meta-table, .detail-table, .summary-table{
             width: 100%;
             border-collapse: collapse;
         }
@@ -141,46 +163,57 @@
             border-bottom: 1px solid #e9e9e9;
             padding: 7px;
             font-size: 10px;
+            background: rgba(255,255,255,0.90);
+        }
+
+        .summary-table td{
+            width: 33.3333%;
+            vertical-align: top;
+            padding-right: 10px;
+        }
+
+        .summary-table td:last-child{
+            padding-right: 0;
         }
 
         .summary-box{
-            width: 31.5%;
-            display: inline-block;
-            vertical-align: top;
-            margin-right: 2%;
-            padding: 10px;
             border-radius: 10px;
-            background: #fafafa;
+            background: rgba(250,250,250,0.96);
             border-left: 5px solid {{ $palette['blue'] }};
-            box-sizing: border-box;
+            padding: 10px 12px;
+            min-height: 56px;
         }
 
-        .summary-box:last-child{
-            margin-right: 0;
+        .summary-box .small{
+            color: {{ $palette['gray'] }};
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: bold;
         }
 
         .summary-box .big{
+            margin-top: 4px;
             font-size: 17px;
             font-weight: bold;
             color: {{ $palette['primary'] }};
         }
 
         .status-paid{
-            background: #eaf8ee;
+            background: #eaf8ee !important;
             color: #0b7a35;
             font-weight: bold;
             text-align: center;
         }
 
         .status-pending{
-            background: #fff1f1;
+            background: #fff1f1 !important;
             color: {{ $palette['danger'] }};
             font-weight: bold;
             text-align: center;
         }
 
         .signature-wrap{
-            margin-top: 28px;
+            margin-top: 26px;
         }
 
         .signature-box{
@@ -196,10 +229,11 @@
         }
 
         .signature-line{
-            margin-top: 45px;
+            margin-top: 42px;
             border-top: 1px solid {{ $palette['dark'] }};
             padding-top: 6px;
             font-size: 10px;
+            font-weight: bold;
         }
 
         .text-right{ text-align: right; }
@@ -208,6 +242,12 @@
     </style>
 </head>
 <body>
+    @if(!empty($branding['logo_path']) && file_exists($branding['logo_path']))
+        <div class="watermark">
+            <img src="{{ $branding['logo_path'] }}">
+        </div>
+    @endif
+
     <header>
         <div class="header-left">
             @if(!empty($branding['logo_path']) && file_exists($branding['logo_path']))
@@ -215,16 +255,15 @@
             @endif
 
             <h1 class="brand-title">{{ $branding['company_name'] }}</h1>
-            <div class="brand-subtitle">{{ $branding['company_subtitle'] }}</div>
-            <div class="brand-contact">{{ $branding['address_line'] }}</div>
-            <div class="brand-contact">{{ $branding['phone_line'] }}</div>
+            <div class="document-type">{{ $document_type ?? 'DOCUMENTO OFICIAL' }}</div>
+
+            <div class="brand-contact">VISITANOS EN 3 ORIENTE #736 VOL. RICARDO FLORES MAGON TEHUACAN PUEBLA.</div>
+            <div class="brand-contact">TELEFONO 238 289 0712</div>
         </div>
 
         <div class="header-right">
-            <div class="folio-box">{{ $title ?? 'RECIBO OFICIAL' }}</div>
-            @if(!empty($folio ?? null))
-                <div class="folio-number">{{ $folio }}</div>
-            @endif
+            <div class="folio-label">Folio del documento</div>
+            <div class="folio-number">{{ $folio ?? 'S/F' }}</div>
         </div>
     </header>
 
@@ -232,10 +271,9 @@
         <div style="padding-top:10px;">
             <div>{{ $branding['footer_text'] }}</div>
             <div>
-                Página
                 <script type="text/php">
                     if (isset($pdf)) {
-                        $pdf->page_text(520, 18, "{PAGE_NUM}/{PAGE_COUNT}", null, 9);
+                        $pdf->page_text(475, 18, "Hoja {PAGE_NUM} de {PAGE_COUNT}", null, 9);
                     }
                 </script>
             </div>

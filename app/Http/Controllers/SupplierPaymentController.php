@@ -227,7 +227,8 @@ class SupplierPaymentController extends Controller
         return $pdf->stream(
             'pdf.receipts.supplier_payment',
             [
-                'title' => 'RECIBO PAGO PROVEEDOR',
+                'document_type' => 'COMPROBANTE DE PAGO A PROVEEDOR',
+                'folio' => $payment->numero_referencia,
                 'payment' => $payment,
                 'items' => $items,
             ],

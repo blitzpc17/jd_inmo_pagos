@@ -746,7 +746,7 @@ class ChargeController extends Controller
         return $pdf->stream(
             'pdf.receipts.charge',
             [
-                'title' => 'RECIBO OFICIAL',
+                'document_type' => 'RECIBO DE COBRO',
                 'folio' => $charge->numero_referencia,
                 'charge' => $charge,
                 'contract' => $contract,

@@ -1,13 +1,13 @@
 @extends('pdf.layouts.receipt')
 
 @section('content')
-<div class="section-title">Recibo de abono acreedor</div>
+<div class="section-title">Datos del abono acreedor</div>
 
 <div class="card">
     <table class="meta-table">
         <tr>
             <td>
-                <div class="label">Boleta</div>
+                <div class="label">Folio boleta</div>
                 <div class="value">{{ $voucher->numero_referencia }}</div>
             </td>
             <td>
@@ -38,20 +38,28 @@
 
 <div class="section-title">Boleta de pago acreedor</div>
 
-<div class="mb-18">
-    <div class="summary-box">
-        <div class="label">Total pagos</div>
-        <div class="big">{{ $stats['total_payments'] }}</div>
-    </div>
-    <div class="summary-box">
-        <div class="label">Pagados</div>
-        <div class="big">{{ $stats['paid_payments'] }}</div>
-    </div>
-    <div class="summary-box">
-        <div class="label">Pendientes</div>
-        <div class="big">{{ $stats['pending_payments'] }}</div>
-    </div>
-</div>
+<table class="summary-table mb-18">
+    <tr>
+        <td>
+            <div class="summary-box">
+                <div class="small">Total pagos</div>
+                <div class="big">{{ $stats['total_payments'] }}</div>
+            </div>
+        </td>
+        <td>
+            <div class="summary-box">
+                <div class="small">Pagados</div>
+                <div class="big">{{ $stats['paid_payments'] }}</div>
+            </div>
+        </td>
+        <td>
+            <div class="summary-box">
+                <div class="small">Pendientes</div>
+                <div class="big">{{ $stats['pending_payments'] }}</div>
+            </div>
+        </td>
+    </tr>
+</table>
 
 <div class="card">
     <table class="meta-table">
