@@ -49,7 +49,7 @@
                             <input type="number" class="form-control" id="manzanas" name="manzanas" min="0">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Lotes por manzana / corridos</label>
+                            <label class="form-label">Lotes por manzana</label>
                             <input type="number" class="form-control" id="lotes" name="lotes" min="0">
                         </div>
 
