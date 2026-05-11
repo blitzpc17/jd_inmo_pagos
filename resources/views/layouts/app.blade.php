@@ -12,6 +12,7 @@
     <link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/jstree@3.3.16/dist/themes/default/style.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('/assets/css/jd-theme.css') }}">
 
     <style>
         :root{
@@ -211,7 +212,7 @@
 
 <div class="app-shell">
     <aside class="sidebar" id="appSidebar">
-        <div class="sidebar-brand">LOTIFICACIONES</div>
+        <div class="sidebar-brand">JD INMOBILIARIA</div>
 
         <div class="sidebar-user">
             <div class="fw-bold">{{ session('auth_user.nombre') }}</div>

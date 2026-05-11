@@ -41,6 +41,7 @@ Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
 Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/stats', [DashboardController::class, 'stats'])->name('dashboard.stats');
 
     Route::prefix('catalogos')->name('catalogos.')->group(function () {
         Route::get('/{catalog}', [CatalogController::class, 'index'])->name('index');
@@ -123,6 +124,13 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::get('/{id}', [DevelopmentController::class, 'show'])->name('show');
         Route::put('/{id}', [DevelopmentController::class, 'update'])->name('update');
         Route::delete('/{id}', [DevelopmentController::class, 'destroy'])->name('destroy');
+
+        Route::get('/{development}/lots/options', [DevelopmentLotController::class, 'options'])->name('lots.options');
+        Route::get('/{development}/detalle', [DevelopmentLotController::class, 'index'])->name('lots.index');
+        Route::get('/{development}/lots/datatable', [DevelopmentLotController::class, 'datatable'])->name('lots.datatable');
+        Route::post('/{development}/lots', [DevelopmentLotController::class, 'store'])->name('lots.store');
+        Route::post('/{development}/lots/generate', [DevelopmentLotController::class, 'generate'])->name('lots.generate');
+        Route::post('/{development}/lots/bulk-update', [DevelopmentLotController::class, 'bulkUpdate'])->name('lots.bulk_update');
 
         Route::prefix('{developmentId}/lotes')->name('lots.')->group(function () {
             Route::get('/', [DevelopmentLotController::class, 'index'])->name('index');
