@@ -243,5 +243,10 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::get('/voucher/{voucherId}/summary', [CreditorVoucherPaymentController::class, 'voucherSummary'])->name('voucher.summary');
         Route::post('/', [CreditorVoucherPaymentController::class, 'store'])->name('store');
     });
+
+
+    Route::get('/cobros/{id}/recibo', [ChargeController::class, 'receipt'])->name('cobros.receipt');
+    Route::get('/abonos-acreedores/recibo/{itemId}', [CreditorVoucherPaymentController::class, 'receipt'])->name('abonos_acreedores.receipt');
+    Route::get('/pagos-proveedores/{id}/recibo', [SupplierPaymentController::class, 'receipt'])->name('pagos_proveedores.receipt');
     
 });

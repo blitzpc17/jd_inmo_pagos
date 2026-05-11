@@ -63,11 +63,12 @@
                             <table class="table table-bordered align-middle mb-0">
                                 <thead>
                                     <tr>
-                                        <th style="width:60px;">#</th>
-                                        <th style="width:180px;">Fecha recibido</th>
+                                        <th>#</th>
+                                        <th>Fecha recibido</th>
                                         <th>Forma de pago</th>
-                                        <th style="width:180px;">Cantidad</th>
-                                        <th style="width:80px;">Acción</th>
+                                        <th>Cantidad</th>
+                                        <th>Usuario registro</th>
+                                        <th>Acción</th>
                                     </tr>
                                 </thead>
                                 <tbody id="abonoAcreedorItemsBody"></tbody>
@@ -218,9 +219,15 @@
                         <td>${item.forma_pago ?? ''}</td>
                         <td>${item.cantidad ?? ''}</td>
                         <td>${item.usuario_registro ?? ''}</td>
+                        <td>
+                            <a class="btn btn-sm btn-outline-danger" target="_blank" href="/abonos-acreedores/recibo/${item.id}" title="Recibo PDF">
+                                <i class="fa-solid fa-file-pdf"></i>
+                            </a>
+                        </td>
                     </tr>
                 `;
             });
+            
         } catch (e) {
             console.error(e);
             Swal.fire({

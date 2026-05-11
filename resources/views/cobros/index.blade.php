@@ -28,6 +28,7 @@
                     <th>Forma pago</th>
                     <th>Monto</th>
                     <th>Recargo</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
         </table>
@@ -288,7 +289,8 @@
                 { data: 'tipo_cobro' },
                 { data: 'forma_pago' },
                 { data: 'monto' },
-                { data: 'monto_recargo' }
+                { data: 'monto_recargo' },
+                { data: 'acciones', orderable: false, searchable: false }
             ],
             pageLength: 10,
             order: [],

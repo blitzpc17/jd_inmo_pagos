@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Services\PdfReceiptService;
 
 class SupplierPaymentController extends Controller
 {
@@ -34,9 +35,14 @@ class SupplierPaymentController extends Controller
             ->get()
             ->map(function ($r) {
                 $r->acciones = '
-                    <button class="btn btn-sm btn-outline-info btn-view" data-id="'.$r->id.'">
-                        <i class="fa-solid fa-eye"></i>
-                    </button>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-info btn-view" data-id="'.$r->id.'" title="Ver detalle">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                        <a class="btn btn-sm btn-outline-danger" target="_blank" href="'.route('pagos_proveedores.receipt', $r->id).'" title="Recibo PDF">
+                            <i class="fa-solid fa-file-pdf"></i>
+                        </a>
+                    </div>
                 ';
                 return $r;
             });
@@ -191,5 +197,41 @@ class SupplierPaymentController extends Controller
         }
 
         return (int) $id;
+    }
+
+    public function receipt(int $id, PdfReceiptService $pdf)
+    {
+        $payment = DB::table('supplier_payments as sp')
+            ->join('suppliers as s', 's.id', '=', 'sp.supplier_id')
+            ->join('payment_methods as pm', 'pm.id', '=', 'sp.payment_method_id')
+            ->join('statuses as st', 'st.id', '=', 'sp.status_id')
+            ->where('sp.id', $id)
+            ->select([
+                'sp.*',
+                's.nombre as proveedor',
+                'pm.nombre as forma_pago',
+                'st.nombre as estado',
+            ])
+            ->first();
+
+        abort_if(!$payment, 404, 'Pago proveedor no encontrado');
+
+        $items = DB::table('supplier_payment_concepts')
+            ->where('supplier_payment_id', $id)
+            ->orderBy('id')
+            ->get([
+                'concepto',
+                'importe',
+            ]);
+
+        return $pdf->stream(
+            'pdf.receipts.supplier_payment',
+            [
+                'title' => 'RECIBO PAGO PROVEEDOR',
+                'payment' => $payment,
+                'items' => $items,
+            ],
+            'recibo-pago-proveedor-'.$payment->numero_referencia.'.pdf'
+        );
     }
 }

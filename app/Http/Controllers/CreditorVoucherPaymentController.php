@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Services\PdfReceiptService;
 
 class CreditorVoucherPaymentController extends Controller
 {
@@ -78,18 +79,19 @@ class CreditorVoucherPaymentController extends Controller
 
         abort_if(!$row, 404, 'Boleta no encontrada');
 
-        $items = DB::table('creditor_voucher_items as cvi')
-            ->join('payment_methods as pm', 'pm.id', '=', 'cvi.payment_method_id')
-            ->leftJoin('users as u', 'u.id', '=', 'cvi.usuario_genero_id')
-            ->where('cvi.creditor_voucher_id', $voucherId)
-            ->whereNull('cvi.fecha_baja')
-            ->orderBy('cvi.id')
-            ->get([
-                'cvi.fecha_recibido',
-                'pm.nombre as forma_pago',
-                'cvi.cantidad',
-                'u.alias as usuario_registro',
-            ]);
+       $items = DB::table('creditor_voucher_items as cvi')
+        ->join('payment_methods as pm', 'pm.id', '=', 'cvi.payment_method_id')
+        ->leftJoin('users as u', 'u.id', '=', 'cvi.usuario_genero_id')
+        ->where('cvi.creditor_voucher_id', $voucherId)
+        ->whereNull('cvi.fecha_baja')
+        ->orderBy('cvi.id')
+        ->get([
+            'cvi.id',
+            'cvi.fecha_recibido',
+            'pm.nombre as forma_pago',
+            'cvi.cantidad',
+            'u.alias as usuario_registro',
+        ]);
 
         $progress = $this->getVoucherProgressStatus($row);
 
@@ -219,5 +221,53 @@ class CreditorVoucherPaymentController extends Controller
         }
 
         return (int) $id;
+    }
+
+    public function receipt(int $itemId, PdfReceiptService $pdf)
+    {
+        $item = DB::table('creditor_voucher_items as i')
+            ->join('payment_methods as pm', 'pm.id', '=', 'i.payment_method_id')
+            ->leftJoin('users as u', 'u.id', '=', 'i.usuario_genero_id')
+            ->where('i.id', $itemId)
+            ->select([
+                'i.*',
+                'pm.nombre as forma_pago',
+                'u.alias as usuario_registro',
+            ])
+            ->first();
+
+        abort_if(!$item, 404, 'Abono no encontrado');
+
+        $this->recalculateVoucherTotals((int) $item->creditor_voucher_id);
+
+        $voucher = DB::table('creditor_vouchers as cv')
+            ->join('creditors as c', 'c.id', '=', 'cv.creditor_id')
+            ->where('cv.id', $item->creditor_voucher_id)
+            ->select([
+                'cv.*',
+                DB::raw("c.nombres || ' ' || c.apellidos as acreedor"),
+            ])
+            ->first();
+
+        abort_if(!$voucher, 404, 'Boleta no encontrada');
+
+        $progress = $this->getVoucherProgressStatus($voucher);
+        $voucher->estado_pago = $progress['estado_pago'];
+
+        $stats = $pdf->creditorPaymentStats($voucher);
+        $scheduleGrid = $pdf->creditorScheduleGrid($voucher);
+
+        return $pdf->stream(
+            'pdf.receipts.creditor_payment',
+            [
+                'title' => 'RECIBO OFICIAL',
+                'folio' => $voucher->numero_referencia,
+                'item' => $item,
+                'voucher' => $voucher,
+                'stats' => $stats,
+                'scheduleGrid' => $scheduleGrid,
+            ],
+            'recibo-abono-acreedor-'.$item->id.'.pdf'
+        );
     }
 }
