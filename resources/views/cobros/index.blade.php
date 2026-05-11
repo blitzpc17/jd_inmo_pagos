@@ -82,6 +82,7 @@
 
                     <div class="page-card">
                         <h6 class="fw-bold mb-3">Resumen contrato</h6>
+
                         <div class="row g-3 mb-3">
                             <div class="col-md-3">
                                 <label class="form-label">Referencia</label>
@@ -118,20 +119,36 @@
                             </div>
                         </div>
 
-                        <div class="table-responsive">
-                            <table class="table table-bordered align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Vence</th>
-                                        <th>Monto</th>
-                                        <th>Pagado</th>
-                                        <th>Recargo</th>
-                                        <th>Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="scheduleBody"></tbody>
-                            </table>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="small text-muted">Pagos realizados y pendientes del contrato</div>
+                            <button
+                                class="btn btn-sm btn-outline-primary"
+                                type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#collapseSchedule"
+                                aria-expanded="false"
+                                aria-controls="collapseSchedule"
+                            >
+                                <i class="fa-solid fa-chevron-down me-1"></i> Ver calendario
+                            </button>
+                        </div>
+
+                        <div class="collapse" id="collapseSchedule">
+                            <div class="table-responsive">
+                                <table class="table table-bordered align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:80px;">Pago</th>
+                                            <th>Vence</th>
+                                            <th>Monto</th>
+                                            <th>Pagado</th>
+                                            <th>Recargo</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="scheduleBody"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -165,24 +182,51 @@
 
     function fillSelect(id, items) {
         const el = document.getElementById(id);
+        if (!el) return;
+
         el.innerHTML = '<option value="">Seleccione...</option>';
-        items.forEach(item => {
+
+        (items || []).forEach(item => {
             el.innerHTML += `<option value="${item.value}">${item.text}</option>`;
         });
-        $(el).trigger('change');
+
+        $(el).val('').trigger('change.select2');
     }
 
     function resetSummary() {
         ['s_ref','s_cliente','s_tipo','s_estado','s_pagado','s_debe','s_importe','s_cuota'].forEach(id => {
-            document.getElementById(id).value = '';
+            const el = document.getElementById(id);
+            if (el) el.value = '';
         });
-        document.getElementById('scheduleBody').innerHTML = '';
-        document.getElementById('contractBlockedAlert').classList.add('d-none');
-        document.getElementById('contractLateAlert').classList.add('d-none');
-        document.getElementById('contractBlockedAlert').innerHTML = '';
-        document.getElementById('contractLateAlert').innerHTML = '';
+
+        const tbody = document.getElementById('scheduleBody');
+        if (tbody) tbody.innerHTML = '';
+
+        const blocked = document.getElementById('contractBlockedAlert');
+        if (blocked) {
+            blocked.classList.add('d-none');
+            blocked.innerHTML = '';
+        }
+
+        const late = document.getElementById('contractLateAlert');
+        if (late) {
+            late.classList.add('d-none');
+            late.innerHTML = '';
+        }
+
+        const collapseEl = document.getElementById('collapseSchedule');
+        if (collapseEl) {
+            const collapse = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+            collapse.hide();
+        }
+
         document.getElementById('btnGuardarCobro').disabled = false;
         contractBlocked = false;
+    }
+
+    function clearContractSummary() {
+        resetSummary();
+        fillSelect('payment_method_id', []);
     }
 
     async function loadOptions() {
@@ -215,19 +259,22 @@
         tbody.innerHTML = '';
 
         (rows || []).forEach(row => {
-            const isLate = ['VENCIDO', 'PARCIAL'].includes((row.status || '').toUpperCase());
+            const status = String(row.status || '').toUpperCase();
+            const isLate = ['VENCIDO', 'PARCIAL'].includes(status);
+            const isPaid = status === 'PAGADO';
+
+            let badgeClass = 'bg-secondary';
+            if (isPaid) badgeClass = 'bg-success';
+            if (isLate) badgeClass = 'bg-danger';
+
             tbody.innerHTML += `
                 <tr class="${isLate ? 'table-danger' : ''}">
-                    <td>${row.installment_number}</td>
-                    <td>${row.due_date}</td>
-                    <td>${row.amount}</td>
-                    <td>${row.amount_paid}</td>
-                    <td>${row.late_fee_amount}</td>
-                    <td>
-                        <span class="badge ${isLate ? 'bg-danger' : 'bg-secondary'}">
-                            ${row.status}
-                        </span>
-                    </td>
+                    <td>${row.period_label ?? row.installment_number ?? ''}</td>
+                    <td>${row.due_date ?? ''}</td>
+                    <td>${row.amount ?? 0}</td>
+                    <td>${row.amount_paid ?? 0}</td>
+                    <td>${row.late_fee_amount ?? 0}</td>
+                    <td><span class="badge ${badgeClass}">${row.status ?? ''}</span></td>
                 </tr>
             `;
         });
@@ -235,39 +282,75 @@
 
     async function loadContractSummary(contractId) {
         resetSummary();
-        if (!contractId) return;
 
-        const res = await fetch(`/cobros/contract/${contractId}/summary`);
-        const json = await res.json();
-        if (!res.ok) return;
-
-        const d = json.data;
-
-        document.getElementById('s_ref').value = d.numero_referencia || '';
-        document.getElementById('s_cliente').value = d.cliente || '';
-        document.getElementById('s_tipo').value = d.tipo_pago || '';
-        document.getElementById('s_estado').value = d.estado || '';
-        document.getElementById('s_pagado').value = d.pagado_total || 0;
-        document.getElementById('s_debe').value = d.debe_total || 0;
-        document.getElementById('s_importe').value = d.importe || 0;
-        document.getElementById('s_cuota').value = d.cuota_mensual || 0;
-
-        if (d.is_late) {
-            const box = document.getElementById('contractLateAlert');
-            box.classList.remove('d-none');
-            box.innerHTML = `El contrato presenta atraso. Tiene ${d.late_count} mensualidad(es) vencidas o parciales.`;
+        if (!contractId) {
+            fillSelect('payment_method_id', []);
+            return;
         }
 
-        if (d.is_blocked) {
-            contractBlocked = true;
-            document.getElementById('btnGuardarCobro').disabled = true;
+        try {
+            const res = await fetch(`/cobros/contracts/${contractId}/summary`, {
+                headers: { 'Accept': 'application/json' }
+            });
 
-            const box = document.getElementById('contractBlockedAlert');
-            box.classList.remove('d-none');
-            box.innerHTML = d.blocked_message || 'No se pueden recibir cobros para este contrato.';
+            const json = await res.json();
+
+            if (!res.ok || !json.ok) {
+                throw new Error(json.message || 'No se pudo cargar el resumen del contrato');
+            }
+
+            const d = json.data || {};
+
+            $('#s_ref').val(d.numero_referencia ?? '');
+            $('#s_cliente').val(d.cliente ?? '');
+            $('#s_tipo').val(d.tipo_contrato ?? '');
+            $('#s_estado').val(d.estado_contrato ?? '');
+            $('#s_pagado').val(d.pagado_total ?? 0);
+            $('#s_debe').val(d.debe_total ?? 0);
+            $('#s_importe').val(d.importe ?? 0);
+            $('#s_cuota').val(d.cuota_mensual ?? 0);
+
+            fillSelect('payment_method_id', d.payment_methods || []);
+
+            if (Array.isArray(d.schedule) && d.schedule.length) {
+                paintScheduleRows(d.schedule);
+            }
+
+            const collapseEl = document.getElementById('collapseSchedule');
+            if (collapseEl) {
+                const collapse = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+                if (Array.isArray(d.schedule) && d.schedule.length) {
+                    collapse.show();
+                } else {
+                    collapse.hide();
+                }
+            }
+
+            const estado = String(d.estado_contrato || '').toUpperCase();
+            const blocked = !!d.blocked || ['LIQUIDADO', 'CANCELADO', 'FINALIZADO'].includes(estado);
+
+            if (blocked) {
+                contractBlocked = true;
+                $('#btnGuardarCobro').prop('disabled', true);
+                $('#contractBlockedAlert')
+                    .removeClass('d-none')
+                    .html(`No se pueden recibir cobros porque el contrato está en estado <b>${d.estado_contrato}</b>.`);
+            }
+
+            if (d.has_late_payments || d.late_message) {
+                $('#contractLateAlert')
+                    .removeClass('d-none')
+                    .html(d.late_message || 'El contrato presenta pagos vencidos.');
+            }
+
+        } catch (e) {
+            fillSelect('payment_method_id', []);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: e.message || 'No se pudo cargar el resumen del contrato'
+            });
         }
-
-        paintScheduleRows(d.schedules || []);
     }
 
     function resetForm() {

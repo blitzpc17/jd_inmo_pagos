@@ -195,6 +195,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::get('/contract/{contractId}/summary', [ChargeController::class, 'contractSummary'])->name('contract.summary');
         Route::post('/', [ChargeController::class, 'store'])->name('store');
         Route::get('/client/{clientId}/contracts', [ChargeController::class, 'clientContracts'])->name('client.contracts');
+        Route::get('/contracts/{contract}/summary', [ChargeController::class, 'contractSummary'])->name('cobros.contract.summary');
     });
 
    

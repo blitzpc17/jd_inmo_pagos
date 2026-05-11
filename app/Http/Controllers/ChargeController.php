@@ -84,70 +84,6 @@ class ChargeController extends Controller
         ]);
     }
 
-    public function contractSummary(int $contractId)
-    {
-        $this->refreshSchedulesStatus();
-
-        $contract = DB::table('contracts as c')
-            ->join('clients as cl', 'cl.id', '=', 'c.client_id')
-            ->join('contract_payment_types as cpt', 'cpt.id', '=', 'c.contract_payment_type_id')
-            ->join('statuses as s', 's.id', '=', 'c.status_id')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('c.id', $contractId)
-            ->select([
-                'c.*',
-                'cl.nombres',
-                'cl.apellidos',
-                'cpt.nombre as tipo_pago',
-                's.nombre as estado_nombre',
-                's.clave as estado_clave',
-                'p.clave as proceso_clave',
-            ])
-            ->first();
-
-        abort_if(!$contract, 404, 'Contrato no encontrado');
-
-        $schedules = DB::table('payment_schedules')
-            ->where('contract_id', $contractId)
-            ->orderBy('installment_number')
-            ->get();
-
-        $principalPaid = $this->getContractPrincipalPaid($contractId);
-        $recargoPaid = $this->getContractLateFeePaid($contractId);
-        $debe = max(0, (float)$contract->importe - (float)$principalPaid);
-
-        $lateCount = $schedules->filter(function ($row) {
-            return in_array($row->status, ['VENCIDO', 'PARCIAL'], true);
-        })->count();
-
-        $isLate = $lateCount > 0;
-        $isBlocked = in_array(mb_strtoupper(trim($contract->estado_clave ?? '')), ['LIQUIDADO', 'CANCELADO', 'FINALIZADO'], true);
-
-        return response()->json([
-            'ok' => true,
-            'data' => [
-                'contract_id' => $contract->id,
-                'numero_referencia' => $contract->numero_referencia,
-                'cliente' => trim($contract->nombres . ' ' . $contract->apellidos),
-                'tipo_pago' => $contract->tipo_pago,
-                'estado' => $contract->estado_nombre,
-                'estado_clave' => $contract->estado_clave,
-                'importe' => (float) $contract->importe,
-                'monto_pago_inicial' => (float) $contract->monto_pago_inicial,
-                'saldo_financiado' => (float) $contract->saldo_financiado,
-                'cuota_mensual' => (float) $contract->cuota_mensual,
-                'pagado_total' => (float) ($principalPaid + $recargoPaid),
-                'principal_pagado' => (float) $principalPaid,
-                'recargo_pagado' => (float) $recargoPaid,
-                'debe_total' => (float) $debe,
-                'is_late' => $isLate,
-                'late_count' => $lateCount,
-                'is_blocked' => $isBlocked,
-                'blocked_message' => $isBlocked ? 'No se pueden recibir cobros porque el contrato ya está '.$contract->estado_nombre.'.' : null,
-                'schedules' => $schedules,
-            ]
-        ]);
-    }
 
     public function store(Request $request)
     {
@@ -758,6 +694,126 @@ class ChargeController extends Controller
             ],
             'recibo-cobro-'.$charge->numero_referencia.'.pdf'
         );
+    }
+
+
+    public function contractSummary(int $contractId)
+    {
+        $contract = DB::table('contracts as c')
+            ->join('clients as cl', 'cl.id', '=', 'c.client_id')
+            ->join('contract_payment_types as cpt', 'cpt.id', '=', 'c.contract_payment_type_id')
+            ->join('statuses as s', 's.id', '=', 'c.status_id')
+            ->leftJoin('developments as d', 'd.id', '=', 'c.development_id')
+            ->where('c.id', $contractId)
+            ->select([
+                'c.id',
+                'c.numero_referencia',
+                'c.client_id',
+                'c.development_id',
+                'c.meses',
+                'c.importe',
+                'c.monto_pago_inicial',
+                'c.saldo_financiado',
+                'c.cuota_mensual',
+                'c.dia_pago',
+                DB::raw("cl.nombres || ' ' || cl.apellidos as cliente"),
+                'cpt.nombre as tipo_contrato',
+                's.nombre as estado_contrato',
+                'd.nombre as lotificacion',
+            ])
+            ->first();
+
+        abort_if(!$contract, 404, 'Contrato no encontrado');
+
+        $paidTotal = (float) DB::table('charges')
+            ->whereNull('fecha_baja')
+            ->where('contract_id', $contractId)
+            ->sum(DB::raw('COALESCE(monto,0) + COALESCE(monto_recargo,0)'));
+
+        $dueTotal = max(0, (float) $contract->importe - $paidTotal);
+
+        $officeIds = DB::table('development_offices')
+            ->where('development_id', $contract->development_id)
+            ->pluck('office_id')
+            ->map(fn ($v) => (int) $v)
+            ->unique()
+            ->values();
+
+        $paymentMethods = collect();
+
+        if ($officeIds->isNotEmpty()) {
+            $paymentMethods = DB::table('payment_methods as pm')
+                ->join('offices as o', 'o.id', '=', 'pm.office_id')
+                ->whereIn('pm.office_id', $officeIds)
+                ->orderBy('o.nombre')
+                ->orderBy('pm.nombre')
+                ->get([
+                    'pm.id as value',
+                    DB::raw("pm.nombre || ' (' || o.nombre || ')' as text"),
+                ])
+                ->unique('value')
+                ->values();
+        }
+
+        $schedule = collect();
+        $lateCount = 0;
+
+        if (DB::getSchemaBuilder()->hasTable('payment_schedules')) {
+            $schedule = DB::table('payment_schedules')
+                ->where('contract_id', $contractId)
+                ->orderBy('installment_number')
+                ->get([
+                    'installment_number',
+                    DB::raw("TO_CHAR(due_date, 'YYYY-MM-DD') as due_date"),
+                    DB::raw('COALESCE(amount,0) as amount'),
+                    DB::raw('COALESCE(amount_paid,0) as amount_paid'),
+                    DB::raw('COALESCE(late_fee_amount,0) as late_fee_amount'),
+                    'status',
+                ]);
+
+            $lateCount = $schedule->filter(function ($row) {
+                $status = strtoupper((string) ($row->status ?? ''));
+                return in_array($status, ['VENCIDO', 'PARCIAL'], true);
+            })->count();
+
+            $totalInstallments = max(1, (int) ($contract->meses ?? $schedule->count()));
+
+            $schedule = $schedule->values()->map(function ($row) use ($totalInstallments) {
+                $row->period_label = ($row->installment_number ?? 0) . ' de ' . $totalInstallments;
+                return $row;
+            });
+        }
+
+        $blockedStates = ['LIQUIDADO', 'CANCELADO', 'FINALIZADO'];
+        $isBlocked = in_array(strtoupper((string) $contract->estado_contrato), $blockedStates, true);
+
+        return response()->json([
+            'ok' => true,
+            'data' => [
+                'id' => $contract->id,
+                'numero_referencia' => $contract->numero_referencia,
+                'cliente' => $contract->cliente,
+                'lotificacion' => $contract->lotificacion,
+                'tipo_contrato' => $contract->tipo_contrato,
+                'estado_contrato' => $contract->estado_contrato,
+                'meses' => $contract->meses,
+                'importe' => $contract->importe,
+                'pago_inicial' => $contract->monto_pago_inicial,
+                'saldo_financiado' => $contract->saldo_financiado,
+                'cuota_mensual' => $contract->cuota_mensual,
+                'dia_pago' => $contract->dia_pago,
+                'pagado_total' => $paidTotal,
+                'debe_total' => $dueTotal,
+                'payment_methods' => $paymentMethods,
+                'schedule' => $schedule,
+                'has_late_payments' => $lateCount > 0,
+                'late_count' => $lateCount,
+                'late_message' => $lateCount > 0
+                    ? "El contrato presenta {$lateCount} pago(s) con atraso o parcialidad."
+                    : null,
+                'blocked' => $isBlocked,
+            ]
+        ]);
     }
 
 
