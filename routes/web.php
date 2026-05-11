@@ -32,7 +32,7 @@ use App\Http\Controllers\CreditorVoucherPaymentController;
 
 use App\Http\Controllers\DevelopmentSummaryController;
 
-
+use App\Http\Controllers\DevelopmentCollectionReportController;
 
 
 Route::get('/', fn () => redirect()->route('login'));
@@ -131,6 +131,19 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     Route::get('/resumen-general/export', [DevelopmentSummaryController::class, 'export'])
         ->name('summary.export');
 
+    // REPORTES / COBRANZA
+    Route::get('/reporte-cobranza', [DevelopmentCollectionReportController::class, 'index'])
+        ->name('collection_report.index');
+
+    Route::get('/reporte-cobranza/data', [DevelopmentCollectionReportController::class, 'data'])
+        ->name('collection_report.data');
+
+    Route::get('/reporte-cobranza/export', [DevelopmentCollectionReportController::class, 'export'])
+        ->name('collection_report.export');
+
+
+
+
     // CRUD LOTIFICACIONES
     Route::get('/', [DevelopmentController::class, 'index'])->name('index');
     Route::get('/datatable', [DevelopmentController::class, 'datatable'])->name('datatable');
@@ -205,6 +218,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     Route::delete('/{id}', [DevelopmentController::class, 'destroy'])
         ->whereNumber('id')
         ->name('destroy');
+   
 });
 
 
