@@ -30,6 +30,8 @@ use App\Http\Controllers\CreditorController;
 use App\Http\Controllers\CreditorVoucherController;
 use App\Http\Controllers\CreditorVoucherPaymentController;
 
+use App\Http\Controllers\DevelopmentSummaryController;
+
 
 
 
@@ -116,36 +118,95 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::delete('/{id}', [SupplierController::class, 'destroy'])->name('destroy');
     });
 
+
     Route::prefix('lotificaciones')->name('lotificaciones.')->group(function () {
-        Route::get('/', [DevelopmentController::class, 'index'])->name('index');
-        Route::get('/datatable', [DevelopmentController::class, 'datatable'])->name('datatable');
-        Route::get('/options', [DevelopmentController::class, 'options'])->name('options');
-        Route::post('/', [DevelopmentController::class, 'store'])->name('store');
-        Route::get('/{id}', [DevelopmentController::class, 'show'])->name('show');
-        Route::put('/{id}', [DevelopmentController::class, 'update'])->name('update');
-        Route::delete('/{id}', [DevelopmentController::class, 'destroy'])->name('destroy');
 
-        Route::get('/{development}/lots/options', [DevelopmentLotController::class, 'options'])->name('lots.options');
-        Route::get('/{development}/detalle', [DevelopmentLotController::class, 'index'])->name('lots.index');
-        Route::get('/{development}/lots/datatable', [DevelopmentLotController::class, 'datatable'])->name('lots.datatable');
-        Route::post('/{development}/lots', [DevelopmentLotController::class, 'store'])->name('lots.store');
-        Route::post('/{development}/lots/generate', [DevelopmentLotController::class, 'generate'])->name('lots.generate');
-        Route::post('/{development}/lots/bulk-update', [DevelopmentLotController::class, 'bulkUpdate'])->name('lots.bulk_update');
+    // REPORTES / RESUMEN
+    Route::get('/resumen-general', [DevelopmentSummaryController::class, 'index'])
+        ->name('summary.index');
 
-        Route::prefix('{developmentId}/lotes')->name('lots.')->group(function () {
-            Route::get('/', [DevelopmentLotController::class, 'index'])->name('index');
-            Route::get('/datatable', [DevelopmentLotController::class, 'datatable'])->name('datatable');
-            Route::get('/options', [DevelopmentLotController::class, 'options'])->name('options');
+    Route::get('/resumen-general/data', [DevelopmentSummaryController::class, 'data'])
+        ->name('summary.data');
 
-            Route::post('/generate', [DevelopmentLotController::class, 'generate'])->name('generate');
-            Route::post('/generate-bulk', [DevelopmentLotController::class, 'generateBulk'])->name('generate.bulk');
+    Route::get('/resumen-general/export', [DevelopmentSummaryController::class, 'export'])
+        ->name('summary.export');
 
-            Route::get('/{lotId}', [DevelopmentLotController::class, 'show'])->name('show');
-            Route::put('/{lotId}', [DevelopmentLotController::class, 'update'])->name('update');
-            Route::post('/bulk-update', [DevelopmentLotController::class, 'bulkUpdate'])->name('bulk-update');
-            Route::delete('/{lotId}', [DevelopmentLotController::class, 'destroy'])->name('destroy');
-        });
+    // CRUD LOTIFICACIONES
+    Route::get('/', [DevelopmentController::class, 'index'])->name('index');
+    Route::get('/datatable', [DevelopmentController::class, 'datatable'])->name('datatable');
+    Route::get('/options', [DevelopmentController::class, 'options'])->name('options');
+    Route::post('/', [DevelopmentController::class, 'store'])->name('store');
+
+    // DETALLE / LOTES EN INGLÉS
+    Route::get('/{development}/lots/options', [DevelopmentLotController::class, 'options'])
+        ->whereNumber('development')
+        ->name('lots.options.en');
+
+    Route::get('/{development}/detalle', [DevelopmentLotController::class, 'index'])
+        ->whereNumber('development')
+        ->name('lots.index.en');
+
+    Route::get('/{development}/lots/datatable', [DevelopmentLotController::class, 'datatable'])
+        ->whereNumber('development')
+        ->name('lots.datatable.en');
+
+    // MISMA URL, DISTINTO MÉTODO
+    Route::get('/{development}/lots/{lotId}', [DevelopmentLotController::class, 'show'])
+        ->whereNumber('development')
+        ->whereNumber('lotId')
+        ->name('lots.show.en');
+
+    Route::put('/{development}/lots/{lotId}', [DevelopmentLotController::class, 'update'])
+        ->whereNumber('development')
+        ->whereNumber('lotId')
+        ->name('lots.update.en');
+
+    Route::delete('/{development}/lots/{lotId}', [DevelopmentLotController::class, 'destroy'])
+        ->whereNumber('development')
+        ->whereNumber('lotId')
+        ->name('lots.destroy.en');
+
+    Route::post('/{development}/lots', [DevelopmentLotController::class, 'store'])
+        ->whereNumber('development')
+        ->name('lots.store.en');
+
+    Route::post('/{development}/lots/generate', [DevelopmentLotController::class, 'generate'])
+        ->whereNumber('development')
+        ->name('lots.generate.en');
+
+    Route::post('/{development}/lots/bulk-update', [DevelopmentLotController::class, 'bulkUpdate'])
+        ->whereNumber('development')
+        ->name('lots.bulk_update.en');
+
+    // BLOQUE VIEJO / EN ESPAÑOL
+    Route::prefix('{developmentId}/lotes')->name('lots.')->group(function () {
+        Route::get('/', [DevelopmentLotController::class, 'index'])->name('index');
+        Route::get('/datatable', [DevelopmentLotController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [DevelopmentLotController::class, 'options'])->name('options');
+
+        Route::post('/generate', [DevelopmentLotController::class, 'generate'])->name('generate');
+        Route::post('/generate-bulk', [DevelopmentLotController::class, 'generateBulk'])->name('generate.bulk');
+
+        Route::get('/{lotId}', [DevelopmentLotController::class, 'show'])->name('show');
+        Route::put('/{lotId}', [DevelopmentLotController::class, 'update'])->name('update');
+        Route::post('/bulk-update', [DevelopmentLotController::class, 'bulkUpdate'])->name('bulk-update');
+        Route::delete('/{lotId}', [DevelopmentLotController::class, 'destroy'])->name('destroy');
     });
+
+    // CRUD DINÁMICO AL FINAL
+    Route::get('/{id}', [DevelopmentController::class, 'show'])
+        ->whereNumber('id')
+        ->name('show');
+
+    Route::put('/{id}', [DevelopmentController::class, 'update'])
+        ->whereNumber('id')
+        ->name('update');
+
+    Route::delete('/{id}', [DevelopmentController::class, 'destroy'])
+        ->whereNumber('id')
+        ->name('destroy');
+});
+
 
     Route::prefix('apartados')->name('apartados.')->group(function () {
         Route::get('/', [ReservationController::class, 'index'])->name('index');
