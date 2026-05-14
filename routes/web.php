@@ -34,6 +34,8 @@ use App\Http\Controllers\DevelopmentSummaryController;
 
 use App\Http\Controllers\DevelopmentCollectionReportController;
 
+use App\Http\Controllers\MonthlyCollectionReportController;
+
 
 Route::get('/', fn () => redirect()->route('login'));
 
@@ -140,6 +142,16 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
 
     Route::get('/reporte-cobranza/export', [DevelopmentCollectionReportController::class, 'export'])
         ->name('collection_report.export');
+
+    //REPORTES / COBROS MENSUALES
+    Route::get('/reporte-cobros-mensuales', [MonthlyCollectionReportController::class, 'index'])
+            ->name('monthly_collection_report.index');
+
+    Route::get('/reporte-cobros-mensuales/data', [MonthlyCollectionReportController::class, 'data'])
+            ->name('monthly_collection_report.data');
+
+    Route::get('/reporte-cobros-mensuales/export', [MonthlyCollectionReportController::class, 'export'])
+            ->name('monthly_collection_report.export');
 
 
 

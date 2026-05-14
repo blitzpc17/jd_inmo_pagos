@@ -23,6 +23,7 @@ class MenuSeeder extends Seeder
             ['nombre' => 'Cobranza', 'clave' => 'cobranza_root', 'ruta' => null, 'icono' => 'fa-solid fa-money-bill-wave', 'parent' => null, 'orden' => 4],
             ['nombre' => 'Pagos', 'clave' => 'pagos_root', 'ruta' => null, 'icono' => 'fa-solid fa-wallet', 'parent' => null, 'orden' => 5],
             ['nombre' => 'Acreedores', 'clave' => 'acreedores_root', 'ruta' => null, 'icono' => 'fa-solid fa-hand-holding-dollar', 'parent' => null, 'orden' => 6],
+            ['nombre' => 'Reportería', 'clave' => 'report_modules', 'ruta' => null, 'icono' => null, 'parent' => null, 'orden' => 7],
 
             ['nombre' => 'Usuarios', 'clave' => 'users_module', 'ruta' => 'usuarios', 'icono' => 'fa-solid fa-users', 'parent' => 'security_root', 'orden' => 1],
             ['nombre' => 'Roles', 'clave' => 'roles_module', 'ruta' => 'catalogos/roles', 'icono' => 'fa-solid fa-user-tag', 'parent' => 'security_root', 'orden' => 2],
@@ -53,6 +54,36 @@ class MenuSeeder extends Seeder
             ['nombre' => 'Acreedores', 'clave' => 'creditors_module', 'ruta' => 'acreedores', 'icono' => 'fa-solid fa-users-line', 'parent' => 'acreedores_root', 'orden' => 1],
             ['nombre' => 'Pagos acreedores', 'clave' => 'creditor_payments_module', 'ruta' => 'pagos-acreedores', 'icono' => 'fa-solid fa-money-bills', 'parent' => 'acreedores_root', 'orden' => 2],
             ['nombre' => 'Abonos acreedores', 'clave' => 'creditor_voucher_payments_module', 'ruta' => 'abonos-acreedores', 'icono' => 'fa-solid fa-cash-register', 'parent' => 'acreedores_root', 'orden' => 3],
+
+
+            //reportes
+            ['nombre' => 'Cobros', 'clave' => 'charges_module', 'ruta' => 'cobros', 'icono' => 'fa-solid fa-cash-register', 'parent' => 'cobranza_root', 'orden' => 7],
+            [
+                'nombre' => 'Resumen de lotificaciones',
+                'clave' => 'lotificaciones_resumen',
+                'ruta' => '/lotificaciones/resumen-general',
+                'icono' => 'fa-solid fa-file-alt',
+                'parent' => 'report_modules',
+                'orden' => 3
+            ],
+
+            [
+                'nombre' => 'Reporte cobranza',
+                'clave' => 'report_cobranza',
+                'ruta' => '/lotificaciones/reporte-cobranza',
+                'icono' => 'fa-solid fa-file-alt',
+                'parent' => 'report_modules',
+                'orden' => 2
+            ],
+
+            [
+                'nombre' => 'Rep. Mensual Cobros',
+                'clave' => 'monthly_collection_report_module',
+                'ruta' => 'lotificaciones/reporte-cobros-mensuales',
+                'icono' => 'fa-solid fa-file-alt',
+                'parent' => 'report_modules',
+                'orden' => 4
+            ],
         ];
 
         foreach ($items as $item) {
