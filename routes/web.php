@@ -254,25 +254,32 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     });
 
 
-    Route::prefix('contratos')->name('contratos.')->group(function () {
-        Route::get('/', [ContractController::class, 'index'])->name('index');
-        Route::get('/datatable', [ContractController::class, 'datatable'])->name('datatable');
-        Route::get('/options', [ContractController::class, 'options'])->name('options');
+   Route::prefix('contratos')->name('contratos.')->group(function () {
+    Route::get('/', [ContractController::class, 'index'])->name('index');
+    Route::get('/datatable', [ContractController::class, 'datatable'])->name('datatable');
+    Route::get('/options', [ContractController::class, 'options'])->name('options');
 
-        Route::get('/client/{clientId}/reservations', [ContractController::class, 'clientReservations'])->name('client.reservations');
-        Route::get('/client/{clientId}/developments', [ContractController::class, 'clientDevelopments'])->name('client.developments');
+    Route::get('/client/{clientId}/reservations', [ContractController::class, 'clientReservations'])->name('client.reservations');
+    Route::get('/client/{clientId}/developments', [ContractController::class, 'clientDevelopments'])->name('client.developments');
 
-        Route::get('/development/{developmentId}/lots', [ContractController::class, 'developmentLots'])->name('development.lots');
-        Route::get('/development/{developmentId}/offices', [ContractController::class, 'developmentOffices'])->name('development.offices');
+    Route::get('/development/{developmentId}/lots', [ContractController::class, 'developmentLots'])->name('development.lots');
+    Route::get('/development/{developmentId}/offices', [ContractController::class, 'developmentOffices'])->name('development.offices');
 
-        Route::get('/office/{officeId}/payment-methods', [ContractController::class, 'officePaymentMethods'])->name('office.payment-methods');
+    Route::get('/office/{officeId}/payment-methods', [ContractController::class, 'officePaymentMethods'])->name('office.payment-methods');
 
-        Route::get('/reservation/{reservationId}', [ContractController::class, 'reservationData'])->name('reservation.data');
-        Route::get('/seller/{sellerId}', [ContractController::class, 'sellerData'])->name('seller.data');
+    Route::get('/reservation/{reservationId}', [ContractController::class, 'reservationData'])->name('reservation.data');
+    Route::get('/seller/{sellerId}', [ContractController::class, 'sellerData'])->name('seller.data');
 
-        Route::post('/', [ContractController::class, 'store'])->name('store');
-        Route::get('/{id}', [ContractController::class, 'show'])->name('show');
-    });
+    Route::post('/', [ContractController::class, 'store'])->name('store');
+
+    Route::get('/{id}/document-data', [ContractController::class, 'documentData'])->name('document-data');
+    Route::post('/{id}/document-data', [ContractController::class, 'saveDocumentData'])->name('document-data.save');
+
+    Route::get('/{id}/documento', [ContractController::class, 'document'])->name('document');
+
+    Route::get('/{id}', [ContractController::class, 'show'])->name('show');
+    Route::put('/{id}', [ContractController::class, 'update'])->name('update');
+});
 
     Route::prefix('cobros')->name('cobros.')->group(function () {
         Route::get('/', [ChargeController::class, 'index'])->name('index');

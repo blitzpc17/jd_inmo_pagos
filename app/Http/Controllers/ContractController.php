@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PdfReceiptService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -33,6 +34,7 @@ class ContractController extends Controller
                 'c.saldo_financiado',
                 'c.cuota_mensual',
                 'c.commission_amount',
+                'c.contract_property_type',
                 'cl.nombres',
                 'cl.apellidos',
                 'd.nombre as lotificacion',
@@ -50,6 +52,13 @@ class ContractController extends Controller
             ->map(function ($r) {
                 $r->cliente = trim(($r->nombres ?? '') . ' ' . ($r->apellidos ?? ''));
                 $r->vendedor = trim(($r->vendedor_clave ?? '') . ' - ' . ($r->vendedor_nombres ?? '') . ' ' . ($r->vendedor_apellidos ?? ''));
+                $r->tipo_propiedad = $this->contractPropertyTypeLabel($r->contract_property_type ?? null);
+
+                $canEditDocumentData = $r->estado_clave === 'VIGENTE';
+
+                $documentDataTitle = $canEditDocumentData
+                    ? 'Complemento del contrato'
+                    : 'Ver complemento del contrato';
 
                 $badgeStyle = match ($r->estado_clave) {
                     'VIGENTE' => 'background:#16a34a;color:#fff;',
@@ -60,9 +69,21 @@ class ContractController extends Controller
                 };
 
                 $r->estado_badge = '<span class="badge rounded-pill px-3 py-2" style="'.$badgeStyle.'">'.$r->estado.'</span>';
+
                 $r->acciones = '
-                    <button class="btn btn-sm btn-outline-info btn-view" data-id="'.$r->id.'">
+                    <button class="btn btn-sm btn-outline-info btn-view" data-id="'.$r->id.'" title="Ver detalle">
                         <i class="fa-solid fa-eye"></i>
+                    </button>
+
+                    <button class="btn btn-sm btn-outline-primary btn-document-data"
+                            data-id="'.$r->id.'"
+                            data-can-edit="'.($canEditDocumentData ? '1' : '0').'"
+                            title="'.$documentDataTitle.'">
+                        <i class="fa-solid '.($canEditDocumentData ? 'fa-clipboard-list' : 'fa-clipboard-check').'"></i>
+                    </button>
+
+                    <button class="btn btn-sm btn-outline-danger btn-contract-pdf" data-id="'.$r->id.'" title="Generar contrato PDF">
+                        <i class="fa-solid fa-file-pdf"></i>
                     </button>
                 ';
 
@@ -105,10 +126,11 @@ class ContractController extends Controller
         return response()->json([
             'clients' => $clients,
             'contract_payment_types' => $contractPaymentTypes,
+            'contract_property_types' => $this->contractPropertyTypes(),
             'sellers' => $sellers,
         ]);
     }
-    
+
     public function clientReservations(int $clientId)
     {
         $vigenteId = $this->getReservationStatusId('VIGENTE');
@@ -152,12 +174,7 @@ class ContractController extends Controller
             ->where('development_id', $developmentId)
             ->whereNull('fecha_baja')
             ->where('status_id', $freeStatusId)
-            ->orderByRaw("
-                CASE
-                    WHEN manzana IS NULL OR manzana = '' THEN 999999
-                    ELSE CAST(regexp_replace(manzana, '[^0-9]', '', 'g') AS INTEGER)
-                END ASC
-            ")
+            ->orderBy('manzana')
             ->orderBy('identificador')
             ->get([
                 'id as value',
@@ -168,6 +185,42 @@ class ContractController extends Controller
             ]);
 
         return response()->json($lots);
+    }
+
+    public function developmentOffices(int $developmentId)
+    {
+        $rows = DB::table('development_offices as do')
+            ->join('offices as o', 'o.id', '=', 'do.office_id')
+            ->join('statuses as s', 's.id', '=', 'o.status_id')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('do.development_id', $developmentId)
+            ->whereNull('o.fecha_baja')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->orderBy('o.nombre')
+            ->get([
+                'o.id as value',
+                'o.nombre as text'
+            ]);
+
+        return response()->json($rows);
+    }
+
+    public function officePaymentMethods(int $officeId)
+    {
+        $rows = DB::table('payment_methods as pm')
+            ->join('statuses as s', 's.id', '=', 'pm.status_id')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('pm.office_id', $officeId)
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->orderBy('pm.nombre')
+            ->get([
+                'pm.id as value',
+                'pm.nombre as text'
+            ]);
+
+        return response()->json($rows);
     }
 
     public function reservationData(int $reservationId)
@@ -248,6 +301,7 @@ class ContractController extends Controller
             'lot_ids' => ['required', 'array', 'min:1'],
             'lot_ids.*' => ['integer', 'exists:lots,id'],
             'contract_payment_type_id' => ['required', 'integer', 'exists:contract_payment_types,id'],
+            'contract_property_type' => ['required', 'string', 'in:E,P'],
             'meses' => ['nullable', 'integer', 'min:0'],
             'importe' => ['required', 'numeric', 'min:0.01'],
             'monto_pago_inicial' => ['required', 'numeric', 'min:0'],
@@ -291,6 +345,10 @@ class ContractController extends Controller
         $isCredit = $typeName === 'CRÉDITO' || $typeName === 'CREDITO';
         $isContado = $typeName === 'CONTADO';
 
+        if (!$isCredit && !$isContado) {
+            return response()->json(['message' => 'El tipo de pago del contrato debe ser CONTADO o CREDITO.'], 422);
+        }
+
         if ($isContado && (int) ($data['meses'] ?? 0) > 1) {
             return response()->json(['message' => 'Si el contrato es de contado, meses debe ser 0 o 1.'], 422);
         }
@@ -299,9 +357,11 @@ class ContractController extends Controller
             if ((int) ($data['meses'] ?? 0) <= 0) {
                 return response()->json(['message' => 'Si el contrato es a crédito, debe tener plazo.'], 422);
             }
+
             if ((float) $data['saldo_financiado'] <= 0) {
                 return response()->json(['message' => 'Si el contrato es a crédito, debe tener saldo financiado.'], 422);
             }
+
             if ((float) ($data['cuota_mensual'] ?? 0) <= 0) {
                 return response()->json(['message' => 'Si el contrato es a crédito, debe tener cuota mensual.'], 422);
             }
@@ -388,6 +448,7 @@ class ContractController extends Controller
         }
 
         $differenceToCreate = 0.0;
+
         if (!empty($data['reservation_id']) && (float) $data['monto_pago_inicial'] > $pagosPrevios) {
             $differenceToCreate = (float) $data['monto_pago_inicial'] - $pagosPrevios;
         }
@@ -402,6 +463,8 @@ class ContractController extends Controller
                 'client_id' => $data['client_id'],
                 'development_id' => $data['development_id'],
                 'contract_payment_type_id' => $data['contract_payment_type_id'],
+                'contract_property_type' => $data['contract_property_type'],
+                'contract_document_data' => null,
                 'meses' => $data['meses'] ?? 0,
                 'importe' => $data['importe'],
                 'monto_pago_inicial' => $data['monto_pago_inicial'],
@@ -425,8 +488,10 @@ class ContractController extends Controller
                 ]);
 
             $lotRows = [];
+
             foreach ($lots as $lot) {
                 $basePrice = $isContado ? (float) $lot->precio_contado : (float) $lot->precio_credito;
+
                 $lotRows[] = [
                     'contract_id' => $contractId,
                     'lot_id' => $lot->id,
@@ -546,6 +611,7 @@ class ContractController extends Controller
                 'cl.apellidos',
                 'd.nombre as lotificacion',
                 'cpt.nombre as tipo_pago',
+                's.clave as estado_clave',
                 's.nombre as estado_nombre',
                 'o.nombre as oficina',
                 'sv.clave as vendedor_clave',
@@ -570,12 +636,17 @@ class ContractController extends Controller
 
         return response()->json([
             'ok' => true,
+            'can_edit' => $contract->estado_clave === 'VIGENTE',
             'data' => [
+                'id' => $contract->id,
                 'numero_referencia' => $contract->numero_referencia,
                 'fecha_emision' => $contract->fecha_emision,
                 'cliente' => trim($contract->nombres . ' ' . $contract->apellidos),
                 'lotificacion' => $contract->lotificacion,
                 'tipo_pago' => $contract->tipo_pago,
+                'contract_property_type' => $contract->contract_property_type,
+                'tipo_propiedad' => $this->contractPropertyTypeLabel($contract->contract_property_type),
+                'estado_clave' => $contract->estado_clave,
                 'estado' => $contract->estado_nombre,
                 'oficina' => $contract->oficina,
                 'meses' => $contract->meses,
@@ -590,6 +661,363 @@ class ContractController extends Controller
                 'lots' => $lots,
             ]
         ]);
+    }
+
+    public function update(Request $request, int $id)
+    {
+        $contract = DB::table('contracts as c')
+            ->join('statuses as s', 's.id', '=', 'c.status_id')
+            ->where('c.id', $id)
+            ->whereNull('c.fecha_baja')
+            ->select([
+                'c.id',
+                's.clave as estado_clave',
+                's.nombre as estado_nombre',
+            ])
+            ->first();
+
+        abort_if(!$contract, 404, 'Contrato no encontrado');
+
+        if ($contract->estado_clave !== 'VIGENTE') {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Solo se pueden modificar contratos en estado VIGENTE.',
+            ], 422);
+        }
+
+        $data = $request->validate([
+            'contract_property_type' => ['required', 'string', 'in:E,P'],
+            'observaciones' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        DB::table('contracts')
+            ->where('id', $id)
+            ->update([
+                'contract_property_type' => $data['contract_property_type'],
+                'observaciones' => $data['observaciones'] ?? null,
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Contrato actualizado correctamente.',
+        ]);
+    }
+
+    public function documentData(int $id)
+    {
+        $contract = DB::table('contracts as c')
+            ->join('clients as cli', 'cli.id', '=', 'c.client_id')
+            ->join('statuses as st', 'st.id', '=', 'c.status_id')
+            ->leftJoin('contract_lots as cl', 'cl.contract_id', '=', 'c.id')
+            ->leftJoin('lots as l', 'l.id', '=', 'cl.lot_id')
+            ->where('c.id', $id)
+            ->whereNull('c.fecha_baja')
+            ->groupBy(
+                'c.id',
+                'c.contract_document_data',
+                'c.observaciones',
+                'cli.nombres',
+                'cli.apellidos',
+                'cli.direccion',
+                'cli.telefono',
+                'st.clave',
+                'st.nombre'
+            )
+            ->select([
+                'c.id',
+                'c.contract_document_data',
+                'c.observaciones',
+                'cli.nombres',
+                'cli.apellidos',
+                'cli.direccion',
+                'cli.telefono',
+                'st.clave as estado_clave',
+                'st.nombre as estado_nombre',
+                DB::raw("STRING_AGG(DISTINCT l.identificador, ', ' ORDER BY l.identificador) as lotes_sugeridos"),
+                DB::raw("STRING_AGG(DISTINCT COALESCE(l.manzana,''), ', ' ORDER BY COALESCE(l.manzana,'')) as manzanas_sugeridas"),
+            ])
+            ->first();
+
+        abort_if(!$contract, 404, 'Contrato no encontrado');
+
+        $jsonData = [];
+
+        if (!empty($contract->contract_document_data)) {
+            $jsonData = is_array($contract->contract_document_data)
+                ? $contract->contract_document_data
+                : json_decode($contract->contract_document_data, true);
+
+            if (!is_array($jsonData)) {
+                $jsonData = [];
+            }
+        }
+
+        $canEdit = $contract->estado_clave === 'VIGENTE';
+
+        $clientName = trim(($contract->nombres ?? '') . ' ' . ($contract->apellidos ?? ''));
+
+        $systemAddress = trim((string) ($contract->direccion ?? ''));
+        $systemPhone = trim((string) ($contract->telefono ?? ''));
+
+        $useSystemAddress = array_key_exists('usar_direccion_sistema', $jsonData)
+            ? (bool) $jsonData['usar_direccion_sistema']
+            : !empty($systemAddress);
+
+        $useSystemPhone = array_key_exists('usar_telefono_sistema', $jsonData)
+            ? (bool) $jsonData['usar_telefono_sistema']
+            : !empty($systemPhone);
+
+        $addressValue = $useSystemAddress
+            ? $systemAddress
+            : ($jsonData['direccion_comprador'] ?? '');
+
+        $phoneValue = $useSystemPhone
+            ? $systemPhone
+            : ($jsonData['telefono_comprador'] ?? '');
+
+        $loteNumero = $this->extractContractLotNumbers($contract->lotes_sugeridos ?? '');
+
+        return response()->json([
+            'success' => true,
+            'can_edit' => $canEdit,
+            'estado_clave' => $contract->estado_clave,
+            'estado_nombre' => $contract->estado_nombre,
+            'message' => $canEdit
+                ? null
+                : 'Este contrato está ' . $contract->estado_nombre . ', por lo tanto los datos complementarios solo se pueden visualizar.',
+            'system' => [
+                'direccion_comprador' => $systemAddress,
+                'telefono_comprador' => $systemPhone,
+            ],
+            'data' => array_merge([
+                'ciudad_firma' => 'TEHUACÁN PUEBLA',
+                'ubicacion_terreno' => '',
+
+                'usar_direccion_sistema' => $useSystemAddress ? 1 : 0,
+                'direccion_comprador' => $addressValue,
+
+                'usar_telefono_sistema' => $useSystemPhone ? 1 : 0,
+                'telefono_comprador' => $phoneValue,
+
+                'comprador_nombre' => $clientName,
+
+                'lote_numero' => $loteNumero,
+                'manzana_numero' => $contract->manzanas_sugeridas ?? '',
+
+                'area_m2' => '',
+                'norte_medida' => '',
+                'norte_colindancia' => '',
+                'sur_medida' => '',
+                'sur_colindancia' => '',
+                'oriente_medida' => '',
+                'oriente_colindancia' => '',
+                'poniente_medida' => '',
+                'poniente_colindancia' => '',
+
+                'testigo_1' => '',
+                'testigo_2' => '',
+
+                'observaciones_documento' => $contract->observaciones ?? '',
+            ], $jsonData, [
+                'lote_numero' => $loteNumero,
+                'manzana_numero' => $contract->manzanas_sugeridas ?? '',
+                'observaciones_documento' => $contract->observaciones ?? '',
+                'direccion_comprador' => $addressValue,
+                'telefono_comprador' => $phoneValue,
+                'usar_direccion_sistema' => $useSystemAddress ? 1 : 0,
+                'usar_telefono_sistema' => $useSystemPhone ? 1 : 0,
+            ]),
+        ]);
+    }
+
+    public function saveDocumentData(Request $request, int $id)
+    {
+        $contract = DB::table('contracts as c')
+            ->join('clients as cli', 'cli.id', '=', 'c.client_id')
+            ->join('statuses as st', 'st.id', '=', 'c.status_id')
+            ->leftJoin('contract_lots as cl', 'cl.contract_id', '=', 'c.id')
+            ->leftJoin('lots as l', 'l.id', '=', 'cl.lot_id')
+            ->where('c.id', $id)
+            ->whereNull('c.fecha_baja')
+            ->groupBy(
+                'c.id',
+                'c.observaciones',
+                'cli.direccion',
+                'cli.telefono',
+                'st.clave',
+                'st.nombre'
+            )
+            ->select([
+                'c.id',
+                'c.observaciones',
+                'cli.direccion',
+                'cli.telefono',
+                'st.clave as estado_clave',
+                'st.nombre as estado_nombre',
+                DB::raw("STRING_AGG(DISTINCT l.identificador, ', ' ORDER BY l.identificador) as lotes_sugeridos"),
+                DB::raw("STRING_AGG(DISTINCT COALESCE(l.manzana,''), ', ' ORDER BY COALESCE(l.manzana,'')) as manzanas_sugeridas"),
+            ])
+            ->first();
+
+        abort_if(!$contract, 404, 'Contrato no encontrado');
+
+        if ($contract->estado_clave !== 'VIGENTE') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este contrato está ' . $contract->estado_nombre . ', por lo tanto ya no se pueden modificar sus datos complementarios.',
+            ], 422);
+        }
+
+        $data = $request->validate([
+            'ciudad_firma' => ['nullable', 'string', 'max:180'],
+            'ubicacion_terreno' => ['nullable', 'string', 'max:500'],
+
+            'usar_direccion_sistema' => ['nullable'],
+            'direccion_comprador' => ['nullable', 'string', 'max:500'],
+
+            'usar_telefono_sistema' => ['nullable'],
+            'telefono_comprador' => ['nullable', 'string', 'max:80'],
+
+            'area_m2' => ['nullable', 'string', 'max:120'],
+
+            'norte_medida' => ['nullable', 'string', 'max:120'],
+            'norte_colindancia' => ['nullable', 'string', 'max:300'],
+
+            'sur_medida' => ['nullable', 'string', 'max:120'],
+            'sur_colindancia' => ['nullable', 'string', 'max:300'],
+
+            'oriente_medida' => ['nullable', 'string', 'max:120'],
+            'oriente_colindancia' => ['nullable', 'string', 'max:300'],
+
+            'poniente_medida' => ['nullable', 'string', 'max:120'],
+            'poniente_colindancia' => ['nullable', 'string', 'max:300'],
+
+            'testigo_1' => ['nullable', 'string', 'max:180'],
+            'testigo_2' => ['nullable', 'string', 'max:180'],
+        ]);
+
+        $useSystemAddress = $request->boolean('usar_direccion_sistema');
+        $useSystemPhone = $request->boolean('usar_telefono_sistema');
+
+        $data['usar_direccion_sistema'] = $useSystemAddress ? 1 : 0;
+        $data['usar_telefono_sistema'] = $useSystemPhone ? 1 : 0;
+
+        $data['direccion_comprador'] = $useSystemAddress
+            ? trim((string) ($contract->direccion ?? ''))
+            : trim((string) ($data['direccion_comprador'] ?? ''));
+
+        $data['telefono_comprador'] = $useSystemPhone
+            ? trim((string) ($contract->telefono ?? ''))
+            : trim((string) ($data['telefono_comprador'] ?? ''));
+
+        $data['lote_numero'] = $this->extractContractLotNumbers($contract->lotes_sugeridos ?? '');
+        $data['manzana_numero'] = $contract->manzanas_sugeridas ?? '';
+        $data['observaciones_documento'] = $contract->observaciones ?? '';
+
+        DB::table('contracts')
+            ->where('id', $id)
+            ->update([
+                'contract_document_data' => json_encode($data, JSON_UNESCAPED_UNICODE),
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Datos complementarios del contrato guardados correctamente.',
+        ]);
+    }
+
+    public function document(int $id, PdfReceiptService $pdf)
+    {
+        $contract = DB::table('contracts as c')
+            ->join('clients as cl', 'cl.id', '=', 'c.client_id')
+            ->join('developments as d', 'd.id', '=', 'c.development_id')
+            ->join('contract_payment_types as cpt', 'cpt.id', '=', 'c.contract_payment_type_id')
+            ->join('statuses as s', 's.id', '=', 'c.status_id')
+            ->leftJoin('offices as o', 'o.id', '=', 'c.office_id')
+            ->leftJoin('sellers as sv', 'sv.id', '=', 'c.seller_id')
+            ->leftJoin('personal as sp', 'sp.id', '=', 'sv.personal_id')
+            ->where('c.id', $id)
+            ->whereNull('c.fecha_baja')
+            ->select([
+                'c.*',
+                'cl.nombres',
+                'cl.apellidos',
+                'cl.telefono',
+                'cl.direccion',
+                'd.nombre as lotificacion',
+                'cpt.nombre as tipo_pago',
+                's.nombre as estado_nombre',
+                'o.nombre as oficina',
+                'sv.clave as vendedor_clave',
+                'sp.nombres as vendedor_nombres',
+                'sp.apellidos as vendedor_apellidos',
+            ])
+            ->first();
+
+        abort_if(!$contract, 404, 'Contrato no encontrado');
+
+        $paymentTypeName = mb_strtoupper(trim($contract->tipo_pago));
+        $isCredit = $paymentTypeName === 'CRÉDITO' || $paymentTypeName === 'CREDITO';
+        $isContado = $paymentTypeName === 'CONTADO';
+
+        if (!$isCredit && !$isContado) {
+            abort(422, 'El tipo de pago del contrato debe ser CONTADO o CREDITO para seleccionar plantilla.');
+        }
+
+        if (empty($contract->contract_property_type) || !in_array($contract->contract_property_type, ['E', 'P'], true)) {
+            abort(422, 'Para generar el contrato primero debes modificar el contrato y elegir el tipo: EJIDO o PROPIEDAD.');
+        }
+
+        $documentData = [];
+
+        if (!empty($contract->contract_document_data)) {
+            $documentData = json_decode($contract->contract_document_data, true);
+
+            if (!is_array($documentData)) {
+                $documentData = [];
+            }
+        }
+
+        $lots = DB::table('contract_lots as cl')
+            ->join('lots as l', 'l.id', '=', 'cl.lot_id')
+            ->where('cl.contract_id', $id)
+            ->orderBy('l.identificador')
+            ->get([
+                'l.identificador',
+                'l.manzana',
+                'cl.sale_price',
+                'cl.subtotal',
+            ]);
+
+        $sellerName = trim(
+            ($contract->vendedor_nombres ?? '') . ' ' . ($contract->vendedor_apellidos ?? '')
+        );
+
+        $clientName = trim(
+            ($contract->nombres ?? '') . ' ' . ($contract->apellidos ?? '')
+        );
+
+        return $pdf->stream(
+            'pdf.contracts.document',
+            [
+                'contract' => $contract,
+                'lots' => $lots,
+                'documentData' => $documentData,
+                'clientName' => $clientName,
+                'sellerName' => $sellerName ?: 'DANY FRANK PABLO FLORES',
+                'propertyTypeLabel' => $this->contractPropertyTypeLabel($contract->contract_property_type),
+                'isCredit' => $isCredit,
+                'isContado' => $isContado,
+                'templateKey' => strtolower($contract->contract_property_type) . '_' . ($isCredit ? 'credito' : 'contado'),
+                'document_type' => $isCredit
+                    ? 'CONTRATO DE COMPRA-VENTA A CREDITO'
+                    : 'CONTRATO DE COMPRA-VENTA AL CONTADO',
+                'folio' => $contract->numero_referencia,
+            ],
+            'contrato_' . $contract->numero_referencia . '.pdf'
+        );
     }
 
     protected function generateSchedule(int $contractId, int $months, float $monthlyAmount, int $dayOfMonth): void
@@ -620,97 +1048,117 @@ class ContractController extends Controller
 
     protected function getReservationStatusId(string $clave): int
     {
-        $id = DB::table('statuses as s')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('p.clave', 'RESERVATION_STATUS')
-            ->where('s.clave', $clave)
-            ->value('s.id');
-
-        if (!$id) {
-            abort(500, "No existe el estado {$clave} para RESERVATION_STATUS.");
-        }
-
-        return (int) $id;
+        return $this->getStatusId('RESERVATION_STATUS', $clave);
     }
 
     protected function getContractStatusId(string $clave): int
     {
-        $id = DB::table('statuses as s')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('p.clave', 'CONTRACT_STATUS')
-            ->where('s.clave', $clave)
-            ->value('s.id');
-
-        if (!$id) {
-            abort(500, "No existe el estado {$clave} para CONTRACT_STATUS.");
-        }
-
-        return (int) $id;
+        return $this->getStatusId('CONTRACT_STATUS', $clave);
     }
 
     protected function getLotStatusId(string $clave): int
     {
-        $id = DB::table('statuses as s')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('p.clave', 'LOT_STATUS')
-            ->where('s.clave', $clave)
-            ->value('s.id');
-
-        if (!$id) {
-            abort(500, "No existe el estado {$clave} para LOT_STATUS.");
-        }
-
-        return (int) $id;
+        return $this->getStatusId('LOT_STATUS', $clave);
     }
 
     protected function getChargeStatusId(string $clave): int
     {
+        return $this->getStatusId('CHARGE_STATUS', $clave);
+    }
+
+    protected function getStatusId(string $processClave, string $statusClave): int
+    {
         $id = DB::table('statuses as s')
             ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('p.clave', 'CHARGE_STATUS')
-            ->where('s.clave', $clave)
+            ->where('p.clave', $processClave)
+            ->where('s.clave', $statusClave)
             ->value('s.id');
 
         if (!$id) {
-            abort(500, "No existe el estado {$clave} para CHARGE_STATUS.");
+            abort(500, "No existe el estado {$statusClave} para {$processClave}.");
         }
 
         return (int) $id;
     }
 
-    public function developmentOffices(int $developmentId)
+    protected function contractPropertyTypes(): array
     {
-        $rows = DB::table('development_offices as do')
-            ->join('offices as o', 'o.id', '=', 'do.office_id')
-            ->join('statuses as s', 's.id', '=', 'o.status_id')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('do.development_id', $developmentId)
-            ->whereNull('o.fecha_baja')
-            ->where('p.clave', 'GENERAL')
-            ->where('s.clave', 'ACTIVE')
-            ->orderBy('o.nombre')
-            ->get([
-                'o.id as value',
-                'o.nombre as text'
-            ]);
+        $default = [
+            [
+                'value' => 'E',
+                'text' => 'EJIDO',
+            ],
+            [
+                'value' => 'P',
+                'text' => 'PROPIEDAD',
+            ],
+        ];
 
-        return response()->json($rows);
+        try {
+            $row = DB::table('global_variables')
+                ->where('nombre', 'CONTRACT_PROPERTY_TYPES')
+                ->first();
+
+            if (!$row || empty($row->valor)) {
+                return $default;
+            }
+
+            $json = is_array($row->valor)
+                ? $row->valor
+                : json_decode($row->valor, true);
+
+            if (!is_array($json)) {
+                return $default;
+            }
+
+            return collect($json)
+                ->map(function ($item) {
+                    return [
+                        'value' => $item['id'] ?? null,
+                        'text' => $item['descripcion'] ?? null,
+                    ];
+                })
+                ->filter(fn ($item) => !empty($item['value']) && !empty($item['text']))
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            return $default;
+        }
     }
 
-    public function officePaymentMethods(int $officeId)
+    protected function contractPropertyTypeLabel(?string $value): string
     {
-        $rows = DB::table('payment_methods as pm')
-            ->join('statuses as s', 's.id', '=', 'pm.status_id')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('pm.office_id', $officeId)
-            ->where('p.clave', 'GENERAL')
-            ->where('s.clave', 'ACTIVE')
-            ->orderBy('pm.nombre')
-            ->get([
-                'pm.id as value',
-                'pm.nombre as text'
-            ]);
+        return match ($value) {
+            'E' => 'EJIDO',
+            'P' => 'PROPIEDAD',
+            default => '',
+        };
+    }
 
-        return response()->json($rows);
+    protected function extractContractLotNumbers(?string $identifiers): string
+    {
+        if (empty($identifiers)) {
+            return '';
+        }
+
+        return collect(explode(',', $identifiers))
+            ->map(function ($value) {
+                $value = trim($value);
+
+                if (preg_match('/\bL[\w\-]+$/i', $value, $matches)) {
+                    return strtoupper($matches[0]);
+                }
+
+                if (preg_match('/\bLOTE\s*[\w\-]+$/i', $value, $matches)) {
+                    return strtoupper(trim($matches[0]));
+                }
+
+                $parts = preg_split('/\s+/', $value);
+
+                return strtoupper(trim(end($parts) ?: $value));
+            })
+            ->filter()
+            ->unique()
+            ->implode(', ');
     }
 }

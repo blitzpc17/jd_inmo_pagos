@@ -15,28 +15,70 @@ class PdfReceiptService
         'dark'    => '#0D0D0D',
     ];
 
-    public function stream(string $view, array $data, string $filename = 'recibo.pdf')
+    public function stream(string $view, array $data = [], string $filename = 'documento.pdf')
     {
-        $payload = array_merge($data, [
-            'branding' => $this->branding(),
-            'palette'  => $this->palette,
-        ]);
+        $pdf = Pdf::loadView($view, $data);
 
-        return Pdf::loadView($view, $payload)
-            ->setPaper('letter', 'portrait')
-            ->stream($filename);
+        $dompdf = $pdf->getDomPDF();
+        $dompdf->render();
+
+        $canvas = $dompdf->getCanvas();
+
+        $canvas->page_script(function ($pageNumber, $pageCount, $canvas, $fontMetrics) {
+            $text = "Página {$pageNumber} de {$pageCount}";
+            $font = $fontMetrics->getFont('Helvetica', 'normal');
+            $fontSize = 8;
+
+            $textWidth = $fontMetrics->getTextWidth($text, $font, $fontSize);
+
+            /*
+            * 3 cm aprox = 85 pt.
+            * Lo dejamos alineado a la derecha, respetando margen derecho.
+            */
+            $x = $canvas->get_width() - $textWidth - 85;
+
+            /*
+            * Lo subimos para que quede dentro del área imprimible,
+            * no pegado al borde inferior.
+            */
+            $y = $canvas->get_height() - 38;
+
+            $canvas->text($x, $y, $text, $font, $fontSize, [0, 0, 0]);
+
+            $canvas->text($x, $y, $text, $font, $fontSize, [0, 0, 0]);
+        });
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
     }
 
-    public function download(string $view, array $data, string $filename = 'recibo.pdf')
+    public function download(string $view, array $data = [], string $filename = 'documento.pdf')
     {
-        $payload = array_merge($data, [
-            'branding' => $this->branding(),
-            'palette'  => $this->palette,
-        ]);
+        $pdf = Pdf::loadView($view, $data);
 
-        return Pdf::loadView($view, $payload)
-            ->setPaper('letter', 'portrait')
-            ->download($filename);
+        $dompdf = $pdf->getDomPDF();
+        $dompdf->render();
+
+        $canvas = $dompdf->getCanvas();
+
+        $canvas->page_script(function ($pageNumber, $pageCount, $canvas, $fontMetrics) {
+            $text = "Página {$pageNumber} de {$pageCount}";
+            $font = $fontMetrics->getFont('Helvetica', 'normal');
+            $fontSize = 8;
+
+            $textWidth = $fontMetrics->getTextWidth($text, $font, $fontSize);
+            $x = ($canvas->get_width() - $textWidth) / 2;
+            $y = $canvas->get_height() - 10;
+
+            $canvas->text($x, $y, $text, $font, $fontSize, [0, 0, 0]);
+        });
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     public function branding(): array
