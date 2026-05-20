@@ -55,14 +55,34 @@
             vertical-align: middle;
         }
 
-        .watermark-logo {
+        /*
+         * Marca de agua centrada horizontal y verticalmente.
+         */
+        .watermark-wrapper {
             position: fixed;
-            top: 40%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            opacity: 0.06;
-            width: 420px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             z-index: -1000;
+        }
+
+        .watermark-table {
+            width: 100%;
+            height: 100%;
+            border-collapse: collapse;
+        }
+
+        .watermark-cell {
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .watermark-logo {
+            width: 430px;
+            opacity: 0.055;
         }
 
         .contract-title {
@@ -81,6 +101,12 @@
 
         .contract-text p {
             margin: 0 0 8px 0;
+        }
+
+        .center-title {
+            text-align: center;
+            font-weight: bold;
+            margin: 10px 0;
         }
 
         .clause-title {
@@ -143,6 +169,23 @@
 
 @php
     $documentData = $documentData ?? [];
+    $branding = $branding ?? [];
+
+    $logoRelativePath = $branding['logo_path'] ?? 'assets/images/logo.png';
+    $logoPath = public_path($logoRelativePath);
+
+    if (!file_exists($logoPath)) {
+        $logoPath = public_path('assets/images/logo.png');
+    }
+
+    if (!file_exists($logoPath)) {
+        $logoPath = public_path('images/logo.png');
+    }
+
+    $hasLogo = file_exists($logoPath);
+
+    $footerAddress = $branding['address_line'] ?? 'VISITANOS EN 3 ORIENTE #736 COL. RICARDO FLORES MAGON TEHUACAN PUEBLA.';
+    $footerPhone = $branding['phone_line'] ?? 'TELEFONO 238 289 0712';
 
     $lotNames = $documentData['lote_numero'] ?? $lots->pluck('identificador')->filter()->implode(', ');
     $manzanas = $documentData['manzana_numero'] ?? $lots->pluck('manzana')->filter()->unique()->implode(', ');
@@ -175,25 +218,23 @@
     $pagoInicial = (float) ($contract->monto_pago_inicial ?? 0);
     $cuota = (float) ($contract->cuota_mensual ?? 0);
     $meses = (int) ($contract->meses ?? 0);
-
-    $logoPath = public_path('assets/images/logo.png');
-
-    if (!file_exists($logoPath)) {
-        $logoPath = public_path('images/logo.png');
-    }
-
-    $hasLogo = file_exists($logoPath);
 @endphp
 
 @if($hasLogo)
-    <img src="{{ $logoPath }}" class="watermark-logo">
+    <div class="watermark-wrapper">
+        <table class="watermark-table">
+            <tr>
+                <td class="watermark-cell">
+                    <img src="{{ $logoPath }}" class="watermark-logo">
+                </td>
+            </tr>
+        </table>
+    </div>
 @endif
 
 <div class="contract-footer">
-    VISITANOS EN<br>
-    3 ORIENTE #736 COL. RICARDO FLORES MAGON<br>
-    TEHUACAN PUEBLA.<br>
-    TELEFONO 238 289 0712
+    {{ $footerAddress }}<br>
+    {{ $footerPhone }}
 </div>
 
 <div class="pdf-header">
@@ -219,6 +260,10 @@
 </div>
 
 <div class="contract-text">
+
+    {{-- =========================================================
+        ENCABEZADO COMÚN
+    ========================================================= --}}
     <p>
         CONTRATO DE COMPRA-VENTA QUE SE CELEBRA POR UNA PARTE COMO VENDEDOR EL
         C. {{ mb_strtoupper($sellerName ?: 'DANY FRANK PABLO FLORES') }}
@@ -226,11 +271,11 @@
         {{ mb_strtoupper($clientName) }},
         CON DIRECCIÓN EN {{ mb_strtoupper($direccionComprador ?: '____________________________') }},
         CON NÚMERO TELEFÓNICO {{ $telefonoComprador ?: '________________' }}.
-        QUE SE CELEBRA EN LA CIUDAD DE {{ mb_strtoupper($ciudadFirma) }}, CONTRATO QUE SE SUJETA
-        AL TENOR DE LAS SIGUIENTES DECLARACIONES Y CLÁUSULAS.
+        QUE SE CELEBRA EN LA CIUDAD DE {{ mb_strtoupper($ciudadFirma) }},
+        CONTRATO QUE SE SUJETA AL TENOR DE LAS SIGUIENTES DECLARACIONES Y CLÁUSULAS.
     </p>
 
-    <p class="clause-title">DECLARACIONES:</p>
+    <p class="center-title">DECLARACIONES:</p>
 
     <p>
         <span class="clause-title">PRIMERA.</span>
@@ -240,20 +285,20 @@
 
     <p>
         <span class="clause-title">SEGUNDA.</span>
-        El comprador declara por su propio derecho tener plena capacidad jurídica y económica
-        para celebrar tanto este contrato de compra-venta, como contrato definitivo objetivo presente.
+        El comprador declara por su propio derecho tener plena capacidad jurídica y económica,
+        para celebrar tanto este contrato de compra-venta, como contrato definitivo, objetivo presente.
     </p>
 
     <p>
         Hechas las declaraciones anteriores al efecto se otorgan las siguientes:
     </p>
 
-    <p class="clause-title">CLÁUSULAS:</p>
+    <p class="center-title">CLÁUSULAS:</p>
 
     <p>
         <span class="clause-title">PRIMERA.</span>
-        Ambas partes se obligan a perfeccionar la presente operación mediante la documentación
-        debida ante la autoridad correspondiente, después de la liquidación total del mismo.
+        Ambas partes se obligan a perfeccionar la presente operación mediante la documentación debida
+        ante la autoridad correspondiente, después de la liquidación total del mismo.
     </p>
 
     <p>
@@ -286,7 +331,85 @@
         El terreno tiene un área de {{ $area ?: '__________' }} m2.
     </p>
 
-    @if($isCredit)
+    {{-- =========================================================
+        1) EJIDO + CONTADO
+        Archivo base: CONTRATO CONTADO (EJIDO).docx
+    ========================================================= --}}
+    @if($templateKey === 'e_contado')
+        <p>
+            <span class="clause-title">TERCERA.</span>
+            El precio fijado para la celebración de la mencionada operación es la cantidad de
+            ${{ number_format($importe, 2) }} PESOS 00/100 M.N.
+            Queda en común acuerdo que, en el momento de la firma de este contrato,
+            la parte compradora deposita en efectivo la cantidad de
+            ${{ number_format($pagoInicial, 2) }} PESOS 00/100 M.N.,
+            CON LO CUAL SE DA POR PAGADO COMPLETAMENTE.
+        </p>
+
+        <p>
+            <span class="clause-title">CUARTA.</span>
+            Al momento de la firma del presente contrato, la parte vendedora como legítimo propietario
+            del inmueble, se obliga a desocupar el terreno objeto de este y sin limitación del dominio.
+        </p>
+
+        <p>
+            <span class="clause-title">QUINTA.</span>
+            Se compromete el vendedor a acudir ante el comisariado ejidal correspondiente para otorgarle
+            la firma de su constancia de posesión, dicho documento será pagado por el comprador en su totalidad.
+        </p>
+
+        <p>
+            <span class="clause-title">SEXTA.</span>
+            Para la interpretación y cumplimiento de este contrato, las partes manifiestan su conformidad
+            y sometimiento a los tribunales de la jurisdicción del Distrito Judicial de Tehuacán Puebla,
+            renunciando expresamente al fuero de su domicilio presente o futuro.
+        </p>
+    @endif
+
+    {{-- =========================================================
+        2) PROPIEDAD + CONTADO
+        Archivo base: CONTRATO CONTADO (PROPIEDAD).docx
+    ========================================================= --}}
+    @if($templateKey === 'p_contado')
+        <p>
+            <span class="clause-title">TERCERA.</span>
+            El precio fijado para la celebración de la mencionada operación es la cantidad de
+            ${{ number_format($importe, 2) }} PESOS 00/100 M.N.
+            Queda en común acuerdo que, en el momento de la firma de este contrato,
+            la parte compradora deposita en efectivo la cantidad de
+            ${{ number_format($pagoInicial, 2) }} PESOS 00/100 M.N.,
+            CON LO CUAL SE DA POR PAGADO COMPLETAMENTE.
+        </p>
+
+        <p>
+            <span class="clause-title">CUARTA.</span>
+            Al momento de la firma del presente contrato, la parte vendedora como legítimo propietario
+            del inmueble, se obliga a desocupar el terreno objeto de este y sin limitación del dominio.
+        </p>
+
+        <p>
+            <span class="clause-title">QUINTA.</span>
+            Consecuentemente con lo dispuesto en este contrato de compra y venta, EL COMPRADOR acuerda que,
+            para la firma de las escrituras del presente predio, realizará la solicitud de otorgamiento
+            de escrituras ante un Juez Civil, por lo que los gastos notariales, ISABI, ISR, avalúos,
+            segregaciones y todo lo que se requiera con respecto a la escritura, así como pagos por impuestos,
+            servicios, derechos y cooperaciones a la colonia, a partir de la firma del presente,
+            serán por cuenta del COMPRADOR.
+        </p>
+
+        <p>
+            <span class="clause-title">SEXTA.</span>
+            Para la interpretación y cumplimiento de este contrato, las partes manifiestan su conformidad
+            y sometimiento a los tribunales de la jurisdicción del Distrito Judicial de Tehuacán Puebla,
+            renunciando expresamente al fuero de su domicilio presente o futuro.
+        </p>
+    @endif
+
+    {{-- =========================================================
+        3) EJIDO + CRÉDITO
+        Archivo base: CONTRATO CREDITO TEHUACAN SIN LLENAR (EJIDO).docx
+    ========================================================= --}}
+    @if($templateKey === 'e_credito')
         <p>
             <span class="clause-title">TERCERA.</span>
             El precio total fijado para la celebración de la mencionada operación es la cantidad de
@@ -303,57 +426,21 @@
             <span class="clause-title">CUARTA.</span>
             Al momento de la firma del presente contrato, la parte vendedora como legítimo propietario
             del inmueble, se obliga a entregarlo desocupado y donde el comprador no podrá realizar
-            construcción de albañilería o de materiales hasta que tenga cubierto el 50% del valor del lote.
-        </p>
-    @else
-        <p>
-            <span class="clause-title">TERCERA.</span>
-            El precio fijado para la celebración de la mencionada operación es la cantidad de
-            ${{ number_format($importe, 2) }} PESOS 00/100 M.N.
-            Queda en común acuerdo que, en el momento de la firma de este contrato, la parte compradora
-            deposita en efectivo la cantidad de ${{ number_format($pagoInicial, 2) }} PESOS 00/100 M.N.
-            CON LO CUAL SE DA POR PAGADO COMPLETAMENTE.
+            construcción de albañilería o de materiales hasta que tenga cubierto el 50% del valor del lote,
+            únicamente se autoriza la construcción de jacales de madera, carrizo con techumbre de lámina.
         </p>
 
-        <p>
-            <span class="clause-title">CUARTA.</span>
-            Al momento de la firma del presente contrato, la parte vendedora como legítimo propietario
-            del inmueble, se obliga a desocupar el terreno objeto de este y sin limitación del dominio.
-        </p>
-    @endif
-
-    @if($contract->contract_property_type === 'E')
-        @if($isCredit)
-            <p>
-                <span class="clause-title">QUINTA.</span>
-                Se compromete el vendedor a acudir ante el comisariado ejidal correspondiente para
-                otorgarle la firma de su constancia de posesión del lote antes referido una vez liquidado
-                este contrato privado de compra y venta a crédito.
-            </p>
-        @else
-            <p>
-                <span class="clause-title">QUINTA.</span>
-                Se compromete el vendedor a acudir ante el comisariado ejidal correspondiente para
-                otorgarle la firma de su constancia de posesión, dicho documento será pagado por el comprador
-                en su totalidad.
-            </p>
-        @endif
-    @else
         <p>
             <span class="clause-title">QUINTA.</span>
-            Consecuentemente con lo dispuesto en este contrato, EL COMPRADOR acuerda que, para la firma
-            de las escrituras del presente predio, realizará la solicitud de otorgamiento de escrituras
-            y/o juicio de usucapión ante un Juez Civil, por lo que los gastos notariales, ISABI, ISR,
-            avalúos, segregaciones y todo lo que se requiera con respecto a la escritura, así como pagos
-            por impuestos, servicios, derechos y cooperaciones a la colonia, serán por cuenta del COMPRADOR.
+            Se compromete el vendedor a acudir ante el comisariado ejidal correspondiente para otorgarle
+            la firma de su constancia de posesión del lote antes referido una vez liquidado este contrato
+            privado de compra y venta a crédito.
         </p>
-    @endif
 
-    @if($isCredit)
         <p>
             <span class="clause-title">SEXTA.</span>
             El lote de terreno que se entrega es un lote rústico sin servicios, donde se observa la proximidad
-            de los mismos en la colonia adjunta, por lo cual será la comunidad de colonos la que se organizará
+            de los mismos en la colonia adjunta, por lo cual será la comunidad de los colonos la que se organizará
             para la solicitud de los mismos a la autoridad correspondiente, sin responsabilidad del vendedor.
         </p>
 
@@ -367,7 +454,9 @@
         <p>
             <span class="clause-title">OCTAVA.</span>
             En caso de que el comprador se atrase en sus pagos 30 días naturales, seguidos o alternados,
-            se le cobrará el 10% de recargos monetarios sobre el saldo mensual acordado en este contrato.
+            se le cobrará el 10% de intereses monetarios sobre el saldo mensual acordado en este contrato,
+            y si se negara a cubrir los intereses, perderá automáticamente su derecho sobre el lote y la
+            devolución de sus pagos, motivo de este contrato.
         </p>
 
         <p>
@@ -380,20 +469,91 @@
         <p>
             <span class="clause-title">DÉCIMA.</span>
             En caso de que el comprador tenga 3 meses sin un solo pago realizado, automáticamente perderá
-            los derechos sobre el lote y el monto total de sus pagos, sin responsabilidad del vendedor.
+            los derechos sobre el lote y el monto total de sus pagos, motivo de este contrato.
         </p>
 
         <p>
             <span class="clause-title">UNDÉCIMA.</span>
             En caso de que el comprador decida cancelar por cualquier motivo el presente contrato, perderá
-            el monto total de sus pagos hasta la fecha de cancelación sin responsabilidad para el vendedor.
+            el monto total de sus pagos hasta la fecha de la cancelación sin responsabilidad para el vendedor.
         </p>
-    @else
+    @endif
+
+    {{-- =========================================================
+        4) PROPIEDAD + CRÉDITO
+        Archivo base: CONTRATO CREDITO TEHUACAN SIN LLENAR[PROPIEDAD].docx
+    ========================================================= --}}
+    @if($templateKey === 'p_credito')
+        <p>
+            <span class="clause-title">TERCERA.</span>
+            El precio total fijado para la celebración de la mencionada operación es la cantidad de
+            ${{ number_format($importe, 2) }} PESOS 00/100 M.N.
+            Que de común acuerdo han convenido las partes contratantes, y que, en el momento de la firma
+            de este contrato, la parte compradora deposita como enganche la cantidad de
+            ${{ number_format($pagoInicial, 2) }} PESOS 00/100 M.N.
+            La parte restante se liquidará en {{ $meses }} mensualidades de
+            ${{ number_format($cuota, 2) }} PESOS 00/100 M.N.,
+            hasta complementar el precio total ya mencionado.
+        </p>
+
+        <p>
+            <span class="clause-title">CUARTA.</span>
+            Al momento de la firma del presente contrato, la parte vendedora como legítimo propietario
+            del inmueble, se obliga a entregarlo desocupado y donde el comprador no podrá realizar
+            construcción de albañilería o de materiales hasta que tenga cubierto el 50% del valor del lote,
+            únicamente se autoriza la construcción de jacales de madera, carrizo con techumbre de lámina.
+        </p>
+
+        <p>
+            <span class="clause-title">QUINTA.</span>
+            Con lo dispuesto en este contrato, EL COMPRADOR acuerda que, para la firma de las escrituras
+            del presente predio, realizará la solicitud de otorgamiento de escrituras y/o juicio de usucapión
+            ante un Juez Civil, por lo que los gastos notariales, ISABI, ISR, avalúos, segregaciones y todo
+            lo que se requiera con respecto a la escritura, así como los pagos por impuestos, servicios,
+            derechos y cooperaciones a la colonia, a partir de la firma del presente, así como los correspondientes
+            a la escrituración, serán por cuenta del COMPRADOR.
+        </p>
+
         <p>
             <span class="clause-title">SEXTA.</span>
+            El lote de terreno que se entrega es un lote rústico sin servicios, donde se observa la proximidad
+            de los mismos en la colonia adjunta, por lo cual será la comunidad de los colonos la que se organizará
+            para la solicitud de los mismos a la autoridad correspondiente, sin responsabilidad del vendedor.
+        </p>
+
+        <p>
+            <span class="clause-title">SÉPTIMA.</span>
             Para la interpretación y cumplimiento de este contrato, las partes manifiestan su conformidad
             y sometimiento a los tribunales de la jurisdicción del Distrito Judicial de Tehuacán Puebla,
             renunciando expresamente al fuero de su domicilio presente o futuro.
+        </p>
+
+        <p>
+            <span class="clause-title">OCTAVA.</span>
+            En caso de que el comprador se atrase en sus pagos 30 días naturales, seguidos o alternados,
+            se le cobrará el 10% de recargos monetarios sobre el saldo mensual acordado en este contrato,
+            y si se negara a cubrir los intereses, perderá automáticamente su derecho sobre el lote y la
+            devolución de sus pagos, motivo de este contrato.
+        </p>
+
+        <p>
+            <span class="clause-title">NOVENA.</span>
+            En caso de no respetar el plazo acordado en la tercera cláusula de este contrato para la
+            liquidación total, el precio del bien incrementará un 10% sobre el costo total del mismo por
+            cada año adicional.
+        </p>
+
+        <p>
+            <span class="clause-title">DÉCIMA.</span>
+            En caso de que el comprador tenga 3 meses sin un solo pago realizado, automáticamente perderá
+            los derechos sobre el lote y el monto total de sus pagos, motivo de este contrato, sin responsabilidad
+            del vendedor.
+        </p>
+
+        <p>
+            <span class="clause-title">UNDÉCIMA.</span>
+            En caso de que el comprador decida cancelar por cualquier motivo el presente contrato, perderá
+            el monto total de sus pagos hasta la fecha de la cancelación sin responsabilidad para el vendedor.
         </p>
     @endif
 

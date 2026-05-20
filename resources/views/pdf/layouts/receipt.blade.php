@@ -3,261 +3,363 @@
 <head>
     <meta charset="utf-8">
     <title>{{ $document_type ?? 'Documento' }}</title>
-    <style>
-        @page { margin: 28px 36px 58px 36px; }
 
-        body{
-            font-family: DejaVu Sans, sans-serif;
-            color: {{ $palette['dark'] }};
-            font-size: 11px;
+    @php
+        $branding = $branding ?? [];
+        $palette = array_merge([
+            'primary' => '#111827',
+            'secondary' => '#374151',
+            'muted' => '#6B7280',
+            'border' => '#D1D5DB',
+            'light' => '#F9FAFB',
+            'soft' => '#F3F4F6',
+            'danger' => '#DC2626',
+            'success' => '#16A34A',
+            'warning' => '#F59E0B',
+            'info' => '#2563EB',
+            'white' => '#FFFFFF',
+            'black' => '#000000',
+
+            /*
+             * Compatibilidad con vistas anteriores.
+             */
+            'dark' => '#111827',
+            'gray' => '#6B7280',
+            'blue' => '#2563EB',
+        ], $palette ?? []);
+
+        $logoPath = $logoPath ?? null;
+
+        if (empty($logoPath)) {
+            $logoRelativePath = $branding['logo_path'] ?? 'assets/images/logo.png';
+            $logoPath = public_path($logoRelativePath);
+
+            if (!file_exists($logoPath)) {
+                $logoPath = public_path('assets/images/logo.png');
+            }
+
+            if (!file_exists($logoPath)) {
+                $logoPath = public_path('images/logo.png');
+            }
         }
 
-        .page-counter{
+        $hasLogo = !empty($logoPath) && file_exists($logoPath);
+
+        $companyName = $branding['company_name'] ?? 'JD Inmobiliaria';
+        $companySubtitle = $branding['company_subtitle'] ?? 'DOCUMENTOS OFICIALES';
+        $footerText = $branding['footer_text'] ?? 'Este documento fue generado por el sistema.';
+        $addressLine = $branding['address_line'] ?? 'VISITANOS EN 3 ORIENTE #736 COL. RICARDO FLORES MAGON TEHUACAN PUEBLA.';
+        $phoneLine = $branding['phone_line'] ?? 'TELEFONO 238 289 0712';
+    @endphp
+
+    <style>
+        @page {
+            margin-top: 2cm;
+            margin-bottom: 2.5cm;
+            margin-left: 2.2cm;
+            margin-right: 2.2cm;
+        }
+
+        body {
+            font-family: DejaVu Sans, sans-serif;
+            color: {{ $palette['black'] }};
+            font-size: 10.5px;
+            line-height: 1.35;
+        }
+
+        .watermark-wrapper {
             position: fixed;
-            top: 10px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1000;
+        }
+
+        .watermark-table {
+            width: 100%;
+            height: 100%;
+            border-collapse: collapse;
+        }
+
+        .watermark-cell {
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .watermark-logo {
+            width: 430px;
+            opacity: 0.055;
+        }
+
+        .receipt-footer {
+            position: fixed;
+            bottom: -1.35cm;
+            left: 0;
             right: 0;
-            font-size: 10px;
-            color: {{ $palette['gray'] }};
+            text-align: center;
+            font-size: 8.6px;
+            font-weight: bold;
+            line-height: 1.25;
+            color: {{ $palette['black'] }};
+        }
+
+        .page-counter {
+            position: fixed;
+            right: 0;
+            bottom: -1.05cm;
+            font-size: 8px;
+            color: {{ $palette['muted'] }};
             font-weight: bold;
         }
 
-        .watermark{
-            position: fixed;
-            top: 240px;
-            left: 90px;
-            width: 420px;
-            text-align: center;
-            opacity: 0.06;
-        }
-
-        .watermark img{
+        .doc-header {
             width: 100%;
-            height: auto;
+            margin-bottom: 10px;
         }
 
-        footer{
-            position: fixed;
-            bottom: -26px;
-            left: 0;
-            right: 0;
-            height: 34px;
-            border-top: 1px solid {{ $palette['gray'] }};
-            color: {{ $palette['gray'] }};
-            font-size: 9px;
-            padding-top: 6px;
-        }
-
-        .doc-header{
-            width: 100%;
-            margin-bottom: 4px; /*tenia 14*/
-        }
-
-        .doc-header-table{
+        .doc-header-table {
             width: 100%;
             border-collapse: collapse;
         }
 
-        .doc-header-left{
-            width: 72%;
-            vertical-align: top;
+        .doc-header-left {
+            width: 35%;
+            vertical-align: middle;
+            text-align: left;
+            height: 58px;
         }
 
-        .doc-header-right{
-            width: 28%;
-            vertical-align: top;
-            text-align: center;            
+        .doc-header-center {
+            width: 35%;
+            vertical-align: middle;
+            text-align: center;
         }
 
-        .logo{
-            width: 190px;
-            height: 120px;
-            object-fit: contain;
-            margin-bottom: 4px;
+        .doc-header-right {
+            width: 30%;
+            vertical-align: middle;
+            text-align: right;
+            height: 58px;
         }
 
-        .logo-fallback{
-            font-size: 26px;
+        .logo {
+            max-height: 54px;
+            max-width: 165px;
+        }
+
+        .logo-fallback {
+            font-size: 16px;
             font-weight: bold;
             color: {{ $palette['primary'] }};
             line-height: 1.1;
-            margin-bottom: 4px;
         }
 
-        .company-name{
-            margin: 0;
-            font-size: 21px;
-            font-weight: bold;
-            color: {{ $palette['primary'] }};
-            line-height: 1.1;
-        }
-
-        .document-type{
-            margin-top: 3px;
+        .document-type {
             font-size: 15px;
             font-weight: bold;
-            color: {{ $palette['dark'] }};
-            line-height: 1.2;
-        }
-
-        .brand-contact{
-            font-size: 9px;
-            color: {{ $palette['dark'] }};
-            line-height: 1.3;
-            margin-top: 3px;
-        }
-
-        .folio-label{
-            font-size: 9px;
+            color: {{ $palette['primary'] }};
             text-transform: uppercase;
-            color: {{ $palette['gray'] }};
-            font-weight: bold;
-            margin-bottom: 4px;
+            line-height: 1.1;
         }
 
-        .folio-number{
-            font-size: 17px;
+        .document-subtitle {
+            margin-top: 4px;
+            font-size: 8.5px;
             font-weight: bold;
-            color: {{ $palette['gray'] }};
-            border: 2px solid {{ $palette['gray'] }};
-            border-radius: 10px;
-            padding: 9px 12px;
-            line-height: 1.25;
+            color: {{ $palette['muted'] }};
+            text-transform: uppercase;
+        }
+
+        .folio-box {
             display: inline-block;
-            min-width: 150px;
-            text-align: center;
-            background: rgba(255,255,255,0.82);
-        }
-
-        .header-rule{
-            margin-top: 8px;
-            height: 3px;
-            background: {{ $palette['primary'] }};
-            border-radius: 2px;
-        }
-
-        .section-title{
-            background: linear-gradient(90deg, {{ $palette['primary'] }}, {{ $palette['blue'] }});
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: 8px;
+            font-size: 11px;
             font-weight: bold;
-            margin-bottom: 10px;
-            font-size: 12px;
+            border: 1px solid {{ $palette['black'] }};
+            padding: 6px 10px;
+            vertical-align: middle;
+            background: rgba(255,255,255,.92);
+            min-width: 120px;
+            text-align: center;
         }
 
-        .card{
-            border: 1px solid #dcdcdc;
+        .header-rule {
+            height: 2px;
+            background: {{ $palette['primary'] }};
+            margin-top: 8px;
+        }
+
+        .section-title {
+            background: {{ $palette['primary'] }};
+            color: #fff;
+            padding: 7px 10px;
+            border-radius: 7px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .card {
+            border: 1px solid {{ $palette['border'] }};
             border-radius: 10px;
-            padding: 12px;
-            margin-bottom: 4px; /*tenia 14px */
+            padding: 10px;
+            margin-bottom: 10px;
             background: rgba(255,255,255,0.94);
         }
 
         .meta-table,
         .detail-table,
-        .summary-table{
+        .summary-table,
+        .schedule-two-col-table {
             width: 100%;
             border-collapse: collapse;
         }
 
-        .meta-table td{
-            padding: 6px 8px;
+        .meta-table td {
+            padding: 6px 7px;
             vertical-align: top;
         }
 
-        .label{
-            color: {{ $palette['gray'] }};
-            font-size: 10px;
+        .label {
+            color: {{ $palette['muted'] }};
+            font-size: 8.5px;
             text-transform: uppercase;
             font-weight: bold;
+            margin-bottom: 2px;
         }
 
-        .value{
-            font-size: 11px;
+        .value {
+            font-size: 10.5px;
             font-weight: bold;
-            color: {{ $palette['dark'] }};
+            color: {{ $palette['black'] }};
+            word-break: break-word;
         }
 
-        .summary-table td{
-            width: 33.3333%;
+        .summary-table td {
+            width: 25%;
             vertical-align: top;
-            padding-right: 10px;
+            padding-right: 7px;
         }
 
-        .summary-table td:last-child{
+        .summary-table td:last-child {
             padding-right: 0;
         }
 
-        .summary-box{
-            border-radius: 10px;
-            background: rgba(250,250,250,0.97);
-            border-left: 5px solid {{ $palette['blue'] }};
-            padding: 10px 12px;
-            min-height: 56px;
+        .summary-box {
+            border-radius: 9px;
+            background: rgba(249,250,251,0.96);
+            border: 1px solid {{ $palette['border'] }};
+            border-left: 5px solid {{ $palette['info'] }};
+            padding: 8px 9px;
+            min-height: 46px;
         }
 
-        .summary-box .small{
-            color: {{ $palette['gray'] }};
-            font-size: 10px;
+        .summary-box.success {
+            border-left-color: {{ $palette['success'] }};
+        }
+
+        .summary-box.warning {
+            border-left-color: {{ $palette['warning'] }};
+        }
+
+        .summary-box.danger {
+            border-left-color: {{ $palette['danger'] }};
+        }
+
+        .summary-box .small {
+            color: {{ $palette['muted'] }};
+            font-size: 8px;
             text-transform: uppercase;
             font-weight: bold;
         }
 
-        .summary-box .big{
+        .summary-box .big {
             margin-top: 4px;
-            font-size: 17px;
+            font-size: 13.5px;
             font-weight: bold;
             color: {{ $palette['primary'] }};
         }
 
-        .detail-table{
+        .detail-table {
             page-break-inside: auto;
         }
 
-        .detail-table thead{
+        .detail-table thead {
             display: table-header-group;
         }
 
-        .detail-table tr{
+        .detail-table tr {
             page-break-inside: avoid;
             page-break-after: auto;
         }
 
-        .detail-table th{
-            background: {{ $palette['dark'] }};
+        .detail-table th {
+            background: {{ $palette['primary'] }};
             color: #fff;
-            padding: 6px;
-            font-size: 9px;
+            padding: 5px;
+            font-size: 8px;
             text-align: left;
+            text-transform: uppercase;
         }
 
-        .detail-table td{
+        .detail-table td {
             border-bottom: 1px solid #ececec;
-            padding: 6px;
-            font-size: 9px;
+            padding: 5px;
+            font-size: 8px;
             background: rgba(255,255,255,0.92);
         }
 
-        .status-paid{
+        .schedule-two-col-table td {
+            width: 50%;
+            vertical-align: top;
+        }
+
+        .schedule-two-col-table td:first-child {
+            padding-right: 7px;
+        }
+
+        .schedule-two-col-table td:last-child {
+            padding-left: 7px;
+        }
+
+        .status-paid {
             background: #eaf8ee !important;
             color: #0b7a35;
             font-weight: bold;
             text-align: center;
         }
 
-        .status-pending{
-            background: #fff1f1 !important;
+        .status-pending {
+            background: #fff7ed !important;
+            color: #b45309;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .status-danger {
+            background: #fef2f2 !important;
             color: {{ $palette['danger'] }};
             font-weight: bold;
             text-align: center;
         }
 
-        .signature-wrap{
-            margin-top: 22px;
-            page-break-inside: avoid;
+        .status-muted {
+            background: #f3f4f6 !important;
+            color: {{ $palette['muted'] }};
+            font-weight: bold;
+            text-align: center;
         }
 
-        .signature-box{
+        .signature-wrap {
+            margin-top: 28px;
+            page-break-inside: avoid;
+            text-align: center;
+        }
+
+        .signature-box {
             width: 42%;
             display: inline-block;
             vertical-align: top;
@@ -265,59 +367,86 @@
             margin-right: 8%;
         }
 
-        .signature-box:last-child{
+        .signature-box:last-child {
             margin-right: 0;
         }
 
-        .signature-line{
-            margin-top: 40px;
-            border-top: 1px solid {{ $palette['dark'] }};
-            padding-top: 6px;
-            font-size: 10px;
+        .signature-line {
+            margin-top: 48px;
+            border-top: 1px solid {{ $palette['black'] }};
+            padding-top: 10px;
+            font-size: 9px;
             font-weight: bold;
         }
 
-        .keep-together{
+        .keep-together {
             page-break-inside: avoid;
         }
 
-        .text-right{ text-align: right; }
-        .mb-18{ margin-bottom: 18px; }
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mb-8 {
+            margin-bottom: 8px;
+        }
+
+        .mb-12 {
+            margin-bottom: 12px;
+        }
     </style>
 </head>
+
 <body>
-    @if(!empty($branding['logo_path']) && file_exists($branding['logo_path']))
-        <div class="watermark">
-            <img src="{{ $branding['logo_path'] }}">
+    @if($hasLogo)
+        <div class="watermark-wrapper">
+            <table class="watermark-table">
+                <tr>
+                    <td class="watermark-cell">
+                        <img src="{{ $logoPath }}" class="watermark-logo">
+                    </td>
+                </tr>
+            </table>
         </div>
     @endif
 
     <div class="page-counter">
         <script type="text/php">
             if (isset($pdf)) {
-                $pdf->page_text(490, 14, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 9, array(103/255,103/255,103/255));
+                $pdf->page_text(506, 744, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 8, array(0,0,0));
             }
         </script>
+    </div>
+
+    <div class="receipt-footer">
+        {{ $addressLine }}<br>
+        {{ $phoneLine }}
     </div>
 
     <div class="doc-header">
         <table class="doc-header-table">
             <tr>
                 <td class="doc-header-left">
-                    @if(!empty($branding['logo_path']) && file_exists($branding['logo_path']))
-                        <img class="logo" src="{{ $branding['logo_path'] }}">
+                    @if($hasLogo)
+                        <img class="logo" src="{{ $logoPath }}">
                     @else
-                        <div class="logo-fallback">{{ $branding['company_name'] ?? 'JD Inmobiliaria' }}</div>
+                        <div class="logo-fallback">{{ $companyName }}</div>
                     @endif
+                </td>
 
+                <td class="doc-header-center">
                     <div class="document-type">{{ $document_type ?? 'DOCUMENTO OFICIAL' }}</div>
-                    <div class="brand-contact">VISITANOS EN 3 ORIENTE #736 VOL. RICARDO FLORES MAGON TEHUACAN PUEBLA.</div>
-                    <div class="brand-contact">TELEFONO 238 289 0712</div>
+                    <div class="document-subtitle">{{ $companySubtitle }}</div>
                 </td>
 
                 <td class="doc-header-right">
-                    <div class="folio-label">Folio del documento</div>
-                    <div class="folio-number">{{ $folio ?? 'S/F' }}</div>
+                    <span class="folio-box">
+                        FOLIO: {{ $folio ?? 'S/F' }}
+                    </span>
                 </td>
             </tr>
         </table>
@@ -326,9 +455,5 @@
     </div>
 
     @yield('content')
-
-    <footer>
-        {{ $branding['footer_text'] }}
-    </footer>
 </body>
 </html>

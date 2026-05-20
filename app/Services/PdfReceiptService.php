@@ -3,235 +3,339 @@
 namespace App\Services;
 
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class PdfReceiptService
 {
-    protected array $palette = [
-        'primary' => '#D9042B',
-        'gray'    => '#676767',
-        'blue'    => '#0511F2',
-        'danger'  => '#F20505',
-        'dark'    => '#0D0D0D',
-    ];
-
     public function stream(string $view, array $data = [], string $filename = 'documento.pdf')
     {
-        $pdf = Pdf::loadView($view, $data);
+        $data = $this->withDefaults($data);
 
-        $dompdf = $pdf->getDomPDF();
-        $dompdf->render();
+        $pdf = Pdf::loadView($view, $data)
+            ->setPaper('letter', 'portrait');
 
-        $canvas = $dompdf->getCanvas();
-
-        $canvas->page_script(function ($pageNumber, $pageCount, $canvas, $fontMetrics) {
-            $text = "Página {$pageNumber} de {$pageCount}";
-            $font = $fontMetrics->getFont('Helvetica', 'normal');
-            $fontSize = 8;
-
-            $textWidth = $fontMetrics->getTextWidth($text, $font, $fontSize);
-
-            /*
-            * 3 cm aprox = 85 pt.
-            * Lo dejamos alineado a la derecha, respetando margen derecho.
-            */
-            $x = $canvas->get_width() - $textWidth - 85;
-
-            /*
-            * Lo subimos para que quede dentro del área imprimible,
-            * no pegado al borde inferior.
-            */
-            $y = $canvas->get_height() - 38;
-
-            $canvas->text($x, $y, $text, $font, $fontSize, [0, 0, 0]);
-
-            $canvas->text($x, $y, $text, $font, $fontSize, [0, 0, 0]);
-        });
-
-        return response($dompdf->output(), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . $filename . '"',
-        ]);
+        return $pdf->stream($filename);
     }
 
     public function download(string $view, array $data = [], string $filename = 'documento.pdf')
     {
-        $pdf = Pdf::loadView($view, $data);
+        $data = $this->withDefaults($data);
 
-        $dompdf = $pdf->getDomPDF();
-        $dompdf->render();
+        $pdf = Pdf::loadView($view, $data)
+            ->setPaper('letter', 'portrait');
 
-        $canvas = $dompdf->getCanvas();
+        return $pdf->download($filename);
+    }
 
-        $canvas->page_script(function ($pageNumber, $pageCount, $canvas, $fontMetrics) {
-            $text = "Página {$pageNumber} de {$pageCount}";
-            $font = $fontMetrics->getFont('Helvetica', 'normal');
-            $fontSize = 8;
+    protected function withDefaults(array $data): array
+    {
+        $branding = $data['branding'] ?? $this->branding();
+        $logoPath = $this->resolveLogoPath($branding['logo_path'] ?? null);
 
-            $textWidth = $fontMetrics->getTextWidth($text, $font, $fontSize);
-            $x = ($canvas->get_width() - $textWidth) / 2;
-            $y = $canvas->get_height() - 10;
-
-            $canvas->text($x, $y, $text, $font, $fontSize, [0, 0, 0]);
-        });
-
-        return response($dompdf->output(), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+        return array_merge([
+            'branding' => $branding,
+            'palette' => $this->palette(),
+            'logoPath' => $logoPath,
+            'hasLogo' => !empty($logoPath) && file_exists($logoPath),
+            'generatedAt' => now(),
+        ], $data);
     }
 
     public function branding(): array
     {
         $default = [
-            'company_name' => config('app.name', 'Sistema'),
-            'company_subtitle' => 'Recibos y comprobantes oficiales',
-            'logo_path' => public_path('images/logo.png'),
-            'footer_text' => 'Documento generado automáticamente por el sistema.',
-            'address_line' => 'VISITANOS EN 3 ORIENTE #736 VOL. RICARDO FLORES MAGON TEHUACAN PUEBLA.',
+            'company_name' => 'JD Inmobiliaria',
+            'company_subtitle' => 'DOCUMENTOS OFICIALES',
+            'logo_path' => 'assets/images/logo.png',
+            'footer_text' => 'Este documento fue generado por el sistema.',
+            'address_line' => 'VISITANOS EN 3 ORIENTE #736 COL. RICARDO FLORES MAGON TEHUACAN PUEBLA.',
             'phone_line' => 'TELEFONO 238 289 0712',
         ];
 
         try {
-            $row = DB::table('global_variables')
+            $value = DB::table('global_variables')
                 ->where('nombre', 'BRANDING_PDF')
-                ->first();
+                ->value('valor');
 
-            if (!$row || empty($row->valor)) {
+            if (!$value) {
                 return $default;
             }
 
-            $json = is_array($row->valor) ? $row->valor : json_decode($row->valor, true);
+            $json = is_array($value) ? $value : json_decode($value, true);
+
             if (!is_array($json)) {
                 return $default;
             }
 
-            /*dd([
-                'company_name' => $json['company_name'] ?? $default['company_name'],
-                'company_subtitle' => $json['company_subtitle'] ?? $default['company_subtitle'],
-                'logo_path' => !empty($json['logo_path']) ? public_path($json['logo_path']) : $default['logo_path'],
-                'footer_text' => $json['footer_text'] ?? $default['footer_text'],
-                'address_line' => $json['address_line'] ?? $default['address_line'],
-                'phone_line' => $json['phone_line'] ?? $default['phone_line'],
-            ]);*/
-            return [
-                'company_name' => $json['company_name'] ?? $default['company_name'],
-                'company_subtitle' => $json['company_subtitle'] ?? $default['company_subtitle'],
-                'logo_path' => !empty($json['logo_path']) ? public_path($json['logo_path']) : $default['logo_path'],
-                'footer_text' => $json['footer_text'] ?? $default['footer_text'],
-                'address_line' => $json['address_line'] ?? $default['address_line'],
-                'phone_line' => $json['phone_line'] ?? $default['phone_line'],
-            ];
+            return array_merge($default, $json);
         } catch (\Throwable $e) {
             return $default;
         }
     }
 
-    public function chargePaymentStats(?int $contractId): array
+    public function palette(): array
     {
-        if (!$contractId) {
-            return [
-                'total_payments' => 0,
-                'paid_payments' => 0,
-                'pending_payments' => 0,
-            ];
-        }
-
-        $total = (int) DB::table('payment_schedules')
-            ->where('contract_id', $contractId)
-            ->count();
-
-        $paid = (int) DB::table('payment_schedules')
-            ->where('contract_id', $contractId)
-            ->where('status', 'PAGADO')
-            ->count();
-
         return [
-            'total_payments' => $total,
-            'paid_payments' => $paid,
-            'pending_payments' => max(0, $total - $paid),
+            'primary' => '#111827',
+            'secondary' => '#374151',
+            'muted' => '#6B7280',
+            'border' => '#D1D5DB',
+            'light' => '#F9FAFB',
+            'soft' => '#F3F4F6',
+            'danger' => '#DC2626',
+            'success' => '#16A34A',
+            'warning' => '#F59E0B',
+            'info' => '#2563EB',
+            'white' => '#FFFFFF',
+            'black' => '#000000',
         ];
     }
 
-    public function chargeScheduleGrid(?int $contractId)
+    public function resolveLogoPath(?string $logoRelativePath = null): ?string
     {
-        if (!$contractId) {
-            return collect();
+        $candidates = [];
+
+        if ($logoRelativePath) {
+            $candidates[] = public_path($logoRelativePath);
+            $candidates[] = public_path(ltrim($logoRelativePath, '/'));
         }
 
-        return DB::table('payment_schedules')
+        $candidates[] = public_path('assets/images/logo.png');
+        $candidates[] = public_path('images/logo.png');
+
+        foreach ($candidates as $path) {
+            if ($path && file_exists($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resumen financiero del contrato.
+     *
+     * IMPORTANTE:
+     * Este método recibe contract_id, porque en tu controller lo estás llamando así:
+     * $pdf->chargePaymentStats((int) $charge->contract_id);
+     */
+    public function chargePaymentStats(int $contractId): array
+    {
+        $contract = DB::table('contracts as c')
+            ->leftJoin('contract_payment_types as cpt', 'cpt.id', '=', 'c.contract_payment_type_id')
+            ->where('c.id', $contractId)
+            ->select([
+                'c.id',
+                'c.importe',
+                'c.monto_pago_inicial',
+                'c.saldo_financiado',
+                'c.cuota_mensual',
+                'c.meses',
+                'cpt.nombre as tipo_pago',
+            ])
+            ->first();
+
+        if (!$contract) {
+            return $this->emptyStats();
+        }
+
+        $chargesQuery = DB::table('charges')
+            ->where('contract_id', $contractId)
+            ->whereNull('fecha_baja');
+
+        $paidTotal = (float) (clone $chargesQuery)->sum('monto');
+        $lateFeeTotal = (float) (clone $chargesQuery)->sum('monto_recargo');
+
+        $contractTotal = (float) ($contract->importe ?? 0);
+        $initialPayment = (float) ($contract->monto_pago_inicial ?? 0);
+        $financedBalance = (float) ($contract->saldo_financiado ?? 0);
+        $monthlyAmount = (float) ($contract->cuota_mensual ?? 0);
+        $months = (int) ($contract->meses ?? 0);
+
+        $scheduleBase = DB::table('payment_schedules')
+            ->where('contract_id', $contractId);
+
+        $installmentsTotal = (int) (clone $scheduleBase)->count();
+
+        $installmentsPaid = (int) (clone $scheduleBase)
+            ->whereIn(DB::raw('UPPER(status)'), [
+                'PAGADO',
+                'PAGADA',
+                'LIQUIDADO',
+                'LIQUIDADA',
+                'CUBIERTO',
+                'CUBIERTA',
+            ])
+            ->count();
+
+        $installmentsPending = max(0, $installmentsTotal - $installmentsPaid);
+
+        $scheduleAmountTotal = (float) (clone $scheduleBase)->sum('amount');
+        $schedulePaidTotal = (float) (clone $scheduleBase)->sum('amount_paid');
+        $scheduleLateFeeTotal = (float) (clone $scheduleBase)->sum('late_fee_amount');
+
+        return [
+            'contract_id' => $contractId,
+            'contract_total' => round($contractTotal, 2),
+            'initial_payment' => round($initialPayment, 2),
+            'financed_balance' => round($financedBalance, 2),
+            'monthly_amount' => round($monthlyAmount, 2),
+            'months' => $months,
+            'payment_type' => (string) ($contract->tipo_pago ?? ''),
+
+            'paid_total' => round($paidTotal, 2),
+            'paid_total_without_late_fee' => round($paidTotal - $lateFeeTotal, 2),
+            'late_fee_total' => round($lateFeeTotal, 2),
+
+            'balance' => round(max(0, $contractTotal - $paidTotal), 2),
+            'progress_percent' => $contractTotal > 0
+                ? round(min(100, ($paidTotal / $contractTotal) * 100), 2)
+                : 0,
+
+            'installments_total' => $installmentsTotal,
+            'installments_paid' => $installmentsPaid,
+            'installments_pending' => $installmentsPending,
+
+            'schedule_amount_total' => round($scheduleAmountTotal, 2),
+            'schedule_paid_total' => round($schedulePaidTotal, 2),
+            'schedule_late_fee_total' => round($scheduleLateFeeTotal, 2),
+        ];
+    }
+
+    protected function emptyStats(): array
+    {
+        return [
+            'contract_id' => null,
+            'contract_total' => 0,
+            'initial_payment' => 0,
+            'financed_balance' => 0,
+            'monthly_amount' => 0,
+            'months' => 0,
+            'payment_type' => '',
+            'paid_total' => 0,
+            'paid_total_without_late_fee' => 0,
+            'late_fee_total' => 0,
+            'balance' => 0,
+            'progress_percent' => 0,
+            'installments_total' => 0,
+            'installments_paid' => 0,
+            'installments_pending' => 0,
+            'schedule_amount_total' => 0,
+            'schedule_paid_total' => 0,
+            'schedule_late_fee_total' => 0,
+        ];
+    }
+
+    /**
+     * Genera una cuadrícula de mensualidades del contrato.
+     *
+     * Tu controller la usa así:
+     * $scheduleGrid = $pdf->chargeScheduleGrid((int) $charge->contract_id);
+     */
+    public function chargeScheduleGrid(int $contractId): array
+    {
+        $rows = DB::table('payment_schedules')
             ->where('contract_id', $contractId)
             ->orderBy('installment_number')
+            ->orderBy('due_date')
             ->get([
                 'installment_number',
                 'due_date',
                 'amount',
                 'amount_paid',
                 'late_fee_amount',
+                'late_fee_applied',
                 'status',
             ]);
+
+        return $rows->map(function ($row) {
+            $amount = (float) ($row->amount ?? 0);
+            $paid = (float) ($row->amount_paid ?? 0);
+            $lateFee = (float) ($row->late_fee_amount ?? 0);
+            $balance = max(0, ($amount + $lateFee) - $paid);
+
+            return [
+                'installment_number' => (int) ($row->installment_number ?? 0),
+                'due_date' => $this->formatDate($row->due_date ?? null),
+                'amount' => round($amount, 2),
+                'amount_paid' => round($paid, 2),
+                'late_fee_amount' => round($lateFee, 2),
+                'late_fee_applied' => (bool) ($row->late_fee_applied ?? false),
+                'balance' => round($balance, 2),
+                'status' => (string) ($row->status ?? ''),
+                'status_label' => $this->scheduleStatusLabel((string) ($row->status ?? '')),
+                'status_class' => $this->scheduleStatusClass((string) ($row->status ?? '')),
+            ];
+        })->values()->all();
     }
 
-    public function creditorPaymentStats(object $voucher): array
+    /**
+     * Divide la cuadrícula de mensualidades en dos columnas para imprimir mejor en PDF.
+     *
+     * Tu controller la usa así:
+     * $scheduleColumns = $pdf->splitGridInTwoColumns($scheduleGrid);
+     */
+    public function splitGridInTwoColumns(array $grid): array
     {
-        $mensualidad = (float) ($voucher->mensualidad ?? 0);
-        $meses = (int) ($voucher->meses ?? 0);
-        $pagado = (float) ($voucher->total_pagado ?? 0);
+        $total = count($grid);
 
-        $paidCount = 0;
-        if ($mensualidad > 0) {
-            $paidCount = (int) floor($pagado / $mensualidad);
-        }
-
-        $paidCount = min($meses, max(0, $paidCount));
-
-        return [
-            'total_payments' => $meses,
-            'paid_payments' => $paidCount,
-            'pending_payments' => max(0, $meses - $paidCount),
-        ];
-    }
-
-    public function creditorScheduleGrid(object $voucher): array
-    {
-        $rows = [];
-        $mensualidad = (float) ($voucher->mensualidad ?? 0);
-        $meses = (int) ($voucher->meses ?? 0);
-        $pagado = (float) ($voucher->total_pagado ?? 0);
-        $fecha = \Carbon\Carbon::parse($voucher->fecha_registro);
-
-        for ($i = 1; $i <= $meses; $i++) {
-            $coveredAmount = $pagado - (($i - 1) * $mensualidad);
-            $coveredAmount = max(0, min($mensualidad, $coveredAmount));
-
-            $status = $coveredAmount >= $mensualidad ? 'PAGADO' : 'PENDIENTE';
-
-            $rows[] = (object) [
-                'installment_number' => $i,
-                'due_date' => $fecha->copy()->addMonths($i - 1)->format('Y-m-d'),
-                'amount' => $mensualidad,
-                'amount_paid' => $coveredAmount,
-                'status' => $status,
+        if ($total === 0) {
+            return [
+                'left' => [],
+                'right' => [],
             ];
         }
 
-        return $rows;
-    }
-   
-
-    public function splitGridInTwoColumns($rows): array
-    {
-        $rows = collect($rows)->values();
-        $half = (int) ceil($rows->count() / 2);
+        $half = (int) ceil($total / 2);
 
         return [
-            'left' => $rows->slice(0, $half)->values(),
-            'right' => $rows->slice($half)->values(),
+            'left' => array_slice($grid, 0, $half),
+            'right' => array_slice($grid, $half),
         ];
     }
 
-    public function shouldBreakCalendar($rows, int $threshold = 18): bool
+    public function formatMoney(float|int|string|null $value): string
     {
-        return collect($rows)->count() > $threshold;
+        return '$' . number_format((float) ($value ?? 0), 2);
+    }
+
+    public function formatDate(?string $date): string
+    {
+        if (empty($date)) {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($date)->format('d/m/Y');
+        } catch (\Throwable $e) {
+            return (string) $date;
+        }
+    }
+
+    protected function scheduleStatusLabel(string $status): string
+    {
+        $status = mb_strtoupper(trim($status));
+
+        return match ($status) {
+            'PAGADO', 'PAGADA', 'LIQUIDADO', 'LIQUIDADA', 'CUBIERTO', 'CUBIERTA' => 'PAGADO',
+            'VENCIDO', 'VENCIDA' => 'VENCIDO',
+            'PARCIAL' => 'PARCIAL',
+            'CANCELADO', 'CANCELADA' => 'CANCELADO',
+            default => $status ?: 'PENDIENTE',
+        };
+    }
+
+    protected function scheduleStatusClass(string $status): string
+    {
+        $status = mb_strtoupper(trim($status));
+
+        return match ($status) {
+            'PAGADO', 'PAGADA', 'LIQUIDADO', 'LIQUIDADA', 'CUBIERTO', 'CUBIERTA' => 'success',
+            'VENCIDO', 'VENCIDA' => 'danger',
+            'PARCIAL' => 'warning',
+            'CANCELADO', 'CANCELADA' => 'muted',
+            default => 'pending',
+        };
     }
 }

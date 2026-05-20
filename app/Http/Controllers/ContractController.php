@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\PdfReceiptService;
+use App\Services\ContractPdfService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -928,7 +928,7 @@ class ContractController extends Controller
         ]);
     }
 
-    public function document(int $id, PdfReceiptService $pdf)
+    public function document(int $id, ContractPdfService $pdf)
     {
         $contract = DB::table('contracts as c')
             ->join('clients as cl', 'cl.id', '=', 'c.client_id')
@@ -999,6 +999,8 @@ class ContractController extends Controller
             ($contract->nombres ?? '') . ' ' . ($contract->apellidos ?? '')
         );
 
+        $templateKey = strtolower($contract->contract_property_type) . '_' . ($isCredit ? 'credito' : 'contado');
+
         return $pdf->stream(
             'pdf.contracts.document',
             [
@@ -1010,7 +1012,7 @@ class ContractController extends Controller
                 'propertyTypeLabel' => $this->contractPropertyTypeLabel($contract->contract_property_type),
                 'isCredit' => $isCredit,
                 'isContado' => $isContado,
-                'templateKey' => strtolower($contract->contract_property_type) . '_' . ($isCredit ? 'credito' : 'contado'),
+                'templateKey' => $templateKey,
                 'document_type' => $isCredit
                     ? 'CONTRATO DE COMPRA-VENTA A CREDITO'
                     : 'CONTRATO DE COMPRA-VENTA AL CONTADO',
