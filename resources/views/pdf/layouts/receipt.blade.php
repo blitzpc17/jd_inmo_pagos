@@ -20,9 +20,6 @@
             'white' => '#FFFFFF',
             'black' => '#000000',
 
-            /*
-             * Compatibilidad con vistas anteriores.
-             */
             'dark' => '#111827',
             'gray' => '#6B7280',
             'blue' => '#2563EB',
@@ -47,7 +44,6 @@
 
         $companyName = $branding['company_name'] ?? 'JD Inmobiliaria';
         $companySubtitle = $branding['company_subtitle'] ?? 'DOCUMENTOS OFICIALES';
-        $footerText = $branding['footer_text'] ?? 'Este documento fue generado por el sistema.';
         $addressLine = $branding['address_line'] ?? 'VISITANOS EN 3 ORIENTE #736 COL. RICARDO FLORES MAGON TEHUACAN PUEBLA.';
         $phoneLine = $branding['phone_line'] ?? 'TELEFONO 238 289 0712';
     @endphp
@@ -63,8 +59,8 @@
         body {
             font-family: DejaVu Sans, sans-serif;
             color: {{ $palette['black'] }};
-            font-size: 10.5px;
-            line-height: 1.35;
+            font-size: 8.8px;
+            line-height: 1.18;
         }
 
         .watermark-wrapper {
@@ -90,8 +86,8 @@
         }
 
         .watermark-logo {
-            width: 430px;
-            opacity: 0.055;
+            width: 385px;
+            opacity: 0.045;
         }
 
         .receipt-footer {
@@ -100,9 +96,9 @@
             left: 0;
             right: 0;
             text-align: center;
-            font-size: 8.6px;
+            font-size: 7.4px;
             font-weight: bold;
-            line-height: 1.25;
+            line-height: 1.15;
             color: {{ $palette['black'] }};
         }
 
@@ -110,14 +106,14 @@
             position: fixed;
             right: 0;
             bottom: -1.05cm;
-            font-size: 8px;
+            font-size: 7px;
             color: {{ $palette['muted'] }};
             font-weight: bold;
         }
 
         .doc-header {
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
         }
 
         .doc-header-table {
@@ -126,14 +122,14 @@
         }
 
         .doc-header-left {
-            width: 35%;
+            width: 33%;
             vertical-align: middle;
             text-align: left;
-            height: 58px;
+            height: 44px;
         }
 
         .doc-header-center {
-            width: 35%;
+            width: 37%;
             vertical-align: middle;
             text-align: center;
         }
@@ -142,32 +138,32 @@
             width: 30%;
             vertical-align: middle;
             text-align: right;
-            height: 58px;
+            height: 44px;
         }
 
         .logo {
-            max-height: 54px;
-            max-width: 165px;
+            max-height: 42px;
+            max-width: 140px;
         }
 
         .logo-fallback {
-            font-size: 16px;
+            font-size: 13px;
             font-weight: bold;
             color: {{ $palette['primary'] }};
-            line-height: 1.1;
+            line-height: 1.05;
         }
 
         .document-type {
-            font-size: 15px;
+            font-size: 12.5px;
             font-weight: bold;
             color: {{ $palette['primary'] }};
             text-transform: uppercase;
-            line-height: 1.1;
+            line-height: 1.05;
         }
 
         .document-subtitle {
-            margin-top: 4px;
-            font-size: 8.5px;
+            margin-top: 2px;
+            font-size: 7.2px;
             font-weight: bold;
             color: {{ $palette['muted'] }};
             text-transform: uppercase;
@@ -175,38 +171,38 @@
 
         .folio-box {
             display: inline-block;
-            font-size: 11px;
+            font-size: 8.8px;
             font-weight: bold;
             border: 1px solid {{ $palette['black'] }};
-            padding: 6px 10px;
+            padding: 4px 7px;
             vertical-align: middle;
             background: rgba(255,255,255,.92);
-            min-width: 120px;
+            min-width: 105px;
             text-align: center;
         }
 
         .header-rule {
-            height: 2px;
+            height: 1.4px;
             background: {{ $palette['primary'] }};
-            margin-top: 8px;
+            margin-top: 5px;
         }
 
         .section-title {
             background: {{ $palette['primary'] }};
             color: #fff;
-            padding: 7px 10px;
-            border-radius: 7px;
+            padding: 4px 7px;
+            border-radius: 5px;
             font-weight: bold;
-            margin-bottom: 8px;
-            font-size: 11px;
+            margin-bottom: 5px;
+            font-size: 8.8px;
             text-transform: uppercase;
         }
 
         .card {
             border: 1px solid {{ $palette['border'] }};
-            border-radius: 10px;
-            padding: 10px;
-            margin-bottom: 10px;
+            border-radius: 8px;
+            padding: 6px;
+            margin-bottom: 7px;
             background: rgba(255,255,255,0.94);
         }
 
@@ -219,20 +215,20 @@
         }
 
         .meta-table td {
-            padding: 6px 7px;
+            padding: 3.5px 5px;
             vertical-align: top;
         }
 
         .label {
             color: {{ $palette['muted'] }};
-            font-size: 8.5px;
+            font-size: 6.8px;
             text-transform: uppercase;
             font-weight: bold;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
 
         .value {
-            font-size: 10.5px;
+            font-size: 8.5px;
             font-weight: bold;
             color: {{ $palette['black'] }};
             word-break: break-word;
@@ -241,7 +237,7 @@
         .summary-table td {
             width: 25%;
             vertical-align: top;
-            padding-right: 7px;
+            padding-right: 5px;
         }
 
         .summary-table td:last-child {
@@ -249,12 +245,12 @@
         }
 
         .summary-box {
-            border-radius: 9px;
+            border-radius: 7px;
             background: rgba(249,250,251,0.96);
             border: 1px solid {{ $palette['border'] }};
-            border-left: 5px solid {{ $palette['info'] }};
-            padding: 8px 9px;
-            min-height: 46px;
+            border-left: 4px solid {{ $palette['info'] }};
+            padding: 5px 6px;
+            min-height: 32px;
         }
 
         .summary-box.success {
@@ -271,14 +267,14 @@
 
         .summary-box .small {
             color: {{ $palette['muted'] }};
-            font-size: 8px;
+            font-size: 6.5px;
             text-transform: uppercase;
             font-weight: bold;
         }
 
         .summary-box .big {
-            margin-top: 4px;
-            font-size: 13.5px;
+            margin-top: 2px;
+            font-size: 10.2px;
             font-weight: bold;
             color: {{ $palette['primary'] }};
         }
@@ -299,16 +295,16 @@
         .detail-table th {
             background: {{ $palette['primary'] }};
             color: #fff;
-            padding: 5px;
-            font-size: 8px;
+            padding: 3px;
+            font-size: 6.8px;
             text-align: left;
             text-transform: uppercase;
         }
 
         .detail-table td {
             border-bottom: 1px solid #ececec;
-            padding: 5px;
-            font-size: 8px;
+            padding: 3px;
+            font-size: 6.8px;
             background: rgba(255,255,255,0.92);
         }
 
@@ -318,11 +314,11 @@
         }
 
         .schedule-two-col-table td:first-child {
-            padding-right: 7px;
+            padding-right: 5px;
         }
 
         .schedule-two-col-table td:last-child {
-            padding-left: 7px;
+            padding-left: 5px;
         }
 
         .status-paid {
@@ -354,7 +350,7 @@
         }
 
         .signature-wrap {
-            margin-top: 28px;
+            margin-top: 18px;
             page-break-inside: avoid;
             text-align: center;
         }
@@ -372,10 +368,10 @@
         }
 
         .signature-line {
-            margin-top: 48px;
+            margin-top: 34px;
             border-top: 1px solid {{ $palette['black'] }};
-            padding-top: 10px;
-            font-size: 9px;
+            padding-top: 6px;
+            font-size: 7.5px;
             font-weight: bold;
         }
 
@@ -392,11 +388,11 @@
         }
 
         .mb-8 {
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
 
         .mb-12 {
-            margin-bottom: 12px;
+            margin-bottom: 7px;
         }
     </style>
 </head>
@@ -417,7 +413,7 @@
     <div class="page-counter">
         <script type="text/php">
             if (isset($pdf)) {
-                $pdf->page_text(506, 744, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 8, array(0,0,0));
+                $pdf->page_text(506, 744, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 7, array(0,0,0));
             }
         </script>
     </div>

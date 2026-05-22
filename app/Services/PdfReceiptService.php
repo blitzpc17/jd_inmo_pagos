@@ -89,6 +89,10 @@ class PdfReceiptService
             'info' => '#2563EB',
             'white' => '#FFFFFF',
             'black' => '#000000',
+
+            'dark' => '#111827',
+            'gray' => '#6B7280',
+            'blue' => '#2563EB',
         ];
     }
 
@@ -113,13 +117,6 @@ class PdfReceiptService
         return null;
     }
 
-    /**
-     * Resumen financiero del contrato.
-     *
-     * IMPORTANTE:
-     * Este método recibe contract_id, porque en tu controller lo estás llamando así:
-     * $pdf->chargePaymentStats((int) $charge->contract_id);
-     */
     public function chargePaymentStats(int $contractId): array
     {
         $contract = DB::table('contracts as c')
@@ -144,8 +141,9 @@ class PdfReceiptService
             ->where('contract_id', $contractId)
             ->whereNull('fecha_baja');
 
-        $paidTotal = (float) (clone $chargesQuery)->sum('monto');
+        $paidPrincipalTotal = (float) (clone $chargesQuery)->sum('monto');
         $lateFeeTotal = (float) (clone $chargesQuery)->sum('monto_recargo');
+        $realCollectedTotal = $paidPrincipalTotal + $lateFeeTotal;
 
         $contractTotal = (float) ($contract->importe ?? 0);
         $initialPayment = (float) ($contract->monto_pago_inicial ?? 0);
@@ -158,14 +156,15 @@ class PdfReceiptService
 
         $installmentsTotal = (int) (clone $scheduleBase)->count();
 
+        /*
+         * Ajuste solicitado:
+         * Se cuentan como pagadas únicamente las mensualidades con status PAGADO o ADELANTADO.
+         * PARCIAL, ATRASADO_PARCIAL y PENDIENTE no cuentan como pagadas.
+         */
         $installmentsPaid = (int) (clone $scheduleBase)
             ->whereIn(DB::raw('UPPER(status)'), [
                 'PAGADO',
-                'PAGADA',
-                'LIQUIDADO',
-                'LIQUIDADA',
-                'CUBIERTO',
-                'CUBIERTA',
+                'ADELANTADO',
             ])
             ->count();
 
@@ -184,13 +183,14 @@ class PdfReceiptService
             'months' => $months,
             'payment_type' => (string) ($contract->tipo_pago ?? ''),
 
-            'paid_total' => round($paidTotal, 2),
-            'paid_total_without_late_fee' => round($paidTotal - $lateFeeTotal, 2),
+            'paid_total' => round($paidPrincipalTotal, 2),
+            'paid_total_without_late_fee' => round($paidPrincipalTotal, 2),
             'late_fee_total' => round($lateFeeTotal, 2),
+            'real_collected_total' => round($realCollectedTotal, 2),
 
-            'balance' => round(max(0, $contractTotal - $paidTotal), 2),
+            'balance' => round(max(0, $contractTotal - $paidPrincipalTotal), 2),
             'progress_percent' => $contractTotal > 0
-                ? round(min(100, ($paidTotal / $contractTotal) * 100), 2)
+                ? round(min(100, ($paidPrincipalTotal / $contractTotal) * 100), 2)
                 : 0,
 
             'installments_total' => $installmentsTotal,
@@ -216,6 +216,7 @@ class PdfReceiptService
             'paid_total' => 0,
             'paid_total_without_late_fee' => 0,
             'late_fee_total' => 0,
+            'real_collected_total' => 0,
             'balance' => 0,
             'progress_percent' => 0,
             'installments_total' => 0,
@@ -227,12 +228,6 @@ class PdfReceiptService
         ];
     }
 
-    /**
-     * Genera una cuadrícula de mensualidades del contrato.
-     *
-     * Tu controller la usa así:
-     * $scheduleGrid = $pdf->chargeScheduleGrid((int) $charge->contract_id);
-     */
     public function chargeScheduleGrid(int $contractId): array
     {
         $rows = DB::table('payment_schedules')
@@ -270,12 +265,6 @@ class PdfReceiptService
         })->values()->all();
     }
 
-    /**
-     * Divide la cuadrícula de mensualidades en dos columnas para imprimir mejor en PDF.
-     *
-     * Tu controller la usa así:
-     * $scheduleColumns = $pdf->splitGridInTwoColumns($scheduleGrid);
-     */
     public function splitGridInTwoColumns(array $grid): array
     {
         $total = count($grid);
@@ -319,7 +308,9 @@ class PdfReceiptService
 
         return match ($status) {
             'PAGADO', 'PAGADA', 'LIQUIDADO', 'LIQUIDADA', 'CUBIERTO', 'CUBIERTA' => 'PAGADO',
-            'VENCIDO', 'VENCIDA' => 'VENCIDO',
+            'ADELANTADO' => 'ADELANTADO',
+            'VENCIDO', 'VENCIDA', 'ATRASADO' => 'ATRASADO',
+            'ATRASADO_PARCIAL' => 'ATRASADO PARCIAL',
             'PARCIAL' => 'PARCIAL',
             'CANCELADO', 'CANCELADA' => 'CANCELADO',
             default => $status ?: 'PENDIENTE',
@@ -331,8 +322,8 @@ class PdfReceiptService
         $status = mb_strtoupper(trim($status));
 
         return match ($status) {
-            'PAGADO', 'PAGADA', 'LIQUIDADO', 'LIQUIDADA', 'CUBIERTO', 'CUBIERTA' => 'success',
-            'VENCIDO', 'VENCIDA' => 'danger',
+            'PAGADO', 'PAGADA', 'LIQUIDADO', 'LIQUIDADA', 'CUBIERTO', 'CUBIERTA', 'ADELANTADO' => 'success',
+            'VENCIDO', 'VENCIDA', 'ATRASADO', 'ATRASADO_PARCIAL' => 'danger',
             'PARCIAL' => 'warning',
             'CANCELADO', 'CANCELADA' => 'muted',
             default => 'pending',

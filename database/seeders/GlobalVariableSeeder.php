@@ -56,5 +56,23 @@ class GlobalVariableSeeder extends Seeder
                 'updated_at' => now(),
             ]
         );
+
+
+        DB::table('global_variables')->updateOrInsert(
+            ['nombre' => 'COLLECTION_EMAIL_SETTINGS'],
+            [
+                'valor' => json_encode([
+                    'enabled' => true,
+                    'notify_on_contract_finalized' => true,
+                    'notify_before_finalization' => false,
+                    'days_before_finalization' => 5,
+                    'recipient_user_ids' => [],
+                    'fallback_user_id' => 1,
+                    'subject_finalized' => 'Contrato finalizado por atraso',
+                ], JSON_UNESCAPED_UNICODE),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
     }
 }

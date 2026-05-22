@@ -2,186 +2,224 @@
 
 namespace App\Console\Commands;
 
-use Carbon\Carbon;
+use App\Services\ContractCollectionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class ContractsMaintenanceCommand extends Command
 {
-    protected $signature = 'contracts:maintenance';
-    protected $description = 'Recalcula estados de mensualidades, recargos y contratos liquidados';
+    protected $signature = 'contracts:maintenance {--notify=1}';
 
-    public function handle(): int
+    protected $description = 'Valida contratos vencidos, finaliza contratos con atraso permitido vencido y libera lotes.';
+
+    public function handle(ContractCollectionService $collectionService): int
     {
-        $this->info('Iniciando mantenimiento de contratos...');
+        $notify = (bool) ((int) $this->option('notify'));
 
-        DB::beginTransaction();
-
-        try {
-            $this->refreshSchedulesStatus();
-            $this->refreshLateFees();
-            $this->refreshContractsStatus();
-
-            DB::commit();
-            $this->info('Mantenimiento completado correctamente.');
-            return self::SUCCESS;
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            $this->error('Error en mantenimiento: ' . $e->getMessage());
-            return self::FAILURE;
-        }
-    }
-
-    protected function refreshSchedulesStatus(): void
-    {
-        $rows = DB::table('payment_schedules')->get();
-
-        foreach ($rows as $row) {
-            $newStatus = $row->status;
-
-            if ((float) $row->amount_paid >= (float) $row->amount && (float) $row->amount > 0) {
-                $newStatus = 'PAGADO';
-            } elseif ((float) $row->amount_paid > 0 && (float) $row->amount_paid < (float) $row->amount) {
-                $newStatus = 'PARCIAL';
-            } elseif (Carbon::parse($row->due_date)->lt(now()->startOfDay())) {
-                $newStatus = 'VENCIDO';
-            } else {
-                $newStatus = 'PENDIENTE';
-            }
-
-            if ($newStatus !== $row->status) {
-                DB::table('payment_schedules')
-                    ->where('id', $row->id)
-                    ->update([
-                        'status' => $newStatus,
-                        'updated_at' => now(),
-                    ]);
-            }
-        }
-    }
-
-    protected function refreshLateFees(): void
-    {
-        $contracts = DB::table('contracts')->whereNull('fecha_baja')->get();
-
-        foreach ($contracts as $contract) {
-            $schedules = DB::table('payment_schedules')
-                ->where('contract_id', $contract->id)
-                ->orderBy('installment_number')
-                ->get();
-
-            $lateCount = $schedules->filter(function ($row) {
-                return in_array($row->status, ['VENCIDO', 'PARCIAL'], true);
-            })->count();
-
-            $apply = $lateCount >= 3;
-            $lateFee = $apply ? round((float) $contract->cuota_mensual * 0.10, 2) : 0;
-
-            $firstPending = DB::table('payment_schedules')
-                ->where('contract_id', $contract->id)
-                ->whereIn('status', ['VENCIDO', 'PARCIAL', 'PENDIENTE'])
-                ->orderBy('installment_number')
-                ->first();
-
-            if ($firstPending) {
-                DB::table('payment_schedules')
-                    ->where('id', $firstPending->id)
-                    ->update([
-                        'late_fee_amount' => $lateFee,
-                        'late_fee_applied' => $apply,
-                        'updated_at' => now(),
-                    ]);
-            }
-
-            if (!$apply) {
-                DB::table('payment_schedules')
-                    ->where('contract_id', $contract->id)
-                    ->where('late_fee_applied', true)
-                    ->update([
-                        'late_fee_amount' => 0,
-                        'late_fee_applied' => false,
-                        'updated_at' => now(),
-                    ]);
-            }
-        }
-    }
-
-    protected function refreshContractsStatus(): void
-    {
-        $liquidadoStatusId = $this->getContractStatusId('LIQUIDADO');
-        $vigenteStatusId = $this->getContractStatusId('VIGENTE');
-
-        $contracts = DB::table('contracts')
-            ->whereNull('fecha_baja')
-            ->get();
-
-        foreach ($contracts as $contract) {
-            $totalSchedules = DB::table('payment_schedules')
-                ->where('contract_id', $contract->id)
-                ->count();
-
-            $paidSchedules = DB::table('payment_schedules')
-                ->where('contract_id', $contract->id)
-                ->where('status', 'PAGADO')
-                ->count();
-
-            $principalPaid = $this->getContractPrincipalPaid($contract->id);
-            $saldo = max(0, (float) $contract->importe - $principalPaid);
-
-            $newStatus = $vigenteStatusId;
-
-            if ((float) $principalPaid >= (float) $contract->importe) {
-                $newStatus = $liquidadoStatusId;
-            }
-
-            if ($totalSchedules > 0 && $totalSchedules === $paidSchedules) {
-                $newStatus = $liquidadoStatusId;
-            }
-
-            DB::table('contracts')
-                ->where('id', $contract->id)
-                ->update([
-                    'saldo_financiado' => $saldo,
-                    'status_id' => $newStatus,
-                    'updated_at' => now(),
-                ]);
-        }
-    }
-
-    protected function getContractPrincipalPaid(int $contractId): float
-    {
-        $contract = DB::table('contracts')->where('id', $contractId)->first();
-        if (!$contract) {
-            return 0;
-        }
-
-        $chargesPrincipal = DB::table('charges as c')
-            ->leftJoin('charge_types as ct', 'ct.id', '=', 'c.charge_type_id')
-            ->where('c.contract_id', $contractId)
-            ->whereNull('c.fecha_baja')
-            ->where(function ($q) {
-                $q->whereNull('ct.nombre')
-                  ->orWhereNotIn(DB::raw('UPPER(ct.nombre)'), [
-                      'RECARGO'
-                  ]);
-            })
-            ->sum('c.monto');
-
-        return (float) $contract->monto_pago_inicial + (float) $chargesPrincipal;
-    }
-
-    protected function getContractStatusId(string $clave): int
-    {
-        $id = DB::table('statuses as s')
+        $vigenteStatusId = DB::table('statuses as s')
             ->join('processes as p', 'p.id', '=', 's.process_id')
             ->where('p.clave', 'CONTRACT_STATUS')
-            ->where('s.clave', $clave)
+            ->where('s.clave', 'VIGENTE')
             ->value('s.id');
 
-        if (!$id) {
-            throw new \RuntimeException("No existe el estado {$clave} para CONTRACT_STATUS.");
+        if (!$vigenteStatusId) {
+            $this->error('No existe CONTRACT_STATUS / VIGENTE.');
+            return self::FAILURE;
         }
 
-        return (int) $id;
+        $contracts = DB::table('contracts')
+            ->where('status_id', $vigenteStatusId)
+            ->whereNull('fecha_baja')
+            ->orderBy('id')
+            ->get(['id', 'numero_referencia', 'status_id']);
+
+        $finalized = [];
+
+        foreach ($contracts as $contract) {
+            $beforeStatus = DB::table('contracts')
+                ->where('id', $contract->id)
+                ->value('status_id');
+
+            try {
+                $collectionService->enforceDelinquencyRule((int) $contract->id);
+            } catch (\Throwable $e) {
+                Log::error('Error en mantenimiento de contrato', [
+                    'contract_id' => $contract->id,
+                    'folio' => $contract->numero_referencia,
+                    'error' => $e->getMessage(),
+                ]);
+
+                continue;
+            }
+
+            $after = DB::table('contracts as c')
+                ->leftJoin('statuses as s', 's.id', '=', 'c.status_id')
+                ->leftJoin('clients as cl', 'cl.id', '=', 'c.client_id')
+                ->leftJoin('developments as d', 'd.id', '=', 'c.development_id')
+                ->where('c.id', $contract->id)
+                ->select([
+                    'c.id',
+                    'c.numero_referencia',
+                    'c.status_id',
+                    's.clave as status_clave',
+                    's.nombre as status_nombre',
+                    DB::raw("TRIM(COALESCE(cl.nombres,'') || ' ' || COALESCE(cl.apellidos,'')) as cliente"),
+                    'd.nombre as lotificacion',
+                ])
+                ->first();
+
+            if (
+                $after
+                && (int) $beforeStatus !== (int) $after->status_id
+                && $after->status_clave === 'FINALIZADO'
+            ) {
+                $finalized[] = $after;
+            }
+        }
+
+        if ($notify && count($finalized) > 0) {
+            $this->sendFinalizationNotifications($finalized);
+        }
+
+        $this->info('Contratos revisados: ' . $contracts->count());
+        $this->info('Contratos finalizados: ' . count($finalized));
+
+        return self::SUCCESS;
+    }
+
+    protected function sendFinalizationNotifications(array $contracts): void
+    {
+        $settings = $this->collectionEmailSettings();
+
+        if (!($settings['enabled'] ?? false)) {
+            return;
+        }
+
+        if (!($settings['notify_on_contract_finalized'] ?? false)) {
+            return;
+        }
+
+        $emails = $this->recipientEmails($settings);
+
+        if (empty($emails)) {
+            Log::warning('No hay correos configurados para notificación de contratos finalizados.');
+            return;
+        }
+
+        $subject = $settings['subject_finalized'] ?? 'Contrato finalizado por atraso';
+
+        foreach ($emails as $email) {
+            try {
+                Mail::raw($this->finalizedMessage($contracts), function ($message) use ($email, $subject) {
+                    $message->to($email)->subject($subject);
+                });
+            } catch (\Throwable $e) {
+                Log::error('No se pudo enviar correo de contratos finalizados', [
+                    'email' => $email,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    protected function collectionEmailSettings(): array
+    {
+        $default = [
+            'enabled' => false,
+            'notify_on_contract_finalized' => false,
+            'notify_before_finalization' => false,
+            'days_before_finalization' => 5,
+            'recipient_user_ids' => [],
+            'fallback_user_id' => 1,
+            'subject_finalized' => 'Contrato finalizado por atraso',
+        ];
+
+        try {
+            $value = DB::table('global_variables')
+                ->where('nombre', 'COLLECTION_EMAIL_SETTINGS')
+                ->value('valor');
+
+            if (!$value) {
+                return $default;
+            }
+
+            $json = is_array($value) ? $value : json_decode($value, true);
+
+            if (!is_array($json)) {
+                return $default;
+            }
+
+            return array_merge($default, $json);
+        } catch (\Throwable $e) {
+            return $default;
+        }
+    }
+
+    protected function recipientEmails(array $settings): array
+    {
+        $userIds = $settings['recipient_user_ids'] ?? [];
+
+        if (!is_array($userIds)) {
+            $userIds = [];
+        }
+
+        $fallbackUserId = $settings['fallback_user_id'] ?? null;
+
+        if (empty($userIds) && $fallbackUserId) {
+            $userIds = [$fallbackUserId];
+        }
+
+        $emails = DB::table('users')
+            ->whereIn('id', $userIds)
+            ->whereNotNull('email')
+            ->where('email', '<>', '')
+            ->pluck('email')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($emails) && $fallbackUserId) {
+            $fallbackEmail = DB::table('users')
+                ->where('id', $fallbackUserId)
+                ->whereNotNull('email')
+                ->where('email', '<>', '')
+                ->value('email');
+
+            if ($fallbackEmail) {
+                $emails[] = $fallbackEmail;
+            }
+        }
+
+        return $emails;
+    }
+
+    protected function finalizedMessage(array $contracts): string
+    {
+        $lines = [];
+        $lines[] = 'Se finalizaron contratos por atraso.';
+        $lines[] = '';
+        $lines[] = 'Total: ' . count($contracts);
+        $lines[] = '';
+
+        foreach ($contracts as $contract) {
+            $lots = DB::table('contract_lots as cl')
+                ->join('lots as l', 'l.id', '=', 'cl.lot_id')
+                ->where('cl.contract_id', $contract->id)
+                ->pluck('l.identificador')
+                ->implode(', ');
+
+            $lines[] = 'Contrato: ' . ($contract->numero_referencia ?? 'S/F');
+            $lines[] = 'Cliente: ' . ($contract->cliente ?? 'N/A');
+            $lines[] = 'Lotificación: ' . ($contract->lotificacion ?? 'N/A');
+            $lines[] = 'Lotes liberados: ' . ($lots ?: 'N/A');
+            $lines[] = 'Estado: FINALIZADO';
+            $lines[] = 'Fecha: ' . now()->format('d/m/Y H:i:s');
+            $lines[] = str_repeat('-', 40);
+        }
+
+        return implode(PHP_EOL, $lines);
     }
 }

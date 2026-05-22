@@ -36,6 +36,8 @@ use App\Http\Controllers\DevelopmentCollectionReportController;
 
 use App\Http\Controllers\MonthlyCollectionReportController;
 
+use App\Http\Controllers\CollectionEmailSettingsController;
+
 
 Route::get('/', fn () => redirect()->route('login'));
 
@@ -44,6 +46,7 @@ Route::post('/login', [LoginController::class, 'store'])->name('login.store');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
 Route::middleware(['auth.custom', 'share.menu'])->group(function () {
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/stats', [DashboardController::class, 'stats'])->name('dashboard.stats');
 
@@ -281,17 +284,32 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     Route::put('/{id}', [ContractController::class, 'update'])->name('update');
 });
 
-    Route::prefix('cobros')->name('cobros.')->group(function () {
+ Route::prefix('cobros')
+    ->name('cobros.')
+    ->middleware(['auth.custom', 'share.menu'])
+    ->group(function () {
         Route::get('/', [ChargeController::class, 'index'])->name('index');
-        Route::get('/datatable', [ChargeController::class, 'datatable'])->name('datatable');
+
         Route::get('/options', [ChargeController::class, 'options'])->name('options');
+        Route::get('/clients', [ChargeController::class, 'clients'])->name('clients');
 
-        Route::get('/contract/{contractId}/summary', [ChargeController::class, 'contractSummary'])->name('contract.summary');
-        Route::post('/', [ChargeController::class, 'store'])->name('store');
         Route::get('/client/{clientId}/contracts', [ChargeController::class, 'clientContracts'])->name('client.contracts');
-        Route::get('/contracts/{contract}/summary', [ChargeController::class, 'contractSummary'])->name('cobros.contract.summary');
-    });
 
+        Route::get('/contract/{contractId}/preview', [ChargeController::class, 'preview'])->name('contract.preview');
+
+        Route::get('/contract/{contractId}/offices', [ChargeController::class, 'contractOffices'])->name('contract.offices');
+
+        Route::get('/contract/{contractId}/office/{officeId}/payment-methods', [ChargeController::class, 'officePaymentMethods'])
+            ->name('contract.office.payment-methods');
+
+        Route::post('/contract/{contractId}/charge', [ChargeController::class, 'store'])->name('store');
+
+        Route::get('/group/{paymentGroupUuid}', [ChargeController::class, 'paymentGroup'])->name('payment.group');
+
+        Route::get('/schedule/{scheduleId}/charges', [ChargeController::class, 'scheduleCharges'])->name('schedule.charges');
+
+        Route::get('/{id}/receipt', [ChargeController::class, 'receipt'])->name('receipt');
+    });
    
 
     Route::prefix('asignacion-lotificaciones')->name('asignacion_lotificaciones.')->group(function () {
@@ -351,5 +369,14 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     Route::get('/cobros/{id}/recibo', [ChargeController::class, 'receipt'])->name('cobros.receipt');
     Route::get('/abonos-acreedores/recibo/{itemId}', [CreditorVoucherPaymentController::class, 'receipt'])->name('abonos_acreedores.receipt');
     Route::get('/pagos-proveedores/{id}/recibo', [SupplierPaymentController::class, 'receipt'])->name('pagos_proveedores.receipt');
+
+
+    Route::prefix('configuracion-cobranza')
+    ->name('collection-email-settings.')
+    ->middleware(['auth.custom', 'share.menu'])
+    ->group(function () {
+        Route::get('/correos', [CollectionEmailSettingsController::class, 'index'])->name('index');
+        Route::post('/correos', [CollectionEmailSettingsController::class, 'update'])->name('update');
+    });
     
 });

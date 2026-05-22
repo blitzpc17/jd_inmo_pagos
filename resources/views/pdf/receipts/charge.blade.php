@@ -2,10 +2,6 @@
 
 @section('content')
 @php
-    /*
-     * Variables seguras para evitar errores tipo:
-     * Undefined array key "total_payments"
-     */
     $stats = is_array($stats ?? null) ? $stats : [];
 
     $totalPayments = data_get($stats, 'total_payments', data_get($stats, 'installments_total', 0));
@@ -16,12 +12,15 @@
     $paidTotal = (float) data_get($stats, 'paid_total', 0);
     $balance = (float) data_get($stats, 'balance', 0);
     $lateFeeTotal = (float) data_get($stats, 'late_fee_total', 0);
+    $realCollectedTotal = (float) data_get($stats, 'real_collected_total', $paidTotal + $lateFeeTotal);
     $progressPercent = (float) data_get($stats, 'progress_percent', 0);
 
     $initialPayment = (float) data_get($stats, 'initial_payment', 0);
     $financedBalance = (float) data_get($stats, 'financed_balance', 0);
     $monthlyAmount = (float) data_get($stats, 'monthly_amount', 0);
     $paymentType = data_get($stats, 'payment_type', '');
+
+    $includeSchedule = !empty($includeSchedule);
 
     $scheduleGrid = is_array($scheduleGrid ?? null) ? $scheduleGrid : [];
 
@@ -41,7 +40,8 @@
     }
 
     if (
-        empty($scheduleColumns['left'])
+        $includeSchedule
+        && empty($scheduleColumns['left'])
         && empty($scheduleColumns['right'])
         && !empty($scheduleGrid)
     ) {
@@ -53,16 +53,13 @@
         ];
     }
 
-    /*
-     * Datos del cobro.
-     * Se usan varios nombres por compatibilidad con tus queries actuales.
-     */
     $chargeAmount = (float) ($charge->monto ?? 0);
     $chargeLateFee = (float) ($charge->monto_recargo ?? 0);
     $chargeTotal = $chargeAmount + $chargeLateFee;
 
     $chargeReference = $charge->numero_referencia ?? $charge->folio ?? 'S/F';
     $chargeDate = $charge->fecha_emision ?? $charge->fecha ?? '';
+    $chargeCreatedAt = $charge->created_at ?? null;
     $chargeType = $charge->tipo_cobro ?? $charge->charge_type ?? $charge->tipo ?? 'N/A';
     $paymentMethod = $charge->forma_pago ?? $charge->payment_method ?? $charge->metodo_pago ?? 'N/A';
     $chargeObservation = $charge->observacion ?? $charge->observaciones ?? '';
@@ -75,11 +72,10 @@
     $userName = $charge->usuario
         ?? $charge->usuario_genero
         ?? $charge->usuario_registro
-        ?? '';
+        ?? 'USUARIO SISTEMA';
 
-    /*
-     * Datos del contrato.
-     */
+    $officeName = $charge->oficina_recibe ?? 'N/A';
+
     $contractRef = $contract->numero_referencia ?? $contract->folio ?? '';
     $contractStatus = $contract->estado ?? $contract->estado_nombre ?? '';
     $contractPaymentType = $contract->tipo_pago ?? $paymentType ?? '';
@@ -87,18 +83,32 @@
     $contractFinancedBalance = (float) ($contract->saldo_financiado ?? $financedBalance);
     $contractMonthlyAmount = (float) ($contract->cuota_mensual ?? $monthlyAmount);
 
-    /*
-     * Función simple para clases de estado.
-     */
+    $emissionDateTime = $emittedAt ?? now();
+
+    $createdDateTime = null;
+    try {
+        $createdDateTime = !empty($chargeCreatedAt)
+            ? \Carbon\Carbon::parse($chargeCreatedAt)
+            : null;
+    } catch (\Throwable $e) {
+        $createdDateTime = null;
+    }
+
+    $conceptText = trim($chargeType);
+
+    if (!empty($chargeObservation)) {
+        $conceptText .= ' - ' . trim($chargeObservation);
+    }
+
     $statusCss = function ($statusClass, $statusLabel = '') {
         $statusClass = mb_strtolower(trim((string) $statusClass));
         $statusLabel = mb_strtoupper(trim((string) $statusLabel));
 
-        if ($statusClass === 'success' || in_array($statusLabel, ['PAGADO', 'PAGADA', 'LIQUIDADO', 'LIQUIDADA', 'CUBIERTO', 'CUBIERTA'], true)) {
+        if ($statusClass === 'success' || in_array($statusLabel, ['PAGADO', 'PAGADA', 'LIQUIDADO', 'LIQUIDADA', 'CUBIERTO', 'CUBIERTA', 'ADELANTADO'], true)) {
             return 'status-paid';
         }
 
-        if ($statusClass === 'danger' || in_array($statusLabel, ['VENCIDO', 'VENCIDA'], true)) {
+        if ($statusClass === 'danger' || in_array($statusLabel, ['VENCIDO', 'VENCIDA', 'ATRASADO', 'ATRASADO PARCIAL'], true)) {
             return 'status-danger';
         }
 
@@ -110,70 +120,126 @@
     };
 @endphp
 
+<style>
+    .schedule-page-break {
+        page-break-before: always;
+    }
+</style>
+
 <div class="keep-together">
-    <div class="section-title">Datos del cobro</div>
+    <div class="section-title">Datos del recibo</div>
 
     <div class="card">
         <table class="meta-table">
             <tr>
                 <td style="width: 33.333%;">
-                    <div class="label">Referencia cobro</div>
+                    <div class="label">Folio recibo</div>
                     <div class="value">{{ $chargeReference }}</div>
                 </td>
 
                 <td style="width: 33.333%;">
-                    <div class="label">Fecha</div>
-                    <div class="value">{{ $chargeDate }}</div>
+                    <div class="label">Fecha del cobro</div>
+                    <div class="value">{{ $chargeDate ?: 'N/A' }}</div>
                 </td>
 
                 <td style="width: 33.333%;">
-                    <div class="label">Cliente</div>
-                    <div class="value">{{ $clientName ?: 'N/A' }}</div>
+                    <div class="label">Hora emisión</div>
+                    <div class="value">{{ $emissionDateTime->format('d/m/Y H:i:s') }}</div>
                 </td>
             </tr>
 
             <tr>
                 <td>
+                    <div class="label">Cliente</div>
+                    <div class="value">{{ $clientName ?: 'N/A' }}</div>
+                </td>
+
+                <td>
+                    <div class="label">Contrato</div>
+                    <div class="value">{{ $contractRef ?: 'N/A' }}</div>
+                </td>
+
+                <td>
                     <div class="label">Tipo de cobro</div>
                     <div class="value">{{ $chargeType ?: 'N/A' }}</div>
                 </td>
+            </tr>
 
+            <tr>
                 <td>
                     <div class="label">Forma de pago</div>
                     <div class="value">{{ $paymentMethod ?: 'N/A' }}</div>
                 </td>
 
                 <td>
-                    <div class="label">Usuario registró</div>
-                    <div class="value">{{ $userName ?: 'N/A' }}</div>
+                    <div class="label">Oficina</div>
+                    <div class="value">{{ $officeName ?: 'N/A' }}</div>
+                </td>
+
+                <td>
+                    <div class="label">Recibió</div>
+                    <div class="value">{{ $userName ?: 'USUARIO SISTEMA' }}</div>
                 </td>
             </tr>
 
-            <tr>
-                <td>
-                    <div class="label">Monto recibido</div>
-                    <div class="value">${{ number_format($chargeAmount, 2) }}</div>
-                </td>
+            @if($createdDateTime)
+                <tr>
+                    <td>
+                        <div class="label">Registrado</div>
+                        <div class="value">{{ $createdDateTime->format('d/m/Y H:i:s') }}</div>
+                    </td>
 
-                <td>
-                    <div class="label">Recargo cobrado</div>
-                    <div class="value">${{ number_format($chargeLateFee, 2) }}</div>
-                </td>
-
-                <td>
-                    <div class="label">Total del recibo</div>
-                    <div class="value">${{ number_format($chargeTotal, 2) }}</div>
-                </td>
-            </tr>
+                    <td colspan="2">
+                        <div class="label">Movimiento generado por</div>
+                        <div class="value">{{ $userName ?: 'USUARIO SISTEMA' }}</div>
+                    </td>
+                </tr>
+            @endif
 
             <tr>
                 <td colspan="3">
-                    <div class="label">Observación</div>
-                    <div class="value">{{ $chargeObservation ?: 'N/A' }}</div>
+                    <div class="label">Concepto</div>
+                    <div class="value">{{ $conceptText ?: 'COBRO' }}</div>
                 </td>
             </tr>
         </table>
     </div>
+</div>
+
+<div class="keep-together">
+    <div class="section-title">Importe del recibo</div>
+
+    <table class="summary-table mb-12">
+        <tr>
+            <td>
+                <div class="summary-box success">
+                    <div class="small">Monto aplicado</div>
+                    <div class="big">${{ number_format($chargeAmount, 2) }}</div>
+                </div>
+            </td>
+
+            <td>
+                <div class="summary-box danger">
+                    <div class="small">Recargo</div>
+                    <div class="big">${{ number_format($chargeLateFee, 2) }}</div>
+                </div>
+            </td>
+
+            <td>
+                <div class="summary-box">
+                    <div class="small">Total recibo</div>
+                    <div class="big">${{ number_format($chargeTotal, 2) }}</div>
+                </div>
+            </td>
+
+            <td>
+                <div class="summary-box">
+                    <div class="small">Tipo contrato</div>
+                    <div class="big" style="font-size: 8.2px;">{{ $contractPaymentType ?: 'N/A' }}</div>
+                </div>
+            </td>
+        </tr>
+    </table>
 </div>
 
 @if(!empty($contract))
@@ -191,14 +257,14 @@
 
                 <td>
                     <div class="summary-box success">
-                        <div class="small">Pagado acumulado</div>
+                        <div class="small">Pagado capital</div>
                         <div class="big">${{ number_format($paidTotal, 2) }}</div>
                     </div>
                 </td>
 
                 <td>
                     <div class="summary-box warning">
-                        <div class="small">Saldo pendiente</div>
+                        <div class="small">Saldo</div>
                         <div class="big">${{ number_format($balance, 2) }}</div>
                     </div>
                 </td>
@@ -212,71 +278,39 @@
             </tr>
         </table>
 
-        <table class="summary-table mb-12">
-            <tr>
-                <td>
-                    <div class="summary-box">
-                        <div class="small">Total pagos</div>
-                        <div class="big">{{ $totalPayments }}</div>
-                    </div>
-                </td>
-
-                <td>
-                    <div class="summary-box success">
-                        <div class="small">Pagados</div>
-                        <div class="big">{{ $paidPayments }}</div>
-                    </div>
-                </td>
-
-                <td>
-                    <div class="summary-box warning">
-                        <div class="small">Pendientes</div>
-                        <div class="big">{{ $pendingPayments }}</div>
-                    </div>
-                </td>
-
-                <td>
-                    <div class="summary-box">
-                        <div class="small">Avance</div>
-                        <div class="big">{{ number_format($progressPercent, 2) }}%</div>
-                    </div>
-                </td>
-            </tr>
-        </table>
-
         <div class="card">
             <table class="meta-table">
                 <tr>
                     <td style="width: 33.333%;">
-                        <div class="label">Contrato</div>
-                        <div class="value">{{ $contractRef ?: 'N/A' }}</div>
-                    </td>
-
-                    <td style="width: 33.333%;">
-                        <div class="label">Estado</div>
+                        <div class="label">Estado contrato</div>
                         <div class="value">{{ $contractStatus ?: 'N/A' }}</div>
                     </td>
 
                     <td style="width: 33.333%;">
-                        <div class="label">Tipo pago</div>
-                        <div class="value">{{ $contractPaymentType ?: 'N/A' }}</div>
+                        <div class="label">Mensualidad</div>
+                        <div class="value">${{ number_format($contractMonthlyAmount, 2) }}</div>
+                    </td>
+
+                    <td style="width: 33.333%;">
+                        <div class="label">Avance</div>
+                        <div class="value">{{ number_format($progressPercent, 2) }}%</div>
                     </td>
                 </tr>
 
                 <tr>
                     <td>
-                        <div class="label">Importe contrato</div>
-                        <div class="value">${{ number_format($contractAmount, 2) }}</div>
+                        <div class="label">Pagos totales</div>
+                        <div class="value">{{ $totalPayments }}</div>
                     </td>
 
                     <td>
-                        <div class="label">Saldo financiado</div>
-                        <div class="value">${{ number_format($contractFinancedBalance, 2) }}</div>
+                        <div class="label">Pagados</div>
+                        <div class="value">{{ $paidPayments }}</div>
                     </td>
 
                     <td>
-                        <div class="label">Mensualidad</div>
-                        <div class="value">${{ number_format($contractMonthlyAmount, 2) }}</div>
+                        <div class="label">Pendientes</div>
+                        <div class="value">{{ $pendingPayments }}</div>
                     </td>
                 </tr>
 
@@ -287,21 +321,23 @@
                     </td>
 
                     <td>
-                        <div class="label">Meses</div>
-                        <div class="value">{{ data_get($stats, 'months', $contract->meses ?? 0) }}</div>
+                        <div class="label">Saldo financiado</div>
+                        <div class="value">${{ number_format($contractFinancedBalance, 2) }}</div>
                     </td>
 
                     <td>
-                        <div class="label">Pagado sin recargos</div>
-                        <div class="value">${{ number_format((float) data_get($stats, 'paid_total_without_late_fee', 0), 2) }}</div>
+                        <div class="label">Total recibido real</div>
+                        <div class="value">${{ number_format($realCollectedTotal, 2) }}</div>
                     </td>
                 </tr>
             </table>
         </div>
     </div>
 
-    @if(!empty($scheduleGrid))
-        <div class="section-title">Calendario de pagos</div>
+    @if($includeSchedule && !empty($scheduleGrid))
+        <div class="schedule-page-break"></div>
+
+        <div class="section-title">Calendario de pagos adjunto</div>
 
         <table class="schedule-two-col-table">
             <tr>
@@ -309,7 +345,7 @@
                     <table class="detail-table">
                         <thead>
                             <tr>
-                                <th style="width: 28px;">#</th>
+                                <th style="width: 25px;">#</th>
                                 <th>Vence</th>
                                 <th class="text-right">Monto</th>
                                 <th class="text-right">Pagado</th>
@@ -349,7 +385,7 @@
                     <table class="detail-table">
                         <thead>
                             <tr>
-                                <th style="width: 28px;">#</th>
+                                <th style="width: 25px;">#</th>
                                 <th>Vence</th>
                                 <th class="text-right">Monto</th>
                                 <th class="text-right">Pagado</th>

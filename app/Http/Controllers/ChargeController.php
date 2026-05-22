@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Carbon\Carbon;
+use App\Services\ContractCollectionService;
+use App\Services\PdfReceiptService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-use App\Services\PdfReceiptService;
 
 class ChargeController extends Controller
 {
@@ -15,674 +14,381 @@ class ChargeController extends Controller
         return view('cobros.index');
     }
 
-    public function datatable()
+    public function clients(Request $request)
     {
-        $rows = DB::table('charges as c')
-            ->leftJoin('clients as cl', 'cl.id', '=', 'c.client_id')
-            ->leftJoin('contracts as co', 'co.id', '=', 'c.contract_id')
-            ->leftJoin('reservations as r', 'r.id', '=', 'c.reservation_id')
-            ->leftJoin('charge_types as ct', 'ct.id', '=', 'c.charge_type_id')
-            ->leftJoin('payment_methods as pm', 'pm.id', '=', 'c.payment_method_id')
+        $term = trim((string) $request->input('q', ''));
+
+        $query = DB::table('clients as c')
             ->whereNull('c.fecha_baja')
             ->select([
                 'c.id',
-                'c.numero_referencia',
-                'c.fecha_emision',
-                'c.monto',
-                'c.monto_recargo',
-                DB::raw("COALESCE(cl.nombres,'') || ' ' || COALESCE(cl.apellidos,'') as cliente"),
-                DB::raw("
-                    CASE
-                        WHEN c.contract_id IS NOT NULL THEN co.numero_referencia
-                        WHEN c.reservation_id IS NOT NULL THEN r.numero_referencia
-                        ELSE 'N/A'
-                    END as referencia_origen
-                "),
-                'ct.nombre as tipo_cobro',
-                'pm.nombre as forma_pago',
+                DB::raw("TRIM(COALESCE(c.nombres,'') || ' ' || COALESCE(c.apellidos,'')) as text"),
+                'c.telefono',
             ])
+            ->orderBy('c.nombres')
+            ->limit(30);
+
+        if ($term !== '') {
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw(
+                    "LOWER(COALESCE(c.nombres,'') || ' ' || COALESCE(c.apellidos,'')) LIKE ?",
+                    ['%' . mb_strtolower($term) . '%']
+                )->orWhereRaw(
+                    "LOWER(COALESCE(c.telefono,'')) LIKE ?",
+                    ['%' . mb_strtolower($term) . '%']
+                );
+            });
+        }
+
+        return response()->json([
+            'results' => $query->get(),
+        ]);
+    }
+
+    public function clientContracts(int $clientId, ContractCollectionService $service)
+    {
+        $rows = DB::table('contracts as c')
+            ->join('statuses as s', 's.id', '=', 'c.status_id')
+            ->join('developments as d', 'd.id', '=', 'c.development_id')
+            ->leftJoin('contract_payment_types as cpt', 'cpt.id', '=', 'c.contract_payment_type_id')
+            ->where('c.client_id', $clientId)
+            ->whereNull('c.fecha_baja')
             ->orderByDesc('c.id')
-            ->get()
-            ->map(function ($r) {
-                $r->acciones = '
-                    <a class="btn btn-sm btn-outline-danger" target="_blank" href="'.route('cobros.receipt', $r->id).'" title="Recibo PDF">
-                        <i class="fa-solid fa-file-pdf"></i>
-                    </a>
-                ';
-                return $r;
+            ->get([
+                'c.id',
+                'c.numero_referencia',
+                'c.importe',
+                'c.cuota_mensual',
+                's.clave as estado_clave',
+                's.nombre as estado_nombre',
+                'd.nombre as lotificacion',
+                'cpt.nombre as tipo_pago',
+            ])
+            ->map(function ($row) use ($service) {
+                if ($row->estado_clave === 'VIGENTE') {
+                    $service->enforceDelinquencyRule((int) $row->id);
+
+                    $fresh = DB::table('contracts as c')
+                        ->join('statuses as s', 's.id', '=', 'c.status_id')
+                        ->where('c.id', $row->id)
+                        ->first([
+                            's.clave as estado_clave',
+                            's.nombre as estado_nombre',
+                        ]);
+
+                    if ($fresh) {
+                        $row->estado_clave = $fresh->estado_clave;
+                        $row->estado_nombre = $fresh->estado_nombre;
+                    }
+                }
+
+                $row->text = $row->numero_referencia . ' - ' . $row->lotificacion . ' - ' . $row->estado_nombre;
+                $row->can_charge = $row->estado_clave === 'VIGENTE';
+
+                return $row;
             });
 
-        return response()->json(['data' => $rows]);
+        return response()->json([
+            'data' => $rows,
+        ]);
+    }
+
+    public function preview(int $contractId, ContractCollectionService $service)
+    {
+        return response()->json($service->preview($contractId));
+    }
+
+    public function contractOffices(int $contractId)
+    {
+        $rows = DB::table('contracts as c')
+            ->join('contract_lots as cl', 'cl.contract_id', '=', 'c.id')
+            ->join('lots as l', 'l.id', '=', 'cl.lot_id')
+            ->join('lot_offices as lo', 'lo.lot_id', '=', 'l.id')
+            ->join('offices as o', 'o.id', '=', 'lo.office_id')
+            ->join('statuses as s', 's.id', '=', 'o.status_id')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('c.id', $contractId)
+            ->whereNull('c.fecha_baja')
+            ->whereNull('o.fecha_baja')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->distinct()
+            ->orderBy('o.nombre')
+            ->get([
+                'o.id as value',
+                'o.nombre as text',
+            ]);
+
+        if ($rows->isEmpty()) {
+            $rows = DB::table('contracts as c')
+                ->join('offices as o', 'o.id', '=', 'c.office_id')
+                ->join('statuses as s', 's.id', '=', 'o.status_id')
+                ->join('processes as p', 'p.id', '=', 's.process_id')
+                ->where('c.id', $contractId)
+                ->whereNull('c.fecha_baja')
+                ->whereNull('o.fecha_baja')
+                ->where('p.clave', 'GENERAL')
+                ->where('s.clave', 'ACTIVE')
+                ->orderBy('o.nombre')
+                ->get([
+                    'o.id as value',
+                    'o.nombre as text',
+                ]);
+        }
+
+        return response()->json([
+            'data' => $rows,
+        ]);
+    }
+
+    public function officePaymentMethods(int $contractId, int $officeId)
+    {
+        $officeIsAllowed = $this->officeBelongsToContractLots($contractId, $officeId);
+
+        if (!$officeIsAllowed) {
+            $officeIsAllowed = DB::table('contracts')
+                ->where('id', $contractId)
+                ->where('office_id', $officeId)
+                ->whereNull('fecha_baja')
+                ->exists();
+        }
+
+        if (!$officeIsAllowed) {
+            return response()->json([
+                'message' => 'La oficina seleccionada no está vinculada a los lotes del contrato.',
+                'data' => [],
+            ], 422);
+        }
+
+        $rows = DB::table('payment_methods as pm')
+            ->join('statuses as s', 's.id', '=', 'pm.status_id')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('pm.office_id', $officeId)
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->orderBy('pm.nombre')
+            ->get([
+                'pm.id as value',
+                'pm.nombre as text',
+            ]);
+
+        return response()->json([
+            'data' => $rows,
+        ]);
+    }
+
+    public function store(Request $request, int $contractId, ContractCollectionService $service)
+    {
+        $data = $request->validate([
+            'monto' => ['required', 'numeric', 'min:0.01'],
+            'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
+            'office_receives_charge_id' => ['required', 'integer', 'exists:offices,id'],
+            'observacion' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        try {
+            $officeId = (int) $data['office_receives_charge_id'];
+            $paymentMethodId = (int) $data['payment_method_id'];
+
+            $officeIsAllowed = $this->officeBelongsToContractLots($contractId, $officeId);
+
+            if (!$officeIsAllowed) {
+                $officeIsAllowed = DB::table('contracts')
+                    ->where('id', $contractId)
+                    ->where('office_id', $officeId)
+                    ->whereNull('fecha_baja')
+                    ->exists();
+            }
+
+            if (!$officeIsAllowed) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'La oficina seleccionada no está vinculada a los lotes del contrato.',
+                ], 422);
+            }
+
+            $paymentMethodIsAllowed = DB::table('payment_methods')
+                ->where('id', $paymentMethodId)
+                ->where('office_id', $officeId)
+                ->exists();
+
+            if (!$paymentMethodIsAllowed) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'La forma de pago no pertenece a la oficina seleccionada.',
+                ], 422);
+            }
+
+            return response()->json($service->applyPayment($contractId, $data));
+        } catch (\Throwable $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
 
     public function options()
     {
-        $clients = DB::table('clients as c')
-            ->join('statuses as s', 's.id', '=', 'c.status_id')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('p.clave', 'GENERAL')
-            ->where('s.clave', 'ACTIVE')
-            ->whereNull('c.fecha_baja')
-            ->orderBy('c.nombres')
-            ->get([
-                'c.id as value',
-                DB::raw("c.nombres || ' ' || c.apellidos as text")
-            ]);
-
-        $paymentMethods = DB::table('payment_methods')
-            ->orderBy('nombre')
-            ->get(['id as value', 'nombre as text']);
-
-        $chargeTypes = DB::table('charge_types')
-            ->orderBy('nombre')
-            ->get(['id as value', 'nombre as text']);
-
         return response()->json([
-            'clients' => $clients,
-            'payment_methods' => $paymentMethods,
-            'charge_types' => $chargeTypes,
+            'offices' => [],
+            'payment_methods' => [],
         ]);
     }
 
-
-    public function store(Request $request)
+    public function paymentGroup(string $paymentGroupUuid)
     {
-        $this->refreshSchedulesStatus();
+        $rows = DB::table('charges as ch')
+            ->leftJoin('charge_types as ct', 'ct.id', '=', 'ch.charge_type_id')
+            ->leftJoin('payment_methods as pm', 'pm.id', '=', 'ch.payment_method_id')
+            ->leftJoin('offices as o', 'o.id', '=', 'ch.office_receives_charge_id')
+            ->leftJoin('clients as cl', 'cl.id', '=', 'ch.client_id')
+            ->where('ch.payment_group_uuid', $paymentGroupUuid)
+            ->whereNull('ch.fecha_baja')
+            ->orderBy('ch.id')
+            ->select([
+                'ch.id',
+                'ch.numero_referencia',
+                'ch.fecha_emision',
+                'ch.created_at',
+                'ch.monto',
+                'ch.monto_recargo',
+                'ch.observacion',
+                'ch.contract_id',
+                'ch.payment_group_uuid',
+                'ch.payment_schedule_id',
+                'ct.nombre as tipo_cobro',
+                'pm.nombre as forma_pago',
+                'o.nombre as oficina_recibe',
+                DB::raw("TRIM(COALESCE(cl.nombres,'') || ' ' || COALESCE(cl.apellidos,'')) as cliente"),
+            ])
+            ->get()
+            ->map(function ($row) {
+                $row->total = round((float) $row->monto + (float) $row->monto_recargo, 2);
+                $row->receipt_url = route('cobros.receipt', $row->id);
 
-        $data = Validator::make($request->all(), [
-            'client_id' => ['required', 'integer', 'exists:clients,id'],
-            'contract_id' => ['nullable', 'integer', 'exists:contracts,id'],
-            'reservation_id' => ['nullable', 'integer', 'exists:reservations,id'],
-            'charge_type_id' => ['required', 'integer', 'exists:charge_types,id'],
-            'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
-            'monto' => ['required', 'numeric', 'min:0.01'],
-            'observacion' => ['nullable', 'string'],
-        ])->validate();
+                return $row;
+            });
 
-        if (empty($data['contract_id']) && empty($data['reservation_id'])) {
-            return response()->json([
-                'message' => 'El cobro debe relacionarse a un contrato o a un apartado.'
-            ], 422);
-        }
-
-        $chargeType = DB::table('charge_types')->where('id', $data['charge_type_id'])->first();
-        abort_if(!$chargeType, 404, 'Tipo de cobro no encontrado');
-
-        $chargeStatusId = $this->getChargeStatusId('REGISTRADO');
-        $typeName = mb_strtoupper(trim($chargeType->nombre));
-
-        DB::beginTransaction();
-
-        try {
-            $lateFee = 0;
-            $applyLateFee = false;
-
-            if (!empty($data['contract_id'])) {
-                $contract = DB::table('contracts as c')
-                    ->join('statuses as s', 's.id', '=', 'c.status_id')
-                    ->join('processes as p', 'p.id', '=', 's.process_id')
-                    ->where('c.id', $data['contract_id'])
-                    ->select(['c.*', 's.clave as estado_clave', 's.nombre as estado_nombre'])
-                    ->first();
-
-                abort_if(!$contract, 404, 'Contrato no encontrado');
-
-                if (in_array(mb_strtoupper(trim($contract->estado_clave ?? '')), ['LIQUIDADO', 'CANCELADO', 'FINALIZADO'], true)) {
-                    return response()->json([
-                        'message' => 'No se pueden recibir cobros porque el contrato ya está '.$contract->estado_nombre.'.'
-                    ], 422);
-                }
-
-                if ($typeName === 'MENSUALIDAD') {
-                    $lateInfo = $this->detectLateFee($contract->id, (float) $contract->cuota_mensual);
-                    $applyLateFee = $lateInfo['apply'];
-                    $lateFee = $lateInfo['amount'];
-                }
-
-                $chargeId = DB::table('charges')->insertGetId([
-                    'numero_referencia' => '',
-                    'fecha_emision' => now()->toDateString(),
-                    'charge_type_id' => $data['charge_type_id'],
-                    'payment_method_id' => $data['payment_method_id'],
-                    'client_id' => $data['client_id'],
-                    'contract_id' => $data['contract_id'],
-                    'reservation_id' => $data['reservation_id'] ?? null,
-                    'status_id' => $chargeStatusId,
-                    'monto' => $data['monto'],
-                    'aplica_recargo' => $applyLateFee,
-                    'monto_recargo' => $lateFee,
-                    'observacion' => $data['observacion'] ?? null,
-                    'usuario_genero_id' => session('auth_user.id'),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                DB::table('charges')
-                    ->where('id', $chargeId)
-                    ->update([
-                        'numero_referencia' => 'COB-' . str_pad((string) $chargeId, 6, '0', STR_PAD_LEFT),
-                        'updated_at' => now(),
-                    ]);
-
-                $this->applyChargeByType(
-                    $contract->id,
-                    $chargeId,
-                    $typeName,
-                    (float) $data['monto'],
-                    (float) $lateFee
-                );
-
-                $this->refreshSchedulesStatus();
-                $this->recalculateContractBalance($contract->id);
-                $this->closeContractIfPaid($contract->id);
-            } else {
-                $chargeId = DB::table('charges')->insertGetId([
-                    'numero_referencia' => '',
-                    'fecha_emision' => now()->toDateString(),
-                    'charge_type_id' => $data['charge_type_id'],
-                    'payment_method_id' => $data['payment_method_id'],
-                    'client_id' => $data['client_id'],
-                    'contract_id' => null,
-                    'reservation_id' => $data['reservation_id'] ?? null,
-                    'status_id' => $chargeStatusId,
-                    'monto' => $data['monto'],
-                    'aplica_recargo' => false,
-                    'monto_recargo' => 0,
-                    'observacion' => $data['observacion'] ?? null,
-                    'usuario_genero_id' => session('auth_user.id'),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                DB::table('charges')
-                    ->where('id', $chargeId)
-                    ->update([
-                        'numero_referencia' => 'COB-' . str_pad((string) $chargeId, 6, '0', STR_PAD_LEFT),
-                        'updated_at' => now(),
-                    ]);
-            }
-
-            DB::commit();
-
-            return response()->json([
-                'ok' => true,
-                'message' => 'Cobro registrado correctamente.',
-            ]);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            throw $e;
-        }
+        return response()->json([
+            'ok' => true,
+            'data' => $rows,
+        ]);
     }
 
-    protected function refreshSchedulesStatus(): void
-    {
-        $rows = DB::table('payment_schedules')->get();
-
-        foreach ($rows as $row) {
-            $newStatus = $row->status;
-
-            if ((float) $row->amount_paid >= (float) $row->amount && (float) $row->amount > 0) {
-                $newStatus = 'PAGADO';
-            } elseif ((float) $row->amount_paid > 0 && (float) $row->amount_paid < (float) $row->amount) {
-                $newStatus = 'PARCIAL';
-            } elseif (Carbon::parse($row->due_date)->lt(now()->startOfDay())) {
-                $newStatus = 'VENCIDO';
-            } else {
-                $newStatus = 'PENDIENTE';
-            }
-
-            if ($newStatus !== $row->status) {
-                DB::table('payment_schedules')
-                    ->where('id', $row->id)
-                    ->update([
-                        'status' => $newStatus,
-                        'updated_at' => now(),
-                    ]);
-            }
-        }
-    }
-
-    protected function detectLateFee(int $contractId, float $monthlyAmount): array
-    {
-        $schedules = DB::table('payment_schedules')
-            ->where('contract_id', $contractId)
-            ->orderBy('installment_number')
-            ->get();
-
-        $lateCount = $schedules->filter(function ($row) {
-            return in_array($row->status, ['VENCIDO', 'PARCIAL'], true);
-        })->count();
-
-        return [
-            'apply' => $lateCount >= 3,
-            'amount' => $lateCount >= 3 ? round($monthlyAmount * 0.10, 2) : 0,
-        ];
-    }
-
-    protected function applyChargeToSchedules(int $contractId, int $chargeId, float $amount): void
-    {
-        $remaining = $amount;
-
-        $schedules = DB::table('payment_schedules')
-            ->where('contract_id', $contractId)
-            ->orderByRaw("
-                CASE status
-                    WHEN 'VENCIDO' THEN 1
-                    WHEN 'PARCIAL' THEN 2
-                    WHEN 'PENDIENTE' THEN 3
-                    WHEN 'ADELANTADO' THEN 4
-                    WHEN 'PAGADO' THEN 5
-                    ELSE 99
-                END
-            ")
-            ->orderBy('installment_number')
-            ->get();
-
-        foreach ($schedules as $schedule) {
-            if ($remaining <= 0) break;
-
-            $pending = max(0, (float) $schedule->amount - (float) $schedule->amount_paid);
-            if ($pending <= 0) continue;
-
-            $toApply = min($remaining, $pending);
-            $newPaid = (float) $schedule->amount_paid + $toApply;
-
-            $newStatus = 'PARCIAL';
-            if ($newPaid >= (float) $schedule->amount) {
-                $newStatus = 'PAGADO';
-            }
-
-            DB::table('payment_schedules')
-                ->where('id', $schedule->id)
-                ->update([
-                    'amount_paid' => $newPaid,
-                    'charge_id' => $chargeId,
-                    'status' => $newStatus,
-                    'updated_at' => now(),
-                ]);
-
-            $remaining -= $toApply;
-        }
-
-        if ($remaining > 0) {
-            $lastInstallment = DB::table('payment_schedules')
-                ->where('contract_id', $contractId)
-                ->max('installment_number');
-
-            DB::table('payment_schedules')->insert([
-                'contract_id' => $contractId,
-                'installment_number' => ((int) $lastInstallment) + 1,
-                'due_date' => now()->toDateString(),
-                'amount' => $remaining,
-                'amount_paid' => $remaining,
-                'late_fee_amount' => 0,
-                'late_fee_applied' => false,
-                'status' => 'ADELANTADO',
-                'charge_id' => $chargeId,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-    }
-
-   
-
-    protected function getChargeStatusId(string $clave): int
-    {
-        $id = DB::table('statuses as s')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('p.clave', 'CHARGE_STATUS')
-            ->where('s.clave', $clave)
-            ->value('s.id');
-
-        if (!$id) {
-            abort(500, "No existe el estado {$clave} para CHARGE_STATUS.");
-        }
-
-        return (int) $id;
-    }
-
-    protected function getContractStatusId(string $clave): int
-    {
-        $id = DB::table('statuses as s')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('p.clave', 'CONTRACT_STATUS')
-            ->where('s.clave', $clave)
-            ->value('s.id');
-
-        if (!$id) {
-            abort(500, "No existe el estado {$clave} para CONTRACT_STATUS.");
-        }
-
-        return (int) $id;
-    }
-
- 
-    public function clientContracts(int $clientId)
-    {
-        $rows = DB::table('contracts as c')
-            ->join('statuses as s', 's.id', '=', 'c.status_id')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('c.client_id', $clientId)
-            ->where('p.clave', 'CONTRACT_STATUS')
-            ->whereNull('c.fecha_baja')
-            ->orderByDesc('c.id')
-            ->get([
-                'c.id as value',
-                DB::raw("c.numero_referencia || ' - ' || s.nombre as text")
-            ]);
-
-        return response()->json($rows);
-    }
-
-    protected function getContractPrincipalPaid(int $contractId): float
-    {
-        $contract = DB::table('contracts')->where('id', $contractId)->first();
-        if (!$contract) {
-            return 0;
-        }
-
-        $chargesPrincipal = DB::table('charges as c')
-            ->leftJoin('charge_types as ct', 'ct.id', '=', 'c.charge_type_id')
-            ->where('c.contract_id', $contractId)
-            ->whereNull('c.fecha_baja')
-            ->where(function ($q) {
-                $q->whereNull('ct.nombre')
-                ->orWhereRaw('UPPER(ct.nombre) NOT IN (?, ?, ?)', [
-                    'RECARGO',
-                    'CANCELACION',
-                    'DEVOLUCION',
-                ]);
-            })
-            ->sum('c.monto');
-
-        return (float) $contract->monto_pago_inicial + (float) $chargesPrincipal;
-    }
-
-    protected function getContractLateFeePaid(int $contractId): float
-    {
-        return (float) DB::table('charges')
-            ->where('contract_id', $contractId)
-            ->whereNull('fecha_baja')
-            ->sum(DB::raw('COALESCE(monto_recargo,0)'));
-    }
-
-    protected function recalculateContractBalance(int $contractId): void
-    {
-        $contract = DB::table('contracts')->where('id', $contractId)->first();
-        if (!$contract) {
-            return;
-        }
-
-        $principalPaid = $this->getContractPrincipalPaid($contractId);
-        $saldo = max(0, (float) $contract->importe - $principalPaid);
-
-        DB::table('contracts')
-            ->where('id', $contractId)
-            ->update([
-                'saldo_financiado' => $saldo,
-                'updated_at' => now(),
-            ]);
-    }
-
-    protected function closeContractIfPaid(int $contractId): void
-    {
-        $contract = DB::table('contracts')->where('id', $contractId)->first();
-        if (!$contract) {
-            return;
-        }
-
-        $totalSchedules = DB::table('payment_schedules')
-            ->where('contract_id', $contractId)
-            ->count();
-
-        $paidSchedules = DB::table('payment_schedules')
-            ->where('contract_id', $contractId)
-            ->where('status', 'PAGADO')
-            ->count();
-
-        $principalPaid = $this->getContractPrincipalPaid($contractId);
-
-        $shouldClose = false;
-
-        if ((float) $principalPaid >= (float) $contract->importe) {
-            $shouldClose = true;
-        }
-
-        if ($totalSchedules > 0 && $totalSchedules === $paidSchedules) {
-            $shouldClose = true;
-        }
-
-        if ($shouldClose) {
-            DB::table('contracts')
-                ->where('id', $contractId)
-                ->update([
-                    'status_id' => $this->getContractStatusId('LIQUIDADO'),
-                    'saldo_financiado' => 0,
-                    'updated_at' => now(),
-                ]);
-        }
-    }
-
-    protected function applyChargeByType(int $contractId, int $chargeId, string $typeName, float $amount, float $lateFee): void
-    {
-        switch ($typeName) {
-            case 'MENSUALIDAD':
-                $this->applyToSchedules($contractId, $chargeId, $amount, 'NORMAL');
-                break;
-
-            case 'MENSUALIDAD ADELANTADA':
-            case 'MENSUALIDAD_ADELANTADA':
-                $this->applyToSchedules($contractId, $chargeId, $amount, 'FORWARD_ONLY');
-                break;
-
-            case 'ABONO A CAPITAL':
-            case 'ABONO_CAPITAL':
-                $this->applyCapitalOnly($contractId, $chargeId, $amount);
-                break;
-
-            case 'RECARGO':
-                // Solo registra el recargo, no toca capital ni mensualidades
-                break;
-
-            case 'LIQUIDACIÓN CONTADO':
-            case 'LIQUIDACION CONTADO':
-            case 'LIQUIDACION_CONTADO':
-                $this->applyCapitalOnly($contractId, $chargeId, $amount);
-                break;
-
-            default:
-                $this->applyToSchedules($contractId, $chargeId, $amount, 'NORMAL');
-                break;
-        }
-
-        if ($lateFee > 0) {
-            $this->applyLateFeeToOldestDebt($contractId, $lateFee);
-        }
-    }
-
-    protected function applyToSchedules(int $contractId, int $chargeId, float $amount, string $mode = 'NORMAL'): void
-    {
-        $remaining = $amount;
-
-        $query = DB::table('payment_schedules')
-            ->where('contract_id', $contractId);
-
-        if ($mode === 'FORWARD_ONLY') {
-            $query->whereIn('status', ['PENDIENTE']);
-        }
-
-        $schedules = $query
-            ->orderByRaw("
-                CASE status
-                    WHEN 'VENCIDO' THEN 1
-                    WHEN 'PARCIAL' THEN 2
-                    WHEN 'PENDIENTE' THEN 3
-                    WHEN 'ADELANTADO' THEN 4
-                    WHEN 'PAGADO' THEN 5
-                    ELSE 99
-                END
-            ")
-            ->orderBy('installment_number')
-            ->get();
-
-        foreach ($schedules as $schedule) {
-            if ($remaining <= 0) {
-                break;
-            }
-
-            $pending = max(0, (float) $schedule->amount - (float) $schedule->amount_paid);
-            if ($pending <= 0) {
-                continue;
-            }
-
-            $toApply = min($remaining, $pending);
-            $newPaid = (float) $schedule->amount_paid + $toApply;
-
-            $newStatus = 'PARCIAL';
-            if ($newPaid >= (float) $schedule->amount) {
-                $newStatus = 'PAGADO';
-            }
-
-            DB::table('payment_schedules')
-                ->where('id', $schedule->id)
-                ->update([
-                    'amount_paid' => $newPaid,
-                    'charge_id' => $chargeId,
-                    'status' => $newStatus,
-                    'updated_at' => now(),
-                ]);
-
-            $remaining -= $toApply;
-        }
-
-        if ($remaining > 0 && $mode === 'FORWARD_ONLY') {
-            $lastInstallment = DB::table('payment_schedules')
-                ->where('contract_id', $contractId)
-                ->max('installment_number');
-
-            DB::table('payment_schedules')->insert([
-                'contract_id' => $contractId,
-                'installment_number' => ((int) $lastInstallment) + 1,
-                'due_date' => now()->toDateString(),
-                'amount' => $remaining,
-                'amount_paid' => $remaining,
-                'late_fee_amount' => 0,
-                'late_fee_applied' => false,
-                'status' => 'ADELANTADO',
-                'charge_id' => $chargeId,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-    }
-
-    protected function applyCapitalOnly(int $contractId, int $chargeId, float $amount): void
-    {
-        $remaining = $amount;
-
-        $schedules = DB::table('payment_schedules')
-            ->where('contract_id', $contractId)
-            ->whereIn('status', ['PENDIENTE', 'PARCIAL', 'VENCIDO'])
-            ->orderByDesc('installment_number')
-            ->get();
-
-        foreach ($schedules as $schedule) {
-            if ($remaining <= 0) {
-                break;
-            }
-
-            $pending = max(0, (float) $schedule->amount - (float) $schedule->amount_paid);
-            if ($pending <= 0) {
-                continue;
-            }
-
-            $toApply = min($remaining, $pending);
-            $newPaid = (float) $schedule->amount_paid + $toApply;
-
-            $newStatus = 'PARCIAL';
-            if ($newPaid >= (float) $schedule->amount) {
-                $newStatus = 'PAGADO';
-            }
-
-            DB::table('payment_schedules')
-                ->where('id', $schedule->id)
-                ->update([
-                    'amount_paid' => $newPaid,
-                    'charge_id' => $chargeId,
-                    'status' => $newStatus,
-                    'updated_at' => now(),
-                ]);
-
-            $remaining -= $toApply;
-        }
-    }
-
-    protected function applyLateFeeToOldestDebt(int $contractId, float $lateFee): void
+    public function scheduleCharges(int $scheduleId)
     {
         $schedule = DB::table('payment_schedules')
-            ->where('contract_id', $contractId)
-            ->whereIn('status', ['VENCIDO', 'PARCIAL', 'PENDIENTE'])
-            ->orderBy('installment_number')
+            ->where('id', $scheduleId)
             ->first();
 
         if (!$schedule) {
-            return;
+            return response()->json([
+                'ok' => false,
+                'message' => 'Mensualidad no encontrada.',
+                'data' => [],
+            ], 404);
         }
 
-        DB::table('payment_schedules')
-            ->where('id', $schedule->id)
-            ->update([
-                'late_fee_amount' => $lateFee,
-                'late_fee_applied' => true,
-                'updated_at' => now(),
-            ]);
-    }
-
-    public function receipt(int $id, PdfReceiptService $pdf)
-    {
-        $charge = DB::table('charges as c')
-            ->leftJoin('clients as cl', 'cl.id', '=', 'c.client_id')
-            ->leftJoin('charge_types as ct', 'ct.id', '=', 'c.charge_type_id')
-            ->leftJoin('payment_methods as pm', 'pm.id', '=', 'c.payment_method_id')
-            ->where('c.id', $id)
+        $rows = DB::table('charges as ch')
+            ->leftJoin('charge_types as ct', 'ct.id', '=', 'ch.charge_type_id')
+            ->leftJoin('payment_methods as pm', 'pm.id', '=', 'ch.payment_method_id')
+            ->leftJoin('offices as o', 'o.id', '=', 'ch.office_receives_charge_id')
+            ->leftJoin('clients as cl', 'cl.id', '=', 'ch.client_id')
+            ->where('ch.payment_schedule_id', $scheduleId)
+            ->whereNull('ch.fecha_baja')
+            ->orderBy('ch.id')
             ->select([
-                'c.*',
-                DB::raw("COALESCE(cl.nombres,'') || ' ' || COALESCE(cl.apellidos,'') as cliente"),
+                'ch.id',
+                'ch.numero_referencia',
+                'ch.fecha_emision',
+                'ch.created_at',
+                'ch.monto',
+                'ch.monto_recargo',
+                'ch.observacion',
+                'ch.contract_id',
+                'ch.payment_group_uuid',
+                'ch.payment_schedule_id',
                 'ct.nombre as tipo_cobro',
                 'pm.nombre as forma_pago',
+                'o.nombre as oficina_recibe',
+                DB::raw("TRIM(COALESCE(cl.nombres,'') || ' ' || COALESCE(cl.apellidos,'')) as cliente"),
+            ])
+            ->get()
+            ->map(function ($row) {
+                $row->total = round((float) $row->monto + (float) $row->monto_recargo, 2);
+                $row->receipt_url = route('cobros.receipt', $row->id);
+
+                return $row;
+            });
+
+        return response()->json([
+            'ok' => true,
+            'schedule' => [
+                'id' => $schedule->id,
+                'installment_number' => $schedule->installment_number,
+                'due_date' => $schedule->due_date,
+                'amount' => $schedule->amount,
+                'amount_paid' => $schedule->amount_paid,
+                'late_fee_amount' => $schedule->late_fee_amount,
+                'status' => $schedule->status,
+            ],
+            'data' => $rows,
+        ]);
+    }
+
+    public function receipt(Request $request, int $id, PdfReceiptService $pdf)
+    {
+        $includeSchedule = $request->boolean('include_schedule');
+
+        $charge = DB::table('charges as ch')
+            ->leftJoin('charge_types as ct', 'ct.id', '=', 'ch.charge_type_id')
+            ->leftJoin('payment_methods as pm', 'pm.id', '=', 'ch.payment_method_id')
+            ->leftJoin('offices as o', 'o.id', '=', 'ch.office_receives_charge_id')
+            ->leftJoin('clients as cl', 'cl.id', '=', 'ch.client_id')
+            ->leftJoin('users as u', 'u.id', '=', 'ch.usuario_genero_id')
+            ->where('ch.id', $id)
+            ->select([
+                'ch.*',
+                'ct.nombre as tipo_cobro',
+                'pm.nombre as forma_pago',
+                'o.nombre as oficina_recibe',
+                DB::raw("TRIM(COALESCE(cl.nombres,'') || ' ' || COALESCE(cl.apellidos,'')) as cliente"),
+                'u.alias as usuario',
             ])
             ->first();
 
         abort_if(!$charge, 404, 'Cobro no encontrado');
 
         $contract = null;
-        $stats = [
-            'total_payments' => 0,
-            'paid_payments' => 0,
-            'pending_payments' => 0,
+        $stats = [];
+        $scheduleGrid = [];
+        $scheduleColumns = [
+            'left' => [],
+            'right' => [],
         ];
-        $scheduleGrid = collect();
-        $scheduleColumns = ['left' => collect(), 'right' => collect()];
 
         if (!empty($charge->contract_id)) {
             $contract = DB::table('contracts as c')
-                ->join('statuses as s', 's.id', '=', 'c.status_id')
+                ->leftJoin('statuses as s', 's.id', '=', 'c.status_id')
+                ->leftJoin('contract_payment_types as cpt', 'cpt.id', '=', 'c.contract_payment_type_id')
                 ->where('c.id', $charge->contract_id)
                 ->select([
-                    'c.numero_referencia',
-                    'c.saldo_financiado',
+                    'c.*',
                     's.nombre as estado',
+                    'cpt.nombre as tipo_pago',
                 ])
                 ->first();
 
             $stats = $pdf->chargePaymentStats((int) $charge->contract_id);
-            $scheduleGrid = $pdf->chargeScheduleGrid((int) $charge->contract_id);
-            $scheduleColumns = $pdf->splitGridInTwoColumns($scheduleGrid);
+
+            if ($includeSchedule) {
+                $scheduleGrid = $pdf->chargeScheduleGrid((int) $charge->contract_id);
+                $scheduleColumns = $pdf->splitGridInTwoColumns($scheduleGrid);
+            }
         }
 
-     
-       return $pdf->stream(
+        return $pdf->stream(
             'pdf.receipts.charge',
             [
                 'document_type' => 'RECIBO DE COBRO',
@@ -691,132 +397,21 @@ class ChargeController extends Controller
                 'contract' => $contract,
                 'stats' => $stats,
                 'scheduleGrid' => $scheduleGrid,
+                'scheduleColumns' => $scheduleColumns,
+                'includeSchedule' => $includeSchedule,
+                'emittedAt' => now(),
             ],
-            'recibo-cobro-'.$charge->numero_referencia.'.pdf'
+            'recibo_' . $charge->numero_referencia . '.pdf'
         );
     }
 
-
-    public function contractSummary(int $contractId)
+    protected function officeBelongsToContractLots(int $contractId, int $officeId): bool
     {
-        $contract = DB::table('contracts as c')
-            ->join('clients as cl', 'cl.id', '=', 'c.client_id')
-            ->join('contract_payment_types as cpt', 'cpt.id', '=', 'c.contract_payment_type_id')
-            ->join('statuses as s', 's.id', '=', 'c.status_id')
-            ->leftJoin('developments as d', 'd.id', '=', 'c.development_id')
-            ->where('c.id', $contractId)
-            ->select([
-                'c.id',
-                'c.numero_referencia',
-                'c.client_id',
-                'c.development_id',
-                'c.meses',
-                'c.importe',
-                'c.monto_pago_inicial',
-                'c.saldo_financiado',
-                'c.cuota_mensual',
-                'c.dia_pago',
-                DB::raw("cl.nombres || ' ' || cl.apellidos as cliente"),
-                'cpt.nombre as tipo_contrato',
-                's.nombre as estado_contrato',
-                'd.nombre as lotificacion',
-            ])
-            ->first();
-
-        abort_if(!$contract, 404, 'Contrato no encontrado');
-
-        $paidTotal = (float) DB::table('charges')
-            ->whereNull('fecha_baja')
-            ->where('contract_id', $contractId)
-            ->sum(DB::raw('COALESCE(monto,0) + COALESCE(monto_recargo,0)'));
-
-        $dueTotal = max(0, (float) $contract->importe - $paidTotal);
-
-        $officeIds = DB::table('development_offices')
-            ->where('development_id', $contract->development_id)
-            ->pluck('office_id')
-            ->map(fn ($v) => (int) $v)
-            ->unique()
-            ->values();
-
-        $paymentMethods = collect();
-
-        if ($officeIds->isNotEmpty()) {
-            $paymentMethods = DB::table('payment_methods as pm')
-                ->join('offices as o', 'o.id', '=', 'pm.office_id')
-                ->whereIn('pm.office_id', $officeIds)
-                ->orderBy('o.nombre')
-                ->orderBy('pm.nombre')
-                ->get([
-                    'pm.id as value',
-                    DB::raw("pm.nombre || ' (' || o.nombre || ')' as text"),
-                ])
-                ->unique('value')
-                ->values();
-        }
-
-        $schedule = collect();
-        $lateCount = 0;
-
-        if (DB::getSchemaBuilder()->hasTable('payment_schedules')) {
-            $schedule = DB::table('payment_schedules')
-                ->where('contract_id', $contractId)
-                ->orderBy('installment_number')
-                ->get([
-                    'installment_number',
-                    DB::raw("TO_CHAR(due_date, 'YYYY-MM-DD') as due_date"),
-                    DB::raw('COALESCE(amount,0) as amount'),
-                    DB::raw('COALESCE(amount_paid,0) as amount_paid'),
-                    DB::raw('COALESCE(late_fee_amount,0) as late_fee_amount'),
-                    'status',
-                ]);
-
-            $lateCount = $schedule->filter(function ($row) {
-                $status = strtoupper((string) ($row->status ?? ''));
-                return in_array($status, ['VENCIDO', 'PARCIAL'], true);
-            })->count();
-
-            $totalInstallments = max(1, (int) ($contract->meses ?? $schedule->count()));
-
-            $schedule = $schedule->values()->map(function ($row) use ($totalInstallments) {
-                $row->period_label = ($row->installment_number ?? 0) . ' de ' . $totalInstallments;
-                return $row;
-            });
-        }
-
-        $blockedStates = ['LIQUIDADO', 'CANCELADO', 'FINALIZADO'];
-        $isBlocked = in_array(strtoupper((string) $contract->estado_contrato), $blockedStates, true);
-
-        return response()->json([
-            'ok' => true,
-            'data' => [
-                'id' => $contract->id,
-                'numero_referencia' => $contract->numero_referencia,
-                'cliente' => $contract->cliente,
-                'lotificacion' => $contract->lotificacion,
-                'tipo_contrato' => $contract->tipo_contrato,
-                'estado_contrato' => $contract->estado_contrato,
-                'meses' => $contract->meses,
-                'importe' => $contract->importe,
-                'pago_inicial' => $contract->monto_pago_inicial,
-                'saldo_financiado' => $contract->saldo_financiado,
-                'cuota_mensual' => $contract->cuota_mensual,
-                'dia_pago' => $contract->dia_pago,
-                'pagado_total' => $paidTotal,
-                'debe_total' => $dueTotal,
-                'payment_methods' => $paymentMethods,
-                'schedule' => $schedule,
-                'has_late_payments' => $lateCount > 0,
-                'late_count' => $lateCount,
-                'late_message' => $lateCount > 0
-                    ? "El contrato presenta {$lateCount} pago(s) con atraso o parcialidad."
-                    : null,
-                'blocked' => $isBlocked,
-            ]
-        ]);
+        return DB::table('contract_lots as cl')
+            ->join('lots as l', 'l.id', '=', 'cl.lot_id')
+            ->join('lot_offices as lo', 'lo.lot_id', '=', 'l.id')
+            ->where('cl.contract_id', $contractId)
+            ->where('lo.office_id', $officeId)
+            ->exists();
     }
-
-
-
-
 }
