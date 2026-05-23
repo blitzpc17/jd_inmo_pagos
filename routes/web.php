@@ -312,16 +312,34 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     });
    
 
-    Route::prefix('asignacion-lotificaciones')->name('asignacion_lotificaciones.')->group(function () {
-        Route::get('/', [DevelopmentAssignmentController::class, 'index'])->name('index');
-        Route::get('/options', [DevelopmentAssignmentController::class, 'options'])->name('options');
 
-        Route::get('/role/{roleId}', [DevelopmentAssignmentController::class, 'roleAssignments'])->name('role.assignments');
-        Route::post('/role/{roleId}', [DevelopmentAssignmentController::class, 'saveRoleAssignments'])->name('role.save');
+    // =====================================================
+    // ASIGNACIÓN DE LOTIFICACIONES POR ROL / USUARIO
+    // =====================================================
+    Route::prefix('asignacion-lotificaciones')
+        ->name('development-assignments.')
+        ->group(function () {
+            Route::get('/', [DevelopmentAssignmentController::class, 'index'])
+                ->name('index');
 
-        Route::get('/user/{userId}', [DevelopmentAssignmentController::class, 'userAssignments'])->name('user.assignments');
-        Route::post('/user/{userId}', [DevelopmentAssignmentController::class, 'saveUserAssignments'])->name('user.save');
-    });
+            Route::get('/options', [DevelopmentAssignmentController::class, 'options'])
+                ->name('options');
+
+            Route::get('/developments', [DevelopmentAssignmentController::class, 'developments'])
+                ->name('developments');
+
+            Route::get('/role/{roleId}', [DevelopmentAssignmentController::class, 'roleAssignments'])
+                ->name('role.assignments');
+
+            Route::post('/role/{roleId}', [DevelopmentAssignmentController::class, 'saveRoleAssignments'])
+                ->name('role.save');
+
+            Route::get('/user/{userId}', [DevelopmentAssignmentController::class, 'userAssignments'])
+                ->name('user.assignments');
+
+            Route::post('/user/{userId}', [DevelopmentAssignmentController::class, 'saveUserAssignments'])
+                ->name('user.save');
+        });
 
 
     Route::prefix('calendario-pagos')->name('calendario_pagos.')->group(function () {

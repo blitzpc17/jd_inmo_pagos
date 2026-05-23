@@ -44,6 +44,14 @@ class DevelopmentAssignmentController extends Controller
                 "),
             ]);
 
+        return response()->json([
+            'roles' => $roles,
+            'users' => $users,
+        ]);
+    }
+
+    public function developments()
+    {
         $developments = DB::table('developments as d')
             ->join('statuses as s', 's.id', '=', 'd.status_id')
             ->join('processes as p', 'p.id', '=', 's.process_id')
@@ -57,8 +65,7 @@ class DevelopmentAssignmentController extends Controller
             ]);
 
         return response()->json([
-            'roles' => $roles,
-            'users' => $users,
+            'ok' => true,
             'developments' => $developments,
         ]);
     }
