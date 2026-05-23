@@ -4,166 +4,200 @@
     <meta charset="UTF-8">
     <title>{{ $folio ?? 'Contrato' }}</title>
 
+
     <style>
-        @page {
-            margin-top: 2cm;
-            margin-bottom: 2.5cm;
-            margin-left: 3cm;
-            margin-right: 3cm;
-        }
+    @page {
+        margin-top: 2cm;
+        margin-bottom: 2.5cm;
+        margin-left: 3cm;
+        margin-right: 3cm;
+    }
 
-        body {
-            font-family: DejaVu Sans, sans-serif;
-            font-size: 10.6px;
-            color: #111;
-        }
+    body {
+        font-family: DejaVu Sans, sans-serif;
+        font-size: 10.6px;
+        color: #111;
+    }
 
-        .pdf-header {
-            width: 100%;
-            margin-bottom: 10px;
-        }
+    .pdf-header {
+        width: 100%;
+        margin-bottom: 10px;
+    }
 
-        .header-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+    .header-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
 
-        .header-logo-cell {
-            width: 35%;
-            vertical-align: middle;
-            text-align: left;
-        }
+    .header-logo-cell {
+        width: 35%;
+        vertical-align: middle;
+        text-align: left;
+    }
 
-        .header-folio-cell {
-            width: 65%;
-            vertical-align: middle;
-            text-align: right;
-            height: 55px;
-        }
+    .header-folio-cell {
+        width: 65%;
+        vertical-align: middle;
+        text-align: right;
+        height: 55px;
+    }
 
-        .header-logo {
-            max-height: 48px;
-            max-width: 160px;
-        }
+    .header-logo {
+        max-height: 48px;
+        max-width: 160px;
+    }
 
-        .folio-box {
-            display: inline-block;
-            font-size: 11px;
-            font-weight: bold;
-            border: 1px solid #222;
-            padding: 6px 10px;
-            vertical-align: middle;
-        }
+    .folio-box {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: bold;
+        border: 1px solid #222;
+        padding: 6px 10px;
+        vertical-align: middle;
+    }
 
-        /*
-         * Marca de agua centrada horizontal y verticalmente.
-         */
-        .watermark-wrapper {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1000;
-        }
+    .watermark-wrapper {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1000;
+    }
 
-        .watermark-table {
-            width: 100%;
-            height: 100%;
-            border-collapse: collapse;
-        }
+    .watermark-table {
+        width: 100%;
+        height: 100%;
+        border-collapse: collapse;
+    }
 
-        .watermark-cell {
-            width: 100%;
-            height: 100%;
-            text-align: center;
-            vertical-align: middle;
-        }
+    .watermark-cell {
+        width: 100%;
+        height: 100%;
+        text-align: center;
+        vertical-align: middle;
+    }
 
-        .watermark-logo {
-            width: 430px;
-            opacity: 0.055;
-        }
+    .watermark-logo {
+        width: 430px;
+        opacity: 0.055;
+    }
 
-        .contract-title {
-            text-align: center;
-            font-weight: bold;
-            font-size: 15px;
-            margin: 10px 0 14px 0;
-            text-transform: uppercase;
-        }
+    .contract-title {
+        text-align: center;
+        font-weight: bold;
+        font-size: 15px;
+        margin: 10px 0 14px 0;
+        text-transform: uppercase;
+    }
 
-        .contract-text {
-            font-size: 10.6px;
-            line-height: 1.55;
-            text-align: justify;
-        }
+    .contract-text {
+        font-size: 10.6px;
+        line-height: 1.55;
+        text-align: justify;
+    }
 
-        .contract-text p {
-            margin: 0 0 8px 0;
-        }
+    .contract-text p {
+        margin: 0 0 8px 0;
+    }
 
-        .center-title {
-            text-align: center;
-            font-weight: bold;
-            margin: 10px 0;
-        }
+    .center-title {
+        text-align: center;
+        font-weight: bold;
+        margin: 10px 0;
+    }
 
-        .clause-title {
-            font-weight: bold;
-            text-transform: uppercase;
-        }
+    .clause-title {
+        font-weight: bold;
+        text-transform: uppercase;
+    }
 
-        .measure-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 8px 0 10px 0;
-            font-size: 10.5px;
-        }
+    /*
+     * Medidas y colindancias:
+     * - Más centrado visualmente.
+     * - Más compacto.
+     * - Mantiene columnas alineadas.
+     */
+    .measure-table-wrapper {
+        width: 100%;
+        text-align: center;
+        margin: 8px 0 10px 0;
+    }
 
-        .measure-table td {
-            padding: 5px 6px;
-            border-bottom: 1px solid #e5e5e5;
-        }
+    .measure-table {
+        width: 60%;
+        margin: 0 auto;
+        border-collapse: collapse;
+        font-size: 10.5px;
+    }
 
-        .signature-section {
-            margin-top: 1.5cm;
-            text-align: center;
-            page-break-inside: avoid;
-        }
+    .measure-table td {
+        padding: 4px 5px;
+        border-bottom: 0px solid #e5e5e5;
+        vertical-align: top;
+    }
 
-        .signature-row {
-            width: 100%;
-            margin-top: 1.6cm;
-        }
+    .measure-table .measure-side {
+        width: 60%;
+        text-align: left;
+        white-space: nowrap;
+    }
 
-        .signature-cell {
-            display: inline-block;
-            width: 43%;
-            text-align: center;
-            vertical-align: top;
-            margin: 0 2%;
-        }
+    .measure-table .measure-boundary {
+        width: 40%;
+        text-align: left;
+    }
 
-        .signature-line-contract {
-            border-top: 1px solid #000;
-            padding-top: 0.9cm;
-            font-weight: bold;
-            font-size: 10px;
-            min-height: 1.2cm;
-        }
+    .measure-value,
+    .boundary-value {
+        font-weight: bold;
+    }
 
-        .contract-footer {
-            position: fixed;
-            bottom: -1.15cm;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 8.8px;
-            font-weight: bold;
-            line-height: 1.25;
-        }
-    </style>
+    /*
+     * Firmas:
+     * - Más espacio para firmar.
+     * - Sin desperdiciar demasiada hoja.
+     */
+    .signature-section {
+        margin-top: .85cm;
+        text-align: center;
+        page-break-inside: avoid;
+    }
+
+    .signature-row {
+        width: 100%;
+        margin-top: 1.85cm;
+    }
+
+    .signature-cell {
+        display: inline-block;
+        width: 39%;
+        text-align: center;
+        vertical-align: top;
+        margin: 0 3%;
+    }
+
+    .signature-line-contract {
+        border-top: 1px solid #000;
+        padding-top: 0.62cm;
+        font-weight: bold;
+        font-size: 10px;
+        min-height: 1.15cm;
+    }
+
+    .contract-footer {
+        position: fixed;
+        bottom: -1.15cm;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 8.8px;
+        font-weight: bold;
+        line-height: 1.25;
+    }
+</style>
+
+   
 </head>
 <body>
 
@@ -208,6 +242,12 @@
 
     $testigo1 = $documentData['testigo_1'] ?? '';
     $testigo2 = $documentData['testigo_2'] ?? '';
+
+    $vendedorContrato = trim((string) ($documentData['vendedor_contrato'] ?? ''));
+
+    if ($vendedorContrato === '') {
+        $vendedorContrato = 'DANY FRANK PABLO FLORES';
+    }
 
     $fecha = \Carbon\Carbon::parse($contract->fecha_emision ?? now());
     $dia = $fecha->format('d');
@@ -261,12 +301,9 @@
 
 <div class="contract-text">
 
-    {{-- =========================================================
-        ENCABEZADO COMÚN
-    ========================================================= --}}
     <p>
         CONTRATO DE COMPRA-VENTA QUE SE CELEBRA POR UNA PARTE COMO VENDEDOR EL
-        C. {{ mb_strtoupper($sellerName ?: 'DANY FRANK PABLO FLORES') }}
+        C. {{ mb_strtoupper($vendedorContrato) }}
         Y POR LA OTRA PARTE COMO COMPRADOR EL C.
         {{ mb_strtoupper($clientName) }},
         CON DIRECCIÓN EN {{ mb_strtoupper($direccionComprador ?: '____________________________') }},
@@ -308,54 +345,70 @@
         con las siguientes medidas y colindancias:
     </p>
 
-    <table class="measure-table">
-        <tr>
-            <td>Al norte mide {{ $norteMedida ?: '__________' }} m</td>
-            <td>colinda con {{ $norteColindancia ?: '______________________________' }}</td>
-        </tr>
-        <tr>
-            <td>Al sur mide {{ $surMedida ?: '__________' }} m</td>
-            <td>colinda con {{ $surColindancia ?: '______________________________' }}</td>
-        </tr>
-        <tr>
-            <td>Al oriente mide {{ $orienteMedida ?: '__________' }} m</td>
-            <td>colinda con {{ $orienteColindancia ?: '______________________________' }}</td>
-        </tr>
-        <tr>
-            <td>Al poniente mide {{ $ponienteMedida ?: '__________' }} m</td>
-            <td>colinda con {{ $ponienteColindancia ?: '______________________________' }}</td>
-        </tr>
-    </table>
+    <div class="measure-table-wrapper">
+        <table class="measure-table">
+            <tr>
+                <td class="measure-side">
+                    Al norte mide <span class="measure-value">{{ $norteMedida ?: '__________' }} m</span>
+                </td>
+                <td class="measure-boundary">
+                    colinda con <span class="boundary-value">{{ $norteColindancia ?: '________________________' }}</span>
+                </td>
+            </tr>
+
+            <tr>
+                <td class="measure-side">
+                    Al sur mide <span class="measure-value">{{ $surMedida ?: '__________' }} m</span>
+                </td>
+                <td class="measure-boundary">
+                    colinda con <span class="boundary-value">{{ $surColindancia ?: '________________________' }}</span>
+                </td>
+            </tr>
+
+            <tr>
+                <td class="measure-side">
+                    Al oriente mide <span class="measure-value">{{ $orienteMedida ?: '__________' }} m</span>
+                </td>
+                <td class="measure-boundary">
+                    colinda con <span class="boundary-value">{{ $orienteColindancia ?: '________________________' }}</span>
+                </td>
+            </tr>
+
+            <tr>
+                <td class="measure-side">
+                    Al poniente mide <span class="measure-value">{{ $ponienteMedida ?: '__________' }} m</span>
+                </td>
+                <td class="measure-boundary">
+                    colinda con <span class="boundary-value">{{ $ponienteColindancia ?: '________________________' }}</span>
+                </td>
+            </tr>
+        </table>
+    </div>
 
     <p>
-        El terreno tiene un área de {{ $area ?: '__________' }} m2.
+        Con una superficie total de {{ $area ?: '__________' }} metros cuadrados.
     </p>
 
-    {{-- =========================================================
-        1) EJIDO + CONTADO
-        Archivo base: CONTRATO CONTADO (EJIDO).docx
-    ========================================================= --}}
     @if($templateKey === 'e_contado')
         <p>
             <span class="clause-title">TERCERA.</span>
-            El precio fijado para la celebración de la mencionada operación es la cantidad de
+            El precio total fijado para la celebración de la mencionada operación es la cantidad de
             ${{ number_format($importe, 2) }} PESOS 00/100 M.N.
-            Queda en común acuerdo que, en el momento de la firma de este contrato,
-            la parte compradora deposita en efectivo la cantidad de
-            ${{ number_format($pagoInicial, 2) }} PESOS 00/100 M.N.,
-            CON LO CUAL SE DA POR PAGADO COMPLETAMENTE.
+            Que de común acuerdo han convenido las partes contratantes, y que, en el momento de la firma
+            de este contrato, la parte compradora cubre en su totalidad.
         </p>
 
         <p>
             <span class="clause-title">CUARTA.</span>
             Al momento de la firma del presente contrato, la parte vendedora como legítimo propietario
-            del inmueble, se obliga a desocupar el terreno objeto de este y sin limitación del dominio.
+            del inmueble, se obliga a entregarlo desocupado.
         </p>
 
         <p>
             <span class="clause-title">QUINTA.</span>
             Se compromete el vendedor a acudir ante el comisariado ejidal correspondiente para otorgarle
-            la firma de su constancia de posesión, dicho documento será pagado por el comprador en su totalidad.
+            la firma de su constancia de posesión del lote antes referido una vez liquidado este contrato
+            privado de compra y venta.
         </p>
 
         <p>
@@ -366,35 +419,29 @@
         </p>
     @endif
 
-    {{-- =========================================================
-        2) PROPIEDAD + CONTADO
-        Archivo base: CONTRATO CONTADO (PROPIEDAD).docx
-    ========================================================= --}}
     @if($templateKey === 'p_contado')
         <p>
             <span class="clause-title">TERCERA.</span>
-            El precio fijado para la celebración de la mencionada operación es la cantidad de
+            El precio total fijado para la celebración de la mencionada operación es la cantidad de
             ${{ number_format($importe, 2) }} PESOS 00/100 M.N.
-            Queda en común acuerdo que, en el momento de la firma de este contrato,
-            la parte compradora deposita en efectivo la cantidad de
-            ${{ number_format($pagoInicial, 2) }} PESOS 00/100 M.N.,
-            CON LO CUAL SE DA POR PAGADO COMPLETAMENTE.
+            Que de común acuerdo han convenido las partes contratantes, y que, en el momento de la firma
+            de este contrato, la parte compradora cubre en su totalidad.
         </p>
 
         <p>
             <span class="clause-title">CUARTA.</span>
             Al momento de la firma del presente contrato, la parte vendedora como legítimo propietario
-            del inmueble, se obliga a desocupar el terreno objeto de este y sin limitación del dominio.
+            del inmueble, se obliga a entregarlo desocupado.
         </p>
 
         <p>
             <span class="clause-title">QUINTA.</span>
-            Consecuentemente con lo dispuesto en este contrato de compra y venta, EL COMPRADOR acuerda que,
-            para la firma de las escrituras del presente predio, realizará la solicitud de otorgamiento
-            de escrituras ante un Juez Civil, por lo que los gastos notariales, ISABI, ISR, avalúos,
-            segregaciones y todo lo que se requiera con respecto a la escritura, así como pagos por impuestos,
-            servicios, derechos y cooperaciones a la colonia, a partir de la firma del presente,
-            serán por cuenta del COMPRADOR.
+            Con lo dispuesto en este contrato, EL COMPRADOR acuerda que, para la firma de las escrituras
+            del presente predio, realizará la solicitud de otorgamiento de escrituras y/o juicio de usucapión
+            ante un Juez Civil, por lo que los gastos notariales, ISABI, ISR, avalúos, segregaciones y todo
+            lo que se requiera con respecto a la escritura, así como los pagos por impuestos, servicios,
+            derechos y cooperaciones a la colonia, a partir de la firma del presente, así como los correspondientes
+            a la escrituración, serán por cuenta del COMPRADOR.
         </p>
 
         <p>
@@ -405,10 +452,6 @@
         </p>
     @endif
 
-    {{-- =========================================================
-        3) EJIDO + CRÉDITO
-        Archivo base: CONTRATO CREDITO TEHUACAN SIN LLENAR (EJIDO).docx
-    ========================================================= --}}
     @if($templateKey === 'e_credito')
         <p>
             <span class="clause-title">TERCERA.</span>
@@ -479,10 +522,6 @@
         </p>
     @endif
 
-    {{-- =========================================================
-        4) PROPIEDAD + CRÉDITO
-        Archivo base: CONTRATO CREDITO TEHUACAN SIN LLENAR[PROPIEDAD].docx
-    ========================================================= --}}
     @if($templateKey === 'p_credito')
         <p>
             <span class="clause-title">TERCERA.</span>
@@ -569,7 +608,7 @@
             <div class="signature-line-contract">
                 VENDEDOR
                 <br>
-                {{ mb_strtoupper($sellerName ?: 'DANY FRANK PABLO FLORES') }}
+                {{ mb_strtoupper($vendedorContrato) }}
             </div>
         </div>
 

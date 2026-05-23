@@ -430,6 +430,32 @@
                         <input type="text" class="form-control text-uppercase" name="ubicacion_terreno" id="doc_ubicacion_terreno">
                     </div>
 
+                    <div class="col-12">
+                        <hr>
+                        <h6 class="fw-bold mb-0">Vendedor para contrato PDF</h6>
+                        <div class="text-muted small">
+                            Este nombre se imprime en el PDF del contrato y es independiente del vendedor operativo/comisión.
+                        </div>
+                    </div>
+
+                    <div class="col-md-8">
+                        <label class="form-label">Vendedor en contrato</label>
+
+                        <div class="form-check mb-1">
+                            <input class="form-check-input" type="checkbox" id="doc_vendedor_personalizado" name="vendedor_personalizado" value="1">
+                            <label class="form-check-label" for="doc_vendedor_personalizado">
+                                Usar otro nombre de vendedor en el PDF
+                            </label>
+                        </div>
+
+                        <input type="text"
+                               class="form-control text-uppercase bg-light"
+                               name="vendedor_contrato"
+                               id="doc_vendedor_contrato"
+                               value="DANY FRANK PABLO FLORES"
+                               readonly>
+                    </div>
+
                     <div class="col-md-8">
                         <label class="form-label">Dirección del comprador</label>
 
@@ -1203,6 +1229,15 @@
         $('#doc_ciudad_firma').val(data.ciudad_firma || '');
         $('#doc_ubicacion_terreno').val(data.ubicacion_terreno || '');
 
+        const defaultPdfSeller = 'DANY FRANK PABLO FLORES';
+        const customPdfSeller = Number(data.vendedor_personalizado || 0) === 1;
+
+        $('#doc_vendedor_personalizado').prop('checked', customPdfSeller);
+        $('#doc_vendedor_contrato')
+            .val(customPdfSeller ? (data.vendedor_contrato || '') : defaultPdfSeller)
+            .prop('readonly', !customPdfSeller)
+            .toggleClass('bg-light', !customPdfSeller);
+
         const hasSystemAddress = !!documentSystemData.direccion_comprador;
         const hasSystemPhone = !!documentSystemData.telefono_comprador;
 
@@ -1275,6 +1310,10 @@
             $('#doc_telefono_comprador')
                 .prop('readonly', $('#doc_usar_telefono_sistema').is(':checked'))
                 .toggleClass('bg-light', $('#doc_usar_telefono_sistema').is(':checked'));
+
+            $('#doc_vendedor_contrato')
+                .prop('readonly', !$('#doc_vendedor_personalizado').is(':checked'))
+                .toggleClass('bg-light', !$('#doc_vendedor_personalizado').is(':checked'));
         }
 
         if (readonly) {
@@ -1492,6 +1531,18 @@
                 .prop('readonly', false)
                 .removeClass('bg-light');
         }
+    });
+
+
+    $('#doc_vendedor_personalizado').on('change', function () {
+        const useCustomSeller = $(this).is(':checked');
+        const defaultPdfSeller = 'DANY FRANK PABLO FLORES';
+
+        $('#doc_vendedor_contrato')
+            .val(useCustomSeller ? '' : defaultPdfSeller)
+            .prop('readonly', !useCustomSeller)
+            .toggleClass('bg-light', !useCustomSeller)
+            .trigger('focus');
     });
 
     initSelect2();

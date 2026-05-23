@@ -793,6 +793,8 @@ class ContractController extends Controller
             'data' => array_merge([
                 'ciudad_firma' => 'TEHUACÁN PUEBLA',
                 'ubicacion_terreno' => '',
+                'vendedor_personalizado' => 0,
+                'vendedor_contrato' => 'DANY FRANK PABLO FLORES',
 
                 'usar_direccion_sistema' => $useSystemAddress ? 1 : 0,
                 'direccion_comprador' => $addressValue,
@@ -872,6 +874,8 @@ class ContractController extends Controller
         $data = $request->validate([
             'ciudad_firma' => ['nullable', 'string', 'max:180'],
             'ubicacion_terreno' => ['nullable', 'string', 'max:500'],
+            'vendedor_personalizado' => ['nullable'],
+            'vendedor_contrato' => ['nullable', 'string', 'max:180'],
 
             'usar_direccion_sistema' => ['nullable'],
             'direccion_comprador' => ['nullable', 'string', 'max:500'],
@@ -910,6 +914,19 @@ class ContractController extends Controller
         $data['telefono_comprador'] = $useSystemPhone
             ? trim((string) ($contract->telefono ?? ''))
             : trim((string) ($data['telefono_comprador'] ?? ''));
+
+        $useCustomSeller = $request->boolean('vendedor_personalizado');
+        $data['vendedor_personalizado'] = $useCustomSeller ? 1 : 0;
+        $data['vendedor_contrato'] = $useCustomSeller
+            ? trim((string) ($data['vendedor_contrato'] ?? ''))
+            : 'DANY FRANK PABLO FLORES';
+
+        if ($useCustomSeller && $data['vendedor_contrato'] === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Captura el nombre del vendedor que se imprimirá en el contrato.',
+            ], 422);
+        }
 
         $data['lote_numero'] = $this->extractContractLotNumbers($contract->lotes_sugeridos ?? '');
         $data['manzana_numero'] = $contract->manzanas_sugeridas ?? '';
