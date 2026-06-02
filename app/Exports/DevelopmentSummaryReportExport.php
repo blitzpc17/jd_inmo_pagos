@@ -2,34 +2,30 @@
 
 namespace App\Exports;
 
-use App\Http\Controllers\DevelopmentCollectionReportController;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class DevelopmentCollectionReportExport implements
+class DevelopmentSummaryReportExport implements
     FromCollection,
     WithHeadings,
     WithMapping,
     WithStyles,
     WithEvents,
-    WithColumnFormatting,
     ShouldAutoSize
 {
-    protected string $startDate;
-    protected string $endDate;
     protected Collection $rows;
+    protected ?string $startDate;
+    protected ?string $endDate;
 
     private const COLOR_RED_DARK = 'D9042B';
     private const COLOR_RED = 'F20505';
@@ -37,12 +33,20 @@ class DevelopmentCollectionReportExport implements
     private const COLOR_BLACK = '0D0D0D';
     private const COLOR_GRAY = '676767';
 
-    public function __construct(string $startDate, string $endDate)
+    private const COLOR_LIBRE_BG = 'FFFFFF';
+    private const COLOR_LIBRE_TEXT = '0D0D0D';
+
+    private const COLOR_APARTADO_BG = 'FFF3CD';
+    private const COLOR_APARTADO_TEXT = '664D03';
+
+    private const COLOR_OCUPADO_BG = 'F8D7DA';
+    private const COLOR_OCUPADO_TEXT = '842029';
+
+    public function __construct(array $rows, ?string $startDate = null, ?string $endDate = null)
     {
+        $this->rows = collect($rows);
         $this->startDate = $startDate;
         $this->endDate = $endDate;
-
-        $this->rows = DevelopmentCollectionReportController::getReportRows($startDate, $endDate);
     }
 
     public function collection(): Collection
@@ -53,17 +57,16 @@ class DevelopmentCollectionReportExport implements
     public function headings(): array
     {
         return [
-            ['REPORTE DE COBRANZA POR LOTIFICACIÓN'],
-            ['Rango:', $this->startDate . ' al ' . $this->endDate],
+            ['RESUMEN GENERAL DE LOTIFICACIONES'],
+            ['Rango:', ($this->startDate ?: 'N/A') . ' al ' . ($this->endDate ?: 'N/A')],
             [],
             [
                 '#',
                 'Lotificación',
-                'Contratos',
-                'Enganches',
-                'Cobrado',
-                'Resto por cobrar',
-                'Ingreso mensual',
+                'Total lotes',
+                'Disponibles',
+                'Apartados',
+                'Vendidos',
             ],
         ];
     }
@@ -73,14 +76,15 @@ class DevelopmentCollectionReportExport implements
         static $index = 0;
         $index++;
 
+        $row = (array) $row;
+
         return [
             $index,
-            $row->lotificacion,
-            (float) $row->contratos,
-            (float) $row->enganches,
-            (float) $row->cobrado,
-            (float) $row->resto_por_cobrar,
-            (float) $row->ingreso_mensual,
+            $row['lotificacion'] ?? '',
+            (int) ($row['total'] ?? 0),
+            (int) ($row['disponibles'] ?? 0),
+            (int) ($row['apartados'] ?? 0),
+            (int) ($row['vendidos'] ?? 0),
         ];
     }
 
@@ -105,7 +109,7 @@ class DevelopmentCollectionReportExport implements
             2 => [
                 'font' => [
                     'bold' => true,
-                    'color' => ['rgb' => self::COLOR_BLACK],
+                    'color' => ['rgb' => self::COLOR_GRAY],
                 ],
             ],
             4 => [
@@ -125,17 +129,6 @@ class DevelopmentCollectionReportExport implements
         ];
     }
 
-    public function columnFormats(): array
-    {
-        return [
-            'C' => '"$"#,##0.00',
-            'D' => '"$"#,##0.00',
-            'E' => '"$"#,##0.00',
-            'F' => '"$"#,##0.00',
-            'G' => '"$"#,##0.00',
-        ];
-    }
-
     public function registerEvents(): array
     {
         return [
@@ -143,31 +136,32 @@ class DevelopmentCollectionReportExport implements
                 $sheet = $event->sheet->getDelegate();
 
                 $rowCount = $this->rows->count();
+
                 $headerRow = 4;
                 $firstDataRow = 5;
-                $lastDataRow = $rowCount > 0 ? $firstDataRow + $rowCount - 1 : $firstDataRow;
+                $lastDataRow = $rowCount > 0
+                    ? $firstDataRow + $rowCount - 1
+                    : $firstDataRow;
+
                 $totalRow = $lastDataRow + 1;
 
                 // Título
-                $sheet->mergeCells('A1:G1');
+                $sheet->mergeCells('A1:F1');
+                $sheet->mergeCells('B2:F2');
+
                 $sheet->getRowDimension(1)->setRowHeight(28);
-
-                // Rango
-                $sheet->mergeCells('B2:G2');
-
-                // Anchos sugeridos
-                $sheet->getColumnDimension('A')->setWidth(8);
-                $sheet->getColumnDimension('B')->setWidth(36);
-                $sheet->getColumnDimension('C')->setWidth(18);
-                $sheet->getColumnDimension('D')->setWidth(18);
-                $sheet->getColumnDimension('E')->setWidth(18);
-                $sheet->getColumnDimension('F')->setWidth(20);
-                $sheet->getColumnDimension('G')->setWidth(20);
-
-                // Encabezados
                 $sheet->getRowDimension($headerRow)->setRowHeight(24);
 
-                $sheet->getStyle("A{$headerRow}:G{$headerRow}")->applyFromArray([
+                // Anchos
+                $sheet->getColumnDimension('A')->setWidth(8);
+                $sheet->getColumnDimension('B')->setWidth(38);
+                $sheet->getColumnDimension('C')->setWidth(16);
+                $sheet->getColumnDimension('D')->setWidth(16);
+                $sheet->getColumnDimension('E')->setWidth(16);
+                $sheet->getColumnDimension('F')->setWidth(16);
+
+                // Encabezado de columnas
+                $sheet->getStyle("A{$headerRow}:F{$headerRow}")->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => self::COLOR_WHITE],
@@ -190,7 +184,7 @@ class DevelopmentCollectionReportExport implements
 
                 // Datos
                 if ($rowCount > 0) {
-                    $sheet->getStyle("A{$firstDataRow}:G{$lastDataRow}")->applyFromArray([
+                    $sheet->getStyle("A{$firstDataRow}:F{$lastDataRow}")->applyFromArray([
                         'alignment' => [
                             'vertical' => Alignment::VERTICAL_CENTER,
                         ],
@@ -206,33 +200,56 @@ class DevelopmentCollectionReportExport implements
                         ->getAlignment()
                         ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-                    $sheet->getStyle("C{$firstDataRow}:G{$lastDataRow}")
+                    $sheet->getStyle("C{$firstDataRow}:F{$lastDataRow}")
                         ->getAlignment()
-                        ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                        ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-                    // Zebra suave
-                    for ($row = $firstDataRow; $row <= $lastDataRow; $row++) {
-                        if ($row % 2 === 0) {
-                            $sheet->getStyle("A{$row}:G{$row}")->applyFromArray([
-                                'fill' => [
-                                    'fillType' => Fill::FILL_SOLID,
-                                    'startColor' => ['rgb' => 'F7F7F7'],
-                                ],
-                            ]);
-                        }
-                    }
+                    // Total lotes neutro
+                    $sheet->getStyle("C{$firstDataRow}:C{$lastDataRow}")->applyFromArray([
+                        'font' => [
+                            'bold' => true,
+                            'color' => ['rgb' => self::COLOR_BLACK],
+                        ],
+                        'fill' => [
+                            'fillType' => Fill::FILL_SOLID,
+                            'startColor' => ['rgb' => 'F7F7F7'],
+                        ],
+                    ]);
+
+                    // Disponibles / Libres
+                    $this->applyColumnStatusStyle(
+                        $sheet,
+                        "D{$firstDataRow}:D{$lastDataRow}",
+                        self::COLOR_LIBRE_BG,
+                        self::COLOR_LIBRE_TEXT
+                    );
+
+                    // Apartados
+                    $this->applyColumnStatusStyle(
+                        $sheet,
+                        "E{$firstDataRow}:E{$lastDataRow}",
+                        self::COLOR_APARTADO_BG,
+                        self::COLOR_APARTADO_TEXT
+                    );
+
+                    // Vendidos / Ocupados
+                    $this->applyColumnStatusStyle(
+                        $sheet,
+                        "F{$firstDataRow}:F{$lastDataRow}",
+                        self::COLOR_OCUPADO_BG,
+                        self::COLOR_OCUPADO_TEXT
+                    );
                 }
 
                 // Totales
                 $sheet->setCellValue("A{$totalRow}", '');
                 $sheet->setCellValue("B{$totalRow}", 'TOTALES');
-                $sheet->setCellValue("C{$totalRow}", $this->rows->sum('contratos'));
-                $sheet->setCellValue("D{$totalRow}", $this->rows->sum('enganches'));
-                $sheet->setCellValue("E{$totalRow}", $this->rows->sum('cobrado'));
-                $sheet->setCellValue("F{$totalRow}", $this->rows->sum('resto_por_cobrar'));
-                $sheet->setCellValue("G{$totalRow}", $this->rows->sum('ingreso_mensual'));
+                $sheet->setCellValue("C{$totalRow}", $this->rows->sum('total'));
+                $sheet->setCellValue("D{$totalRow}", $this->rows->sum('disponibles'));
+                $sheet->setCellValue("E{$totalRow}", $this->rows->sum('apartados'));
+                $sheet->setCellValue("F{$totalRow}", $this->rows->sum('vendidos'));
 
-                $sheet->getStyle("A{$totalRow}:G{$totalRow}")->applyFromArray([
+                $sheet->getStyle("A{$totalRow}:F{$totalRow}")->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => self::COLOR_WHITE],
@@ -260,29 +277,16 @@ class DevelopmentCollectionReportExport implements
                     ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-                $sheet->getStyle("C{$totalRow}:G{$totalRow}")
-                    ->getNumberFormat()
-                    ->setFormatCode('"$"#,##0.00');
-
-                $sheet->getStyle("C{$totalRow}:G{$totalRow}")
+                $sheet->getStyle("C{$totalRow}:F{$totalRow}")
                     ->getAlignment()
-                    ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                    ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-                // Formato moneda en datos
-                if ($rowCount > 0) {
-                    $sheet->getStyle("C{$firstDataRow}:G{$lastDataRow}")
-                        ->getNumberFormat()
-                        ->setFormatCode('"$"#,##0.00');
-                }
-
-                // Autofiltro
-                $sheet->setAutoFilter("A{$headerRow}:G{$headerRow}");
-
-                // Congelar encabezados
+                // Autofiltro y congelar encabezado
+                $sheet->setAutoFilter("A{$headerRow}:F{$headerRow}");
                 $sheet->freezePane('A5');
 
-                // Bordes generales superiores
-                $sheet->getStyle('A1:G2')->applyFromArray([
+                // Marco del encabezado superior
+                $sheet->getStyle('A1:F2')->applyFromArray([
                     'borders' => [
                         'outline' => [
                             'borderStyle' => Border::BORDER_THIN,
@@ -291,18 +295,32 @@ class DevelopmentCollectionReportExport implements
                     ],
                 ]);
 
-                // Color del texto del rango
-                $sheet->getStyle('A2:G2')->applyFromArray([
-                    'font' => [
-                        'color' => ['rgb' => self::COLOR_GRAY],
-                    ],
-                ]);
-
-                // Alineación general
                 $sheet->getStyle('A:G')
                     ->getAlignment()
                     ->setVertical(Alignment::VERTICAL_CENTER);
             },
         ];
+    }
+
+    private function applyColumnStatusStyle(
+        Worksheet $sheet,
+        string $range,
+        string $bgColor,
+        string $textColor
+    ): void {
+        $sheet->getStyle($range)->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => $textColor],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => $bgColor],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ]);
     }
 }

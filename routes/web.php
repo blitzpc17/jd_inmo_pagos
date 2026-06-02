@@ -155,6 +155,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
 
     Route::get('/reporte-cobros-mensuales/export', [MonthlyCollectionReportController::class, 'export'])
             ->name('monthly_collection_report.export');
+            
 
 
 
