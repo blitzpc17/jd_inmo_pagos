@@ -89,6 +89,9 @@ class CreditorVoucherController extends Controller
         $data = Validator::make($request->all(), [
             'creditor_id' => ['required', 'integer', 'exists:creditors,id'],
             'total' => ['required', 'numeric', 'min:0.01'],
+            'enganche' => ['required', 'numeric', 'min:0'],
+            'num_socios' => ['required', 'integer', 'min:1'],
+            'fecha_inicio' => ['required', 'date'],
             'meses' => ['required', 'integer', 'min:1'],
             'observacion' => ['nullable', 'string'],
         ])->validate();
@@ -96,8 +99,13 @@ class CreditorVoucherController extends Controller
         $statusId = $this->getActiveStatusId();
 
         $total = round((float) $data['total'], 2);
+        $enganche = round((float) $data['enganche'], 2);
+        $numSocios = (int) $data['num_socios'];
         $meses = (int) $data['meses'];
-        $mensualidad = round($total / max(1, $meses), 2);
+        $mensualidad = round(($total - $enganche) / max(1, $meses), 2);
+        
+        $fechaInicio = Carbon::parse($data['fecha_inicio']);
+        $fechaFin = $fechaInicio->copy()->addMonths($meses);
 
         DB::beginTransaction();
 
@@ -106,10 +114,14 @@ class CreditorVoucherController extends Controller
                 'numero_referencia' => '',
                 'creditor_id' => $data['creditor_id'],
                 'total' => $total,
+                'enganche' => $enganche,
+                'num_socios' => $numSocios,
+                'fecha_inicio' => $fechaInicio->toDateString(),
+                'fecha_fin' => $fechaFin->toDateString(),
                 'meses' => $meses,
                 'mensualidad' => $mensualidad,
                 'total_pagado' => 0,
-                'saldo_pendiente' => $total,
+                'saldo_pendiente' => max(0, $total - $enganche),
                 'status_id' => $statusId,
                 'observacion' => $data['observacion'] ?? null,
                 'fecha_registro' => now(),
@@ -177,6 +189,10 @@ class CreditorVoucherController extends Controller
                 'numero_referencia' => $row->numero_referencia,
                 'acreedor' => trim(($row->nombres ?? '') . ' ' . ($row->apellidos ?? '')),
                 'total' => $row->total,
+                'enganche' => $row->enganche,
+                'num_socios' => $row->num_socios,
+                'fecha_inicio' => $row->fecha_inicio,
+                'fecha_fin' => $row->fecha_fin,
                 'meses' => $row->meses,
                 'mensualidad' => $row->mensualidad,
                 'total_pagado' => $row->total_pagado,
@@ -204,7 +220,7 @@ class CreditorVoucherController extends Controller
             ->whereNull('fecha_baja')
             ->sum('cantidad');
 
-        $saldoPendiente = max(0, (float) $voucher->total - $totalPagado);
+        $saldoPendiente = max(0, (float) $voucher->total - (float) $voucher->enganche - $totalPagado);
 
         DB::table('creditor_vouchers')
             ->where('id', $voucherId)

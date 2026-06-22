@@ -51,13 +51,28 @@
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label">Total</label>
+                            <label class="form-label">Costo (Total)</label>
                             <input type="number" step="0.01" min="0.01" class="form-control" id="total" name="total">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Enganche</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="enganche" name="enganche">
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label">Meses</label>
                             <input type="number" min="1" class="form-control" id="meses" name="meses">
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <label class="form-label">Núm. Socios</label>
+                            <input type="number" min="1" value="2" class="form-control" id="num_socios" name="num_socios">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha Inicio</label>
+                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio">
                         </div>
 
                         <div class="col-md-12">
@@ -86,17 +101,45 @@
 
             <div class="modal-body">
                 <div class="row g-3 mb-3">
-                    <div class="col-md-3"><label class="form-label">Referencia</label><input type="text" class="form-control" id="dba_ref" readonly></div>
-                    <div class="col-md-3"><label class="form-label">Acreedor</label><input type="text" class="form-control" id="dba_acreedor" readonly></div>
-                    <div class="col-md-2"><label class="form-label">Total</label><input type="text" class="form-control" id="dba_total" readonly></div>
-                    <div class="col-md-2"><label class="form-label">Meses</label><input type="text" class="form-control" id="dba_meses" readonly></div>
-                    <div class="col-md-2"><label class="form-label">Mensualidad</label><input type="text" class="form-control" id="dba_mensualidad" readonly></div>
+                    <div class="col-md-12"><label class="form-label">Referencia</label><input type="text" class="form-control fw-bold" id="dba_ref" readonly></div>
+                    <div class="col-md-12"><label class="form-label">Acreedor</label><input type="text" class="form-control" id="dba_acreedor" readonly></div>
+                </div>
+                
+                <div class="row">
+                    <!-- PANEL GENERAL -->
+                    <div class="col-md-6">
+                        <div class="card bg-light border-0">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3"><i class="fa-solid fa-chart-pie me-1"></i> Totales Generales</h6>
+                                <div class="row g-3">
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Total a Pagar</label><input type="text" class="form-control form-control-sm" id="dba_total" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Enganche</label><input type="text" class="form-control form-control-sm" id="dba_enganche" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Resta por Pagar</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="dba_debe" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Tiempo a Pagar (Meses)</label><input type="text" class="form-control form-control-sm" id="dba_meses" readonly></div>
+                                    <div class="col-12"><label class="form-label text-muted small mb-0">Letra Mensual</label><input type="text" class="form-control form-control-sm text-primary fw-bold" id="dba_mensualidad" readonly></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- PANEL POR SOCIO -->
+                    <div class="col-md-6">
+                        <div class="card bg-light border-0 h-100">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Totales Por Socio (<span id="dba_num_socios_lbl"></span>)</h6>
+                                <div class="row g-3">
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Total a Pagar (Socio)</label><input type="text" class="form-control form-control-sm" id="dba_total_socio" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Enganche (Socio)</label><input type="text" class="form-control form-control-sm" id="dba_enganche_socio" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Resta por Pagar (Socio)</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="dba_debe_socio" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Tiempo a Pagar (Meses)</label><input type="text" class="form-control form-control-sm" id="dba_meses_socio" readonly></div>
+                                    <div class="col-12"><label class="form-label text-muted small mb-0">Letra Mensual (Socio)</label><input type="text" class="form-control form-control-sm text-primary fw-bold" id="dba_mensualidad_socio" readonly></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                    <div class="col-md-3"><label class="form-label">Pagado</label><input type="text" class="form-control" id="dba_pagado" readonly></div>
-                    <div class="col-md-3"><label class="form-label">Debe</label><input type="text" class="form-control" id="dba_debe" readonly></div>
-                    <div class="col-md-3"><label class="form-label">Debería llevar</label><input type="text" class="form-control" id="dba_deberia" readonly></div>
-                    <div class="col-md-3"><label class="form-label">Estado pago</label><input type="text" class="form-control" id="dba_estado_pago" readonly></div>
-
+                <div class="row mt-3">
                     <div class="col-md-12"><label class="form-label">Observación</label><textarea class="form-control" id="dba_observacion" rows="2" readonly></textarea></div>
                 </div>
 
@@ -106,11 +149,14 @@
                         <table class="table table-bordered align-middle mb-0">
                             <thead>
                                 <tr>
-                                    <th>#</th>
-                                    <th>Fecha recibido</th>
+                                    <th># Pago</th>
+                                    <th>F. Programada</th>
+                                    <th>Cant. a Pagar</th>
+                                    <th>F. de Pago (Real)</th>
+                                    <th>Monto Pagado</th>
+                                    <th>Interés</th>
                                     <th>Forma de pago</th>
-                                    <th>Cantidad</th>
-                                    <th>Usuario registro</th>
+                                    <th>Observaciones</th>
                                 </tr>
                             </thead>
                             <tbody id="detalleBoletaAcreedorItemsBody"></tbody>
@@ -210,7 +256,10 @@
         const payload = {
             creditor_id: document.getElementById('creditor_id').value,
             total: document.getElementById('total').value,
+            enganche: document.getElementById('enganche').value,
             meses: document.getElementById('meses').value,
+            num_socios: document.getElementById('num_socios').value,
+            fecha_inicio: document.getElementById('fecha_inicio').value,
             observacion: document.getElementById('observacion').value
         };
 
@@ -246,17 +295,36 @@
     async function viewItem(id) {
         const res = await fetch(`/pagos-acreedores/${id}`);
         const json = await res.json();
+        
+        const d = json.data;
+        const total = parseFloat(d.total) || 0;
+        const enganche = parseFloat(d.enganche) || 0;
+        const meses = parseInt(d.meses) || 1;
+        const numSocios = parseInt(d.num_socios) || 1;
+        const mensualidad = parseFloat(d.mensualidad) || 0;
+        const debe = parseFloat(d.saldo_pendiente) || 0;
 
-        document.getElementById('dba_ref').value = json.data.numero_referencia || '';
-        document.getElementById('dba_acreedor').value = json.data.acreedor || '';
-        document.getElementById('dba_total').value = json.data.total || '';
-        document.getElementById('dba_meses').value = json.data.meses || '';
-        document.getElementById('dba_mensualidad').value = json.data.mensualidad || '';
-        document.getElementById('dba_pagado').value = json.data.total_pagado || '';
-        document.getElementById('dba_debe').value = json.data.saldo_pendiente || '';
-        document.getElementById('dba_deberia').value = json.data.deberia_llevar || '';
-        document.getElementById('dba_estado_pago').value = json.data.estado_pago || '';
-        document.getElementById('dba_observacion').value = json.data.observacion || '';
+        document.getElementById('dba_ref').value = d.numero_referencia || '';
+        document.getElementById('dba_acreedor').value = d.acreedor || '';
+        
+        const fCurrency = v => '$ ' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+        // Generales
+        document.getElementById('dba_total').value = fCurrency(total);
+        document.getElementById('dba_enganche').value = fCurrency(enganche);
+        document.getElementById('dba_debe').value = fCurrency(debe);
+        document.getElementById('dba_meses').value = meses;
+        document.getElementById('dba_mensualidad').value = fCurrency(mensualidad);
+        
+        // Por Socio
+        document.getElementById('dba_num_socios_lbl').textContent = numSocios;
+        document.getElementById('dba_total_socio').value = fCurrency(total / numSocios);
+        document.getElementById('dba_enganche_socio').value = fCurrency(enganche / numSocios);
+        document.getElementById('dba_debe_socio').value = fCurrency(debe / numSocios);
+        document.getElementById('dba_meses_socio').value = meses;
+        document.getElementById('dba_mensualidad_socio').value = fCurrency(mensualidad / numSocios);
+        
+        document.getElementById('dba_observacion').value = d.observacion || '';
 
         const tbody = document.getElementById('detalleBoletaAcreedorItemsBody');
         tbody.innerHTML = '';
@@ -265,10 +333,13 @@
             tbody.innerHTML += `
                 <tr>
                     <td>${index + 1}</td>
+                    <td>${item.fecha_pago_programada ?? ''}</td>
+                    <td>${fCurrency(item.cantidad_a_pagar ?? 0)}</td>
                     <td>${item.fecha_recibido ?? ''}</td>
+                    <td><span class="text-success fw-bold">${fCurrency(item.cantidad ?? 0)}</span></td>
+                    <td><span class="text-danger">${fCurrency(item.interes_pagado ?? 0)}</span></td>
                     <td>${item.forma_pago ?? ''}</td>
-                    <td>${item.cantidad ?? ''}</td>
-                    <td>${item.usuario_registro ?? ''}</td>
+                    <td>${item.observaciones ?? ''}</td>
                 </tr>
             `;
         });

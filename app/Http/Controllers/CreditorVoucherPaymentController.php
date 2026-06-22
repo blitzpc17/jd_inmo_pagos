@@ -79,19 +79,23 @@ class CreditorVoucherPaymentController extends Controller
 
         abort_if(!$row, 404, 'Boleta no encontrada');
 
-       $items = DB::table('creditor_voucher_items as cvi')
-        ->join('payment_methods as pm', 'pm.id', '=', 'cvi.payment_method_id')
-        ->leftJoin('users as u', 'u.id', '=', 'cvi.usuario_genero_id')
-        ->where('cvi.creditor_voucher_id', $voucherId)
-        ->whereNull('cvi.fecha_baja')
-        ->orderBy('cvi.id')
-        ->get([
-            'cvi.id',
-            'cvi.fecha_recibido',
-            'pm.nombre as forma_pago',
-            'cvi.cantidad',
-            'u.alias as usuario_registro',
-        ]);
+        $items = DB::table('creditor_voucher_items as cvi')
+            ->join('payment_methods as pm', 'pm.id', '=', 'cvi.payment_method_id')
+            ->leftJoin('users as u', 'u.id', '=', 'cvi.usuario_genero_id')
+            ->where('cvi.creditor_voucher_id', $voucherId)
+            ->whereNull('cvi.fecha_baja')
+            ->orderBy('cvi.id')
+            ->get([
+                'cvi.id',
+                'cvi.fecha_recibido',
+                'cvi.fecha_pago_programada',
+                'cvi.cantidad_a_pagar',
+                'cvi.interes_pagado',
+                'cvi.observaciones',
+                'pm.nombre as forma_pago',
+                'cvi.cantidad',
+                'u.alias as usuario_registro',
+            ]);
 
         $progress = $this->getVoucherProgressStatus($row);
 
@@ -102,6 +106,10 @@ class CreditorVoucherPaymentController extends Controller
                 'numero_referencia' => $row->numero_referencia,
                 'acreedor' => trim(($row->nombres ?? '') . ' ' . ($row->apellidos ?? '')),
                 'total' => $row->total,
+                'enganche' => $row->enganche,
+                'num_socios' => $row->num_socios,
+                'fecha_inicio' => $row->fecha_inicio,
+                'fecha_fin' => $row->fecha_fin,
                 'meses' => $row->meses,
                 'mensualidad' => $row->mensualidad,
                 'total_pagado' => $row->total_pagado,
@@ -122,9 +130,13 @@ class CreditorVoucherPaymentController extends Controller
         $data = Validator::make($request->all(), [
             'creditor_voucher_id' => ['required', 'integer', 'exists:creditor_vouchers,id'],
             'items' => ['required', 'array', 'min:1'],
+            'items.*.fecha_pago_programada' => ['nullable', 'date'],
+            'items.*.cantidad_a_pagar' => ['nullable', 'numeric', 'min:0'],
             'items.*.fecha_recibido' => ['required', 'date'],
             'items.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'items.*.cantidad' => ['required', 'numeric', 'min:0.01'],
+            'items.*.interes_pagado' => ['nullable', 'numeric', 'min:0'],
+            'items.*.observaciones' => ['nullable', 'string'],
         ])->validate();
 
         $statusId = $this->getActiveStatusId();
@@ -136,9 +148,13 @@ class CreditorVoucherPaymentController extends Controller
             foreach ($data['items'] as $item) {
                 $rows[] = [
                     'creditor_voucher_id' => $data['creditor_voucher_id'],
+                    'fecha_pago_programada' => $item['fecha_pago_programada'] ?? null,
+                    'cantidad_a_pagar' => $item['cantidad_a_pagar'] ?? 0,
                     'fecha_recibido' => $item['fecha_recibido'],
                     'payment_method_id' => $item['payment_method_id'],
                     'cantidad' => $item['cantidad'],
+                    'interes_pagado' => $item['interes_pagado'] ?? 0,
+                    'observaciones' => $item['observaciones'] ?? null,
                     'status_id' => $statusId,
                     'usuario_genero_id' => session('auth_user.id'),
                     'updated_at' => now(),
@@ -174,7 +190,7 @@ class CreditorVoucherPaymentController extends Controller
             ->whereNull('fecha_baja')
             ->sum('cantidad');
 
-        $saldoPendiente = max(0, (float) $voucher->total - $totalPagado);
+        $saldoPendiente = max(0, (float) $voucher->total - (float) $voucher->enganche - $totalPagado);
 
         DB::table('creditor_vouchers')
             ->where('id', $voucherId)
@@ -254,9 +270,28 @@ class CreditorVoucherPaymentController extends Controller
         $progress = $this->getVoucherProgressStatus($voucher);
         $voucher->estado_pago = $progress['estado_pago'];
 
-        $stats = $pdf->creditorPaymentStats($voucher);
-        $scheduleGrid = $pdf->creditorScheduleGrid($voucher);
-        $scheduleColumns = $pdf->splitGridInTwoColumns($scheduleGrid);
+        $stats = [
+            'total_payments' => $voucher->meses,
+            'paid_payments' => $progress['meses_pagados'] ?? 0,
+            'pending_payments' => max(0, $voucher->meses - ($progress['meses_pagados'] ?? 0)),
+        ];
+
+        $items = DB::table('creditor_voucher_items')
+            ->where('creditor_voucher_id', $voucher->id)
+            ->whereNull('fecha_baja')
+            ->orderBy('id')
+            ->get();
+            
+        $scheduleGrid = [];
+        foreach ($items as $idx => $row) {
+            $scheduleGrid[] = (object) [
+                'installment_number' => $idx + 1,
+                'due_date' => $row->fecha_pago_programada ?: $row->fecha_recibido,
+                'amount' => $row->cantidad_a_pagar > 0 ? $row->cantidad_a_pagar : $voucher->mensualidad,
+                'amount_paid' => $row->cantidad,
+                'status' => 'PAGADO',
+            ];
+        }
 
         return $pdf->stream(
             'pdf.receipts.creditor_payment',
