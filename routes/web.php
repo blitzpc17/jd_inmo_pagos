@@ -355,6 +355,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::get('/options', [SupplierPaymentController::class, 'options'])->name('options');
         Route::post('/', [SupplierPaymentController::class, 'store'])->name('store');
         Route::get('/{id}', [SupplierPaymentController::class, 'show'])->name('show');
+        Route::post('/{id}/abono', [SupplierPaymentController::class, 'addAbono'])->name('add_abono');
     });
 
 
@@ -419,6 +420,10 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
             Route::get('/client/{clientId}/contracts', [\App\Http\Controllers\BulkModificationController::class, 'getClientContracts'])->whereNumber('clientId')->name('client-contracts');
             Route::get('/contract/{contractId}/charges', [\App\Http\Controllers\BulkModificationController::class, 'getContractCharges'])->whereNumber('contractId')->name('contract-charges');
             Route::get('/client/{clientId}/reservations', [\App\Http\Controllers\BulkModificationController::class, 'getClientReservations'])->whereNumber('clientId')->name('client-reservations');
+            
+            Route::get('/suppliers', [\App\Http\Controllers\BulkModificationController::class, 'getSuppliers'])->name('suppliers');
+            Route::get('/supplier/{supplierId}/boletas', [\App\Http\Controllers\BulkModificationController::class, 'getSupplierBoletas'])->whereNumber('supplierId')->name('supplier-boletas');
+            Route::get('/boleta/{boletaId}/partidas', [\App\Http\Controllers\BulkModificationController::class, 'getBoletaPartidas'])->whereNumber('boletaId')->name('boleta-partidas');
         });
 
     // =====================================================

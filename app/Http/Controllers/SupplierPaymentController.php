@@ -18,30 +18,38 @@ class SupplierPaymentController extends Controller
     {
         $rows = DB::table('supplier_payments as sp')
             ->join('suppliers as s', 's.id', '=', 'sp.supplier_id')
-            ->join('payment_methods as pm', 'pm.id', '=', 'sp.payment_method_id')
+            ->leftJoin('developments as d', 'd.id', '=', 'sp.development_id')
             ->join('statuses as st', 'st.id', '=', 'sp.status_id')
             ->whereNull('sp.fecha_baja')
             ->select([
                 'sp.id',
                 'sp.numero_referencia',
-                'sp.fecha',
+                'sp.fecha_inicio',
+                'sp.fecha_fin',
                 'sp.importe',
+                'sp.enganche',
+                'sp.plazo',
                 'sp.observacion',
                 's.nombre as proveedor',
-                'pm.nombre as forma_pago',
+                'd.nombre as lotificacion',
                 'st.nombre as estado',
             ])
             ->orderByDesc('sp.id')
             ->get()
             ->map(function ($r) {
+                $abonos = DB::table('supplier_payment_concepts')
+                    ->where('supplier_payment_id', $r->id)
+                    ->whereNull('fecha_baja')
+                    ->sum('importe');
+
+                $r->abonos = $abonos;
+                $r->resto = max(0, ($r->importe - $r->enganche) - $abonos);
+
                 $r->acciones = '
                     <div class="d-flex gap-1">
                         <button class="btn btn-sm btn-outline-info btn-view" data-id="'.$r->id.'" title="Ver detalle">
                             <i class="fa-solid fa-eye"></i>
                         </button>
-                        <a class="btn btn-sm btn-outline-danger" target="_blank" href="'.route('pagos_proveedores.receipt', $r->id).'" title="Recibo PDF">
-                            <i class="fa-solid fa-file-pdf"></i>
-                        </a>
                     </div>
                 ';
                 return $r;
@@ -71,9 +79,18 @@ class SupplierPaymentController extends Controller
                 'nombre as text',
             ]);
 
+        $developments = DB::table('developments')
+            ->whereNull('fecha_baja')
+            ->orderBy('nombre')
+            ->get([
+                'id as value',
+                'nombre as text',
+            ]);
+
         return response()->json([
             'suppliers' => $suppliers,
             'payment_methods' => $paymentMethods,
+            'developments' => $developments,
         ]);
     }
 
@@ -81,28 +98,29 @@ class SupplierPaymentController extends Controller
     {
         $data = Validator::make($request->all(), [
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
-            'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
-            'fecha' => ['required', 'date'],
+            'development_id' => ['required', 'integer', 'exists:developments,id'],
+            'plazo' => ['required', 'integer', 'min:1'],
+            'fecha_inicio' => ['required', 'date'],
+            'enganche' => ['required', 'numeric', 'min:0'],
+            'importe' => ['required', 'numeric', 'min:0'],
             'observacion' => ['nullable', 'string'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.concepto' => ['required', 'string'],
-            'items.*.importe' => ['required', 'numeric', 'min:0.01'],
-        ], [
-            'items.required' => 'Debes capturar al menos un concepto.',
         ])->validate();
 
         $statusId = $this->getActiveStatusId();
-        $total = collect($data['items'])->sum(fn ($x) => (float) $x['importe']);
+        $fechaFin = \Carbon\Carbon::parse($data['fecha_inicio'])->addMonths($data['plazo'])->toDateString();
 
         DB::beginTransaction();
 
         try {
             $paymentId = DB::table('supplier_payments')->insertGetId([
                 'numero_referencia' => '',
-                'fecha' => $data['fecha'],
-                'importe' => $total,
                 'supplier_id' => $data['supplier_id'],
-                'payment_method_id' => $data['payment_method_id'],
+                'development_id' => $data['development_id'],
+                'plazo' => $data['plazo'],
+                'fecha_inicio' => $data['fecha_inicio'],
+                'fecha_fin' => $fechaFin,
+                'enganche' => $data['enganche'],
+                'importe' => $data['importe'],
                 'status_id' => $statusId,
                 'observacion' => $data['observacion'] ?? null,
                 'usuario_genero_id' => session('auth_user.id'),
@@ -113,30 +131,15 @@ class SupplierPaymentController extends Controller
             DB::table('supplier_payments')
                 ->where('id', $paymentId)
                 ->update([
-                    'numero_referencia' => 'PPR-' . str_pad((string) $paymentId, 6, '0', STR_PAD_LEFT),
+                    'numero_referencia' => 'BOL-PROV-' . str_pad((string) $paymentId, 5, '0', STR_PAD_LEFT),
                     'updated_at' => now(),
                 ]);
-
-            $rows = [];
-            foreach ($data['items'] as $item) {
-                $rows[] = [
-                    'supplier_payment_id' => $paymentId,
-                    'concepto' => $item['concepto'],
-                    'importe' => $item['importe'],
-                    'status_id' => $statusId,
-                    'usuario_genero_id' => session('auth_user.id'),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
-
-            DB::table('supplier_payment_concepts')->insert($rows);
 
             DB::commit();
 
             return response()->json([
                 'ok' => true,
-                'message' => 'Pago a proveedor registrado correctamente.',
+                'message' => 'Boleta registrada correctamente.',
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -148,39 +151,78 @@ class SupplierPaymentController extends Controller
     {
         $row = DB::table('supplier_payments as sp')
             ->join('suppliers as s', 's.id', '=', 'sp.supplier_id')
-            ->join('payment_methods as pm', 'pm.id', '=', 'sp.payment_method_id')
+            ->leftJoin('developments as d', 'd.id', '=', 'sp.development_id')
             ->join('statuses as st', 'st.id', '=', 'sp.status_id')
             ->where('sp.id', $id)
             ->select([
                 'sp.*',
                 's.nombre as proveedor',
-                'pm.nombre as forma_pago',
+                'd.nombre as lotificacion',
                 'st.nombre as estado',
             ])
             ->first();
 
-        abort_if(!$row, 404, 'Pago a proveedor no encontrado');
+        abort_if(!$row, 404, 'Boleta no encontrada');
 
         $items = DB::table('supplier_payment_concepts')
             ->where('supplier_payment_id', $id)
-            ->orderBy('id')
+            ->orderBy('fecha')
             ->get([
+                'fecha',
                 'concepto',
                 'importe',
             ]);
+
+        $abonos = collect($items)->sum('importe');
+        $resto = max(0, ($row->importe - $row->enganche) - $abonos);
 
         return response()->json([
             'ok' => true,
             'data' => [
                 'numero_referencia' => $row->numero_referencia,
-                'fecha' => $row->fecha,
+                'fecha_inicio' => $row->fecha_inicio,
+                'fecha_fin' => $row->fecha_fin,
+                'plazo' => $row->plazo,
+                'enganche' => $row->enganche,
                 'importe' => $row->importe,
+                'abonos' => $abonos,
+                'resto' => $resto,
                 'observacion' => $row->observacion,
                 'proveedor' => $row->proveedor,
-                'forma_pago' => $row->forma_pago,
+                'lotificacion' => $row->lotificacion,
                 'estado' => $row->estado,
                 'items' => $items,
             ]
+        ]);
+    }
+
+    public function addAbono(Request $request, int $id)
+    {
+        $data = Validator::make($request->all(), [
+            'fecha' => ['required', 'date'],
+            'monto' => ['required', 'numeric', 'min:0.01'],
+            'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
+            'concepto' => ['required', 'string'],
+        ])->validate();
+
+        $boleta = DB::table('supplier_payments')->where('id', $id)->first();
+        abort_if(!$boleta, 404, 'Boleta no encontrada');
+
+        DB::table('supplier_payment_concepts')->insert([
+            'supplier_payment_id' => $id,
+            'fecha' => $data['fecha'],
+            'importe' => $data['monto'],
+            'payment_method_id' => $data['payment_method_id'],
+            'concepto' => $data['concepto'],
+            'status_id' => $this->getActiveStatusId(),
+            'usuario_genero_id' => session('auth_user.id'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Abono registrado correctamente.',
         ]);
     }
 

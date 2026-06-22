@@ -61,7 +61,6 @@ class BulkModificationController extends Controller
                 $item->original_data = json_decode($item->original_data, true);
                 $item->new_data = json_decode($item->new_data, true);
                 
-                // Get the reference name of the record
                 $ref = '';
                 if ($request->type === 'COBRO') {
                     $ref = DB::table('charges')->where('id', $item->record_id)->value('numero_referencia');
@@ -69,6 +68,12 @@ class BulkModificationController extends Controller
                     $ref = DB::table('contracts')->where('id', $item->record_id)->value('numero_referencia');
                 } elseif ($request->type === 'APARTADO') {
                     $ref = DB::table('reservations')->where('id', $item->record_id)->value('numero_referencia');
+                } elseif ($request->type === 'BOLETA_PROVEEDOR') {
+                    $ref = DB::table('supplier_payments')->where('id', $item->record_id)->value('numero_referencia');
+                } elseif ($request->type === 'PARTIDA_PROVEEDOR') {
+                    $boletaId = DB::table('supplier_payment_concepts')->where('id', $item->record_id)->value('supplier_payment_id');
+                    $refBoleta = DB::table('supplier_payments')->where('id', $boletaId)->value('numero_referencia');
+                    $ref = $refBoleta ? ('Boleta: ' . $refBoleta . ' - Partida ID: ' . $item->record_id) : '';
                 }
                 $item->reference = $ref ?: ('ID: ' . $item->record_id);
 
@@ -85,7 +90,7 @@ class BulkModificationController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'type' => ['required', 'string', 'in:COBRO,CONTRATO,APARTADO'],
+            'type' => ['required', 'string', 'in:COBRO,CONTRATO,APARTADO,BOLETA_PROVEEDOR,PARTIDA_PROVEEDOR'],
             'justification' => ['required', 'string', 'min:5'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.record_id' => ['required', 'integer'],
@@ -360,6 +365,17 @@ class BulkModificationController extends Controller
                         }
                     }
 
+                    // For Boletas Proveedor, recalculate fecha_fin if fecha_inicio or plazo changes
+                    if ($type === 'BOLETA_PROVEEDOR') {
+                        $oldBoleta = DB::table('supplier_payments')->where('id', $recordId)->first();
+                        $newFechaInicio = $newData['fecha_inicio'] ?? $oldBoleta->fecha_inicio;
+                        $newPlazo = $newData['plazo'] ?? $oldBoleta->plazo;
+                        
+                        if ($newFechaInicio && $newPlazo) {
+                            $newData['fecha_fin'] = Carbon::parse($newFechaInicio)->addMonths((int)$newPlazo)->toDateString();
+                        }
+                    }
+
                     // Apply update
                     DB::table($tableName)
                         ->where('id', $recordId)
@@ -486,12 +502,34 @@ class BulkModificationController extends Controller
             ->orderBy('u.alias')
             ->get();
 
+        $suppliers = DB::table('suppliers as s')
+            ->join('statuses as st', 'st.id', '=', 's.status_id')
+            ->join('processes as p', 'p.id', '=', 'st.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('st.clave', 'ACTIVE')
+            ->whereNull('s.fecha_baja')
+            ->orderBy('s.nombre')
+            ->get([
+                's.id as value',
+                's.nombre as text',
+            ]);
+
+        $developments = DB::table('developments')
+            ->whereNull('fecha_baja')
+            ->orderBy('nombre')
+            ->get([
+                'id as value',
+                'nombre as text',
+            ]);
+
         return response()->json([
             'offices' => $offices,
             'payment_methods' => $paymentMethods,
             'charge_statuses' => $chargeStatuses,
             'reservation_statuses' => $reservationStatuses,
             'available_users' => $availableUsers,
+            'suppliers' => $suppliers,
+            'developments' => $developments,
         ]);
     }
 
@@ -561,7 +599,19 @@ class BulkModificationController extends Controller
         }
 
         $tableName = $this->getTableName($type);
-        $record = DB::table($tableName)->where('id', $id)->first();
+        $query = DB::table($tableName)->where($tableName . '.id', $id);
+
+        if ($type === 'BOLETA_PROVEEDOR') {
+            $query->leftJoin('developments as d', 'd.id', '=', $tableName . '.development_id')
+                  ->leftJoin('suppliers as s', 's.id', '=', $tableName . '.supplier_id')
+                  ->select([
+                      $tableName . '.*',
+                      'd.nombre as lotificacion_nombre',
+                      's.nombre as proveedor_nombre'
+                  ]);
+        }
+
+        $record = $query->first();
 
         if (!$record) {
             return response()->json(['ok' => false, 'message' => 'Registro no encontrado.'], 404);
@@ -662,6 +712,66 @@ class BulkModificationController extends Controller
         return response()->json($reservations);
     }
 
+    public function getSuppliers(Request $request)
+    {
+        $q = trim((string)$request->input('q', ''));
+        $query = DB::table('suppliers as s')
+            ->select([
+                's.id',
+                's.nombre as text'
+            ])
+            ->orderBy('s.nombre')
+            ->limit(30);
+
+        if ($q !== '') {
+            $query->where('s.nombre', 'ILIKE', '%' . $q . '%');
+        }
+
+        return response()->json($query->get());
+    }
+
+    public function getSupplierBoletas(int $supplierId)
+    {
+        $boletas = DB::table('supplier_payments as sp')
+            ->leftJoin('developments as d', 'd.id', '=', 'sp.development_id')
+            ->join('statuses as st', 'st.id', '=', 'sp.status_id')
+            ->where('sp.supplier_id', $supplierId)
+            ->select([
+                'sp.id',
+                'sp.numero_referencia',
+                'sp.importe',
+                'sp.plazo',
+                'sp.fecha_inicio',
+                'sp.enganche',
+                'd.nombre as lotificacion',
+                'st.nombre as estado',
+                'sp.supplier_id',
+                'sp.development_id'
+            ])
+            ->orderByDesc('sp.id')
+            ->get()
+            ->map(function($row) {
+                $row->text = $row->numero_referencia . ' (' . $row->estado . ') - $' . number_format($row->importe, 2);
+                return $row;
+            });
+
+        return response()->json($boletas);
+    }
+
+    public function getBoletaPartidas(int $boletaId)
+    {
+        $partidas = DB::table('supplier_payment_concepts')
+            ->where('supplier_payment_id', $boletaId)
+            ->orderBy('fecha')
+            ->get()
+            ->map(function($row) {
+                $row->text = 'Partida ' . $row->id . ' | ' . $row->fecha . ' | $' . number_format($row->importe, 2) . ' | ' . $row->concepto;
+                return $row;
+            });
+
+        return response()->json($partidas);
+    }
+
     protected function updatePaymentSchedulesDueDates(int $contractId, string $newFechaEmision)
     {
         $contract = DB::table('contracts')->where('id', $contractId)->first();
@@ -699,6 +809,8 @@ class BulkModificationController extends Controller
             case 'COBRO': return 'charges';
             case 'CONTRATO': return 'contracts';
             case 'APARTADO': return 'reservations';
+            case 'BOLETA_PROVEEDOR': return 'supplier_payments';
+            case 'PARTIDA_PROVEEDOR': return 'supplier_payment_concepts';
             default: throw new \InvalidArgumentException("Tipo inválido: {$type}");
         }
     }

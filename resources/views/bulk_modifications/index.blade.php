@@ -68,6 +68,16 @@
                             <div class="fw-bold">Apartados</div>
                             <small class="text-muted">Importes, vigencias o eliminación de apartados.</small>
                         </div>
+                        <div class="type-tile" data-type="BOLETA_PROVEEDOR">
+                            <i class="fa-solid fa-file-invoice-dollar"></i>
+                            <div class="fw-bold">Boletas (Proveedor)</div>
+                            <small class="text-muted">Ajuste de total a pagar, plazo, fechas y lotificación.</small>
+                        </div>
+                        <div class="type-tile" data-type="PARTIDA_PROVEEDOR">
+                            <i class="fa-solid fa-receipt"></i>
+                            <div class="fw-bold">Partidas (Proveedor)</div>
+                            <small class="text-muted">Ajuste de montos y fechas de abonos a proveedores.</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -76,7 +86,7 @@
                 <!-- Buscador en cascada -->
                 <div class="page-card mb-3">
                     <h5 class="fw-bold mb-3">2. Seleccionar Registro</h5>
-                    <div class="row g-3">
+                    <div class="row g-3" id="cascade_clients">
                         <div class="col-md-6" id="client_select_wrapper">
                             <label class="form-label fw-bold">Cliente</label>
                             <select id="client_select" class="form-select"></select>
@@ -85,6 +95,19 @@
                             <label class="form-label fw-bold">Contrato</label>
                             <select id="contract_select" class="form-select" disabled>
                                 <option value="">Selecciona cliente primero...</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 d-none" id="cascade_suppliers">
+                        <div class="col-md-4" id="supplier_select_wrapper">
+                            <label class="form-label fw-bold">Proveedor</label>
+                            <select id="supplier_select" class="form-select"></select>
+                        </div>
+                        <div class="col-md-8" id="boleta_select_wrapper">
+                            <label class="form-label fw-bold">Boleta / Proyecto</label>
+                            <select id="boleta_select" class="form-select" disabled>
+                                <option value="">Selecciona proveedor primero...</option>
                             </select>
                         </div>
                     </div>
@@ -148,6 +171,43 @@
                                     <th>Importe</th>
                                     <th>Asociado a Contrato?</th>
                                     <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Detalles de Boleta Proveedor -->
+                <div class="page-card mb-3 d-none" id="detailsBoletaCard">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-circle-info me-2 text-primary"></i>Detalles de la Boleta</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-3"><strong>Referencia:</strong> <span id="lblBoletaRef"></span></div>
+                        <div class="col-md-3"><strong>Lotificación:</strong> <span id="lblBoletaLot"></span></div>
+                        <div class="col-md-3"><strong>Total (Costo):</strong> <span id="lblBoletaCosto"></span></div>
+                        <div class="col-md-3"><strong>Enganche:</strong> <span id="lblBoletaEnganche"></span></div>
+                        <div class="col-md-3"><strong>F. Inicio:</strong> <span id="lblBoletaInicio"></span></div>
+                        <div class="col-md-3"><strong>Plazo:</strong> <span id="lblBoletaPlazo"></span> meses</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary" id="btnEditBoleta">
+                            <i class="fa-solid fa-pen me-1"></i> Solicitar Modificación de Boleta
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla de Partidas Proveedor -->
+                <div class="page-card mb-3 d-none" id="tablePartidasCard">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-receipt me-2 text-primary"></i>Abonos (Partidas) de la Boleta</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle w-100" id="tableBoletaPartidas">
+                            <thead>
+                                <tr>
+                                    <th># Partida</th>
+                                    <th>Fecha</th>
+                                    <th>Importe</th>
+                                    <th>Concepto</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -389,6 +449,24 @@
                 {name: 'importe_apartado', label: 'Importe Apartado', type: 'number'},
                 {name: 'status_id', label: 'Estado', type: 'select', optionKey: 'reservation_statuses'}
             ]
+        },
+        BOLETA_PROVEEDOR: {
+            headers: ['Folio', 'Acción', 'Proveedor', 'Lotificación', 'F. Inicio', 'Costo (Total)', 'Enganche ($)', 'Plazo (Meses)', 'Quitar'],
+            fields: [
+                {name: 'supplier_id', label: 'Proveedor', type: 'select', optionKey: 'suppliers'},
+                {name: 'development_id', label: 'Lotificación', type: 'select', optionKey: 'developments'},
+                {name: 'fecha_inicio', label: 'Fecha Inicio', type: 'date'},
+                {name: 'importe', label: 'Costo (Total)', type: 'number'},
+                {name: 'enganche', label: 'Enganche', type: 'number'},
+                {name: 'plazo', label: 'Plazo (Meses)', type: 'integer'}
+            ]
+        },
+        PARTIDA_PROVEEDOR: {
+            headers: ['Partida', 'Acción', 'Fecha', 'Monto ($)', 'Quitar'],
+            fields: [
+                {name: 'fecha', label: 'Fecha', type: 'date'},
+                {name: 'importe', label: 'Monto', type: 'number'}
+            ]
         }
     };
 
@@ -439,6 +517,23 @@
             minimumInputLength: 1,
             ajax: {
                 url: '{{ route('bulk-modifications.clients') }}',
+                dataType: 'json',
+                delay: 250,
+                data: params => ({
+                    q: params.term || ''
+                }),
+                processResults: data => ({
+                    results: data.map(item => ({ id: item.id, text: item.text }))
+                })
+            }
+        });
+
+        $('#supplier_select').select2({
+            width: '100%',
+            placeholder: 'Buscar proveedor...',
+            minimumInputLength: 1,
+            ajax: {
+                url: '{{ route('bulk-modifications.suppliers') }}',
                 dataType: 'json',
                 delay: 250,
                 data: params => ({
@@ -517,6 +612,61 @@
                 renderChargesTable();
             }
         });
+
+        // Supplier change -> load boletas
+        $('#supplier_select').on('change', async function() {
+            const supplierId = $(this).val();
+            resetCascadeOutputs();
+
+            if (!supplierId) return;
+
+            Swal.showLoading();
+            const res = await fetch(`/modificaciones-masivas/supplier/${supplierId}/boletas`);
+            const boletas = await res.json();
+            Swal.close();
+
+            const boletaSelect = $('#boleta_select');
+            boletaSelect.html('<option value="">Selecciona boleta...</option>');
+            boletas.forEach(b => {
+                boletaSelect.append(`<option value="${b.id}">${b.text}</option>`);
+            });
+            boletaSelect.prop('disabled', false);
+        });
+
+        // Boleta change -> load details / partidas
+        $('#boleta_select').on('change', async function() {
+            const boletaId = $(this).val();
+            $('#detailsBoletaCard').addClass('d-none');
+            $('#tablePartidasCard').addClass('d-none');
+
+            if (!boletaId) return;
+
+            if (currentType === 'BOLETA_PROVEEDOR') {
+                Swal.showLoading();
+                const res = await fetch(`{{ route('bulk-modifications.record-details') }}?type=BOLETA_PROVEEDOR&id=${boletaId}`);
+                const data = await res.json();
+                Swal.close();
+
+                if (data.ok) {
+                    loadedContractDetails = data.data; // Reusing variable to store details temporarily
+                    $('#lblBoletaRef').text(data.data.numero_referencia);
+                    $('#lblBoletaLot').text(data.data.lotificacion_nombre || 'N/A');
+                    $('#lblBoletaCosto').text('$' + parseFloat(data.data.importe).toFixed(2));
+                    $('#lblBoletaEnganche').text('$' + parseFloat(data.data.enganche).toFixed(2));
+                    $('#lblBoletaInicio').text(data.data.fecha_inicio);
+                    $('#lblBoletaPlazo').text(data.data.plazo);
+
+                    $('#detailsBoletaCard').removeClass('d-none');
+                }
+            } else if (currentType === 'PARTIDA_PROVEEDOR') {
+                Swal.showLoading();
+                const res = await fetch(`/modificaciones-masivas/boleta/${boletaId}/partidas`);
+                loadedCharges = await res.json(); // Reuse variable
+                Swal.close();
+
+                renderPartidasTable();
+            }
+        });
     }
 
     function resetCascadeOutputs() {
@@ -539,30 +689,72 @@
             return;
         }
 
-        loadedCharges.forEach(ch => {
-            const tr = $('<tr>');
-            tr.append(`<td><strong>${ch.numero_referencia}</strong></td>`);
-            tr.append(`<td>${ch.fecha_emision}</td>`);
-            tr.append(`<td>$${parseFloat(ch.monto).toFixed(2)}</td>`);
-            tr.append(`<td>$${parseFloat(ch.monto_recargo || 0).toFixed(2)}</td>`);
-            tr.append(`<td>${ch.forma_pago || 'N/A'}</td>`);
-            tr.append(`<td><span class="badge bg-secondary">${ch.estado}</span></td>`);
-            tr.append(`
-                <td>
-                    <div class="d-flex gap-1">
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-add-charge-modify" data-id="${ch.id}">
-                            <i class="fa-solid fa-pen me-1"></i> Modificar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger btn-add-charge-delete" data-id="${ch.id}">
-                            <i class="fa-solid fa-trash me-1"></i> Eliminar
-                        </button>
-                    </div>
-                </td>
+        loadedCharges.forEach(charge => {
+            const importeFormated = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(charge.monto);
+            const surchargeFormated = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(charge.monto_recargo || 0);
+            
+            const isQueued = selectedRecords.some(r => r.record_id === charge.id);
+
+            let actionsHtml = `<button type="button" class="btn btn-sm btn-outline-primary btn-add-charge-modify" data-id="${charge.id}">
+                                    <i class="fa-solid fa-pen"></i> Modificar
+                               </button>
+                               <button type="button" class="btn btn-sm btn-outline-danger btn-add-charge-delete" data-id="${charge.id}">
+                                    <i class="fa-solid fa-trash"></i> Eliminar
+                               </button>`;
+            
+            if (isQueued) {
+                actionsHtml = `<span class="badge bg-secondary">En Lista</span>`;
+            }
+
+            tbody.append(`
+                <tr>
+                    <td class="fw-bold">${charge.numero_referencia}</td>
+                    <td>${charge.fecha}</td>
+                    <td>${importeFormated}</td>
+                    <td>${surchargeFormated}</td>
+                    <td>${charge.forma_pago || '-'}</td>
+                    <td><span class="badge bg-secondary">${charge.estado}</span></td>
+                    <td>${actionsHtml}</td>
+                </tr>
             `);
-            tbody.append(tr);
         });
 
         $('#tableChargesCard').removeClass('d-none');
+    }
+
+    function renderPartidasTable() {
+        const tbody = $('#tableBoletaPartidas tbody');
+        tbody.html('');
+
+        if (loadedCharges.length === 0) {
+            tbody.html('<tr><td colspan="5" class="text-center text-muted">No hay partidas en esta boleta.</td></tr>');
+            $('#tablePartidasCard').removeClass('d-none');
+            return;
+        }
+
+        loadedCharges.forEach(partida => {
+            const isQueued = selectedRecords.some(r => r.record_id === partida.id);
+
+            let actionsHtml = `<button type="button" class="btn btn-sm btn-outline-primary btn-add-partida-modify" data-id="${partida.id}">
+                                    <i class="fa-solid fa-pen"></i> Modificar
+                               </button>`;
+            
+            if (isQueued) {
+                actionsHtml = `<span class="badge bg-secondary">En Lista</span>`;
+            }
+
+            tbody.append(`
+                <tr>
+                    <td class="fw-bold">${partida.id}</td>
+                    <td>${partida.fecha}</td>
+                    <td>$${parseFloat(partida.importe).toFixed(2)}</td>
+                    <td>${partida.concepto}</td>
+                    <td>${actionsHtml}</td>
+                </tr>
+            `);
+        });
+
+        $('#tablePartidasCard').removeClass('d-none');
     }
 
     function renderReservationsTable() {
@@ -1005,6 +1197,7 @@
     // --- Listeners for UI Events ---
 
     // Select type tile
+    // Select type tile
     $('.type-tile').on('click', function () {
         const tile = $(this);
         if (tile.hasClass('active')) return;
@@ -1017,9 +1210,19 @@
 
         // Reset inputs
         $('#client_select').val(null).trigger('change');
+        $('#supplier_select').val(null).trigger('change');
         resetCascadeOutputs();
         renderSelectionHeaders();
         renderSelectedRecordsTable();
+
+        // Toggle cascades
+        if (currentType === 'BOLETA_PROVEEDOR' || currentType === 'PARTIDA_PROVEEDOR') {
+            $('#cascade_clients').addClass('d-none');
+            $('#cascade_suppliers').removeClass('d-none');
+        } else {
+            $('#cascade_suppliers').addClass('d-none');
+            $('#cascade_clients').removeClass('d-none');
+        }
     });
 
     // Remove item from selected queue
@@ -1103,6 +1306,28 @@
         if (!reservation) return;
         const clientText = $('#client_select option:selected').text();
         pushRecordToQueue(reservation.id, reservation.numero_referencia, clientText, reservation, 'ELIMINAR');
+    });
+
+    // Add boleta to queue for modification
+    $('#btnEditBoleta').on('click', function() {
+        if (!loadedContractDetails) return;
+        const suppText = $('#supplier_select option:selected').text();
+        pushRecordToQueue(
+            loadedContractDetails.id,
+            loadedContractDetails.numero_referencia,
+            suppText,
+            loadedContractDetails,
+            'MODIFICAR'
+        );
+    });
+
+    // Add partida to queue for modification
+    $(document).on('click', '.btn-add-partida-modify', function() {
+        const pId = $(this).data('id');
+        const p = loadedCharges.find(c => String(c.id) === String(pId));
+        if (!p) return;
+        const suppText = $('#supplier_select option:selected').text();
+        pushRecordToQueue(p.id, 'Partida ' + p.id, suppText, p, 'MODIFICAR');
     });
 
     // Show request detail modal
