@@ -13,7 +13,7 @@
                 <i class="fa-solid fa-layer-group me-1"></i> Modificación masiva
             </button>
             <button class="btn btn-outline-primary" id="btnGenerarLotes">
-                <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generar lotes
+                <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Ajustar / Generar Lotes
             </button>
             <button class="btn btn-primary" id="btnNuevoLote">
                 <i class="fa-solid fa-plus me-1"></i> Nuevo lote
@@ -106,55 +106,46 @@
         <div class="modal-content">
             <form id="formGenerador">
                 <div class="modal-header">
-                    <h5 class="modal-title">Generar lotes</h5>
+                    <h5 class="modal-title">Ajustar / Generar Lotes</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="crear_todos" name="crear_todos" value="1">
-                        <label class="form-check-label" for="crear_todos">
-                            Crear todos los lotes automáticamente
-                        </label>
+                    <div class="alert alert-light border small mb-3">
+                        Configura la cantidad total de lotes que debe tener cada manzana. 
+                        El sistema creará los faltantes y dará de baja los sobrantes libres.
+                        Los lotes que ya tengan contratos no serán afectados.
                     </div>
 
-                    <div class="alert alert-light border small mb-3">
-                        Si la lotificación tiene manzanas, se generarán como <strong>M1 L1</strong>, <strong>M1 L2</strong>, etc.  
-                        Si no tiene manzanas, se generarán como <strong>SM L1</strong>, <strong>SM L2</strong>.
-                    </div>
+                    <div id="dynamicCountsContainer" class="row g-3 mb-3"></div>
+                    <hr>
 
                     <div class="row g-3">
-                        <div class="col-md-4" id="manzanaGroup">
-                            <label class="form-label">Manzana</label>
-                            <select class="form-select" id="g_manzana" name="manzana"></select>
-                            <div class="form-text">Si no marcas “crear todos”, debes seleccionar una manzana.</div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label">Oficinas</label>
+                        <div class="col-md-6">
+                            <label class="form-label">Oficinas (para lotes nuevos)</label>
                             <select class="form-select select2-gen" id="g_office_ids" name="office_ids[]" multiple></select>
                         </div>
 
-                        <div class="col-md-4">
-                            <label class="form-label">Socios</label>
+                        <div class="col-md-6">
+                            <label class="form-label">Socios (para lotes nuevos)</label>
                             <select class="form-select select2-gen" id="g_partner_ids" name="partner_ids[]" multiple></select>
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label">Precio contado</label>
-                            <input type="number" step="0.01" class="form-control" id="g_precio_contado" name="precio_contado">
+                            <label class="form-label">Precio contado (para lotes nuevos)</label>
+                            <input type="number" step="0.01" class="form-control" id="g_precio_contado" name="precio_contado" required>
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label">Precio crédito</label>
-                            <input type="number" step="0.01" class="form-control" id="g_precio_credito" name="precio_credito">
+                            <label class="form-label">Precio crédito (para lotes nuevos)</label>
+                            <input type="number" step="0.01" class="form-control" id="g_precio_credito" name="precio_credito" required>
                         </div>
                     </div>
                 </div>
 
                 <div class="modal-footer">
                     <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cerrar</button>
-                    <button class="btn btn-primary" type="submit">Generar</button>
+                    <button class="btn btn-primary" type="submit">Guardar Distribución</button>
                 </div>
             </form>
         </div>
@@ -235,9 +226,6 @@
     const formGenerador = document.getElementById('formGenerador');
     const formMasiva = document.getElementById('formMasiva');
     const loteId = document.getElementById('loteId');
-    const crearTodosChk = document.getElementById('crear_todos');
-    const manzanaGroup = document.getElementById('manzanaGroup');
-    const manzanaSelect = document.getElementById('g_manzana');
     const manzanaMasivaGroup = document.getElementById('m_manzana_group');
     const manzanaMasivaSelect = document.getElementById('m_manzana');
 
@@ -293,40 +281,45 @@
     }
 
     function fillManzanaSelects() {
-        [manzanaSelect, manzanaMasivaSelect].forEach(select => {
-            select.innerHTML = '<option value="">Seleccione...</option>';
-        });
+        manzanaMasivaSelect.innerHTML = '<option value="">Seleccione...</option>';
 
         if (!optionsCache) return;
 
         if ((optionsCache.development.manzanas || 0) > 0) {
             optionsCache.manzanas.forEach(item => {
-                manzanaSelect.innerHTML += `<option value="${item.value}">${item.text}</option>`;
                 manzanaMasivaSelect.innerHTML += `<option value="${item.value}">${item.text}</option>`;
             });
         } else {
-            manzanaSelect.innerHTML += `<option value="SM">Sin manzana</option>`;
             manzanaMasivaSelect.innerHTML += `<option value="SM">Sin manzana</option>`;
         }
     }
 
-    function toggleGeneratorMode() {
-        const hasManzanas = optionsCache && (optionsCache.development.manzanas || 0) > 0;
-        const crearTodos = crearTodosChk.checked;
+    function buildDynamicCounts() {
+        const container = document.getElementById('dynamicCountsContainer');
+        container.innerHTML = '';
 
-        if (!hasManzanas) {
-            manzanaGroup.style.display = 'none';
-            manzanaSelect.required = false;
-            manzanaSelect.value = 'SM';
-            return;
-        }
+        if (!optionsCache) return;
 
-        manzanaGroup.style.display = crearTodos ? 'none' : '';
-        manzanaSelect.required = !crearTodos;
-        if (crearTodos) {
-            manzanaSelect.value = '';
+        if ((optionsCache.development.manzanas || 0) > 0) {
+            optionsCache.manzanas.forEach(item => {
+                container.innerHTML += `
+                    <div class="col-md-3 col-sm-4">
+                        <label class="form-label">${item.text}</label>
+                        <input type="number" min="0" class="form-control" name="counts[${item.value}]" value="${item.current_lots || 0}">
+                    </div>
+                `;
+            });
+        } else {
+            container.innerHTML += `
+                <div class="col-md-4">
+                    <label class="form-label">Total de lotes</label>
+                    <input type="number" min="0" class="form-control" name="counts[SM]" value="${optionsCache.development.sm_current_lots || 0}">
+                </div>
+            `;
         }
     }
+
+
 
     function toggleMasivaMode() {
         const hasManzanas = optionsCache && (optionsCache.development.manzanas || 0) > 0;
@@ -481,22 +474,17 @@
         if (res.ok) table.ajax.reload(null, false);
     }
 
-    async function generateLots(e) {
-        e.preventDefault();
+    async function generateLots(e, force = false) {
+        if (e) e.preventDefault();
 
         if (!optionsCache) {
             await loadOptions();
         }
 
-        if (!crearTodosChk.checked && manzanaGroup.style.display !== 'none' && !manzanaSelect.value) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Selecciona una manzana'
-            });
-            return;
-        }
-
         const formData = new FormData(formGenerador);
+        if (force) {
+            formData.append('force', '1');
+        }
 
         try {
             const res = await fetch(`/lotificaciones/${developmentId}/lots/generate`, {
@@ -509,6 +497,38 @@
             });
 
             const json = await res.json();
+
+            if (res.status === 409 && json.requires_confirmation) {
+                let listHtml = '<ul class="text-start small" style="max-height: 200px; overflow-y: auto;">';
+                json.affected.forEach(a => listHtml += `<li>${a}</li>`);
+                listHtml += '</ul>';
+
+                const html = `
+                    <p>Los siguientes lotes <strong>Apartados o Vendidos</strong> se verán afectados por el ajuste:</p>
+                    ${listHtml}
+                    <div class="alert alert-warning text-start mt-3 mb-0 small">
+                        <strong>¿Deseas forzar el renombre?</strong><br>
+                        Si seleccionas "No", deberás cancelar manualmente los contratos de estos lotes para que queden Libres y puedas re-distribuirlos, o ajustar las cantidades para que no se traslapen.
+                    </div>
+                `;
+
+                const result = await Swal.fire({
+                    icon: 'warning',
+                    title: '¡Atención! Contratos afectados',
+                    html: html,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, forzar renombre',
+                    cancelButtonText: 'No, cancelar operación',
+                    confirmButtonColor: '#d33'
+                });
+
+                if (result.isConfirmed) {
+                    return generateLots(null, true);
+                } else {
+                    return;
+                }
+            }
+
             if (!res.ok) throw new Error(json.message || 'No se pudo generar');
 
             modalGenerador.hide();
@@ -578,9 +598,7 @@
         }
 
         resetGeneratorForm();
-        fillManzanaSelects();
-        crearTodosChk.checked = false;
-        toggleGeneratorMode();
+        buildDynamicCounts();
         modalGenerador.show();
     });
 
@@ -595,7 +613,7 @@
         modalMasiva.show();
     });
 
-    crearTodosChk.addEventListener('change', toggleGeneratorMode);
+
 
     formLote.addEventListener('submit', saveLote);
     formGenerador.addEventListener('submit', generateLots);

@@ -37,7 +37,7 @@ class DevelopmentLotController extends Controller
                     ELSE CAST(regexp_replace(l.manzana, '[^0-9]', '', 'g') AS INTEGER)
                 END ASC
             ")
-            ->orderBy('l.identificador')
+            ->orderByRaw("CAST(substring(l.identificador from 'L(\\d+)') AS INTEGER) ASC")
             ->get()
             ->map(function ($r) {
                 $canEdit = $r->estado_clave === 'LIBRE';
@@ -98,12 +98,39 @@ class DevelopmentLotController extends Controller
 
         $manzanas = [];
         $totalManzanas = (int) ($development->manzanas ?? 0);
+        $smMax = 0;
 
-        for ($i = 1; $i <= $totalManzanas; $i++) {
-            $manzanas[] = [
-                'value' => 'M'.$i,
-                'text' => 'Manzana '.$i,
-            ];
+        if ($totalManzanas > 0) {
+            for ($i = 1; $i <= $totalManzanas; $i++) {
+                $manzanaCode = 'M' . $i;
+                $lots = DB::table('lots')
+                    ->where('development_id', $developmentId)
+                    ->where('manzana', $manzanaCode)
+                    ->whereNull('fecha_baja')
+                    ->pluck('identificador');
+                
+                $count = 0;
+                foreach ($lots as $identifier) {
+                    $count++;
+                }
+
+                $manzanas[] = [
+                    'value' => $manzanaCode,
+                    'text' => 'Manzana ' . $i,
+                    'current_lots' => $count,
+                ];
+            }
+        } else {
+            $lots = DB::table('lots')
+                ->where('development_id', $developmentId)
+                ->whereNull('manzana')
+                ->whereNull('fecha_baja')
+                ->pluck('identificador');
+                $count = 0;
+                foreach ($lots as $identifier) {
+                    $count++;
+                }
+                $smMax = $count;
         }
 
         $offices = DB::table('development_offices as do')
@@ -128,6 +155,7 @@ class DevelopmentLotController extends Controller
                 'nombre' => $development->nombre,
                 'manzanas' => (int) ($development->manzanas ?? 0),
                 'lotes' => (int) ($development->lotes ?? 0),
+                'sm_current_lots' => $smMax,
             ],
         ]);
     }
@@ -274,128 +302,131 @@ class DevelopmentLotController extends Controller
         abort_if(!$development, 404, 'Lotificación no encontrada');
 
         $data = Validator::make($request->all(), [
-            'crear_todos' => ['nullable'],
-            'manzana' => ['nullable', 'string', 'max:20'],
             'precio_contado' => ['required', 'numeric', 'min:0'],
             'precio_credito' => ['required', 'numeric', 'min:0'],
             'office_ids' => ['nullable', 'array'],
             'office_ids.*' => ['integer', 'exists:offices,id'],
             'partner_ids' => ['nullable', 'array'],
             'partner_ids.*' => ['integer', 'exists:partners,id'],
+            'counts' => ['nullable', 'array'],
+            'counts.*' => ['nullable', 'integer', 'min:0'],
+            'force' => ['nullable', 'boolean'],
         ])->validate();
 
-        $crearTodos = filter_var($request->input('crear_todos', false), FILTER_VALIDATE_BOOLEAN);
-        $manzanas = (int) ($development->manzanas ?? 0);
-        $lotesPorManzana = (int) ($development->lotes ?? 0);
-
-        if ($lotesPorManzana <= 0) {
-            return response()->json([
-                'message' => 'La lotificación no tiene definido el número de lotes.'
-            ], 422);
-        }
-
-        if (!$crearTodos && $manzanas > 0 && empty($data['manzana'])) {
-            return response()->json([
-                'message' => 'Debes seleccionar una manzana.'
-            ], 422);
-        }
-
         $libreStatusId = $this->getLibreStatusId();
+        $force = filter_var($request->input('force', false), FILTER_VALIDATE_BOOLEAN);
 
         DB::beginTransaction();
 
         try {
-            if ($crearTodos) {
-                if ($manzanas > 0) {
-                    for ($m = 1; $m <= $manzanas; $m++) {
-                        $manzanaCode = 'M' . $m;
-                        for ($l = 1; $l <= $lotesPorManzana; $l++) {
-                            $identifier = $manzanaCode . ' L' . $l;
+            // 1. Obtener lotes activos ordenados por creación (ID)
+            $existingLots = DB::table('lots')
+                ->where('development_id', $developmentId)
+                ->whereNull('fecha_baja')
+                ->orderBy('id')
+                ->get();
 
-                            $lotId = DB::table('lots')->insertGetId([
-                                'development_id' => $developmentId,
-                                'identificador' => $identifier,
-                                'manzana' => $manzanaCode,
-                                'precio_contado' => $data['precio_contado'],
-                                'precio_credito' => $data['precio_credito'],
-                                'status_id' => $libreStatusId,
-                                'created_at' => now(),
-                                'updated_at' => now(),
-                            ]);
+            // 2. Generar nombres objetivo
+            $targetNames = [];
+            $manzanas = (int) ($development->manzanas ?? 0);
+            $counts = $data['counts'] ?? [];
+            $globalL = 1;
 
-                            $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
-                            $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
-                        }
-                    }
-                } else {
-                    for ($l = 1; $l <= $lotesPorManzana; $l++) {
-                        $identifier = 'SM L' . $l;
-
-                        $lotId = DB::table('lots')->insertGetId([
-                            'development_id' => $developmentId,
-                            'identificador' => $identifier,
-                            'manzana' => null,
-                            'precio_contado' => $data['precio_contado'],
-                            'precio_credito' => $data['precio_credito'],
-                            'status_id' => $libreStatusId,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]);
-
-                        $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
-                        $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
+            if ($manzanas > 0) {
+                for ($m = 1; $m <= $manzanas; $m++) {
+                    $manzanaCode = 'M' . $m;
+                    $target = (int) ($counts[$manzanaCode] ?? 0);
+                    for ($k = 0; $k < $target; $k++) {
+                        $targetNames[] = [
+                            'manzana' => $manzanaCode,
+                            'identificador' => $manzanaCode . ' L' . $globalL
+                        ];
+                        $globalL++;
                     }
                 }
             } else {
-                if ($manzanas > 0) {
-                    $selectedManzana = trim($data['manzana']);
-                    preg_match('/\d+/', $selectedManzana, $matches);
-                    $manzanaNumber = $matches[0] ?? null;
+                $target = (int) ($counts['SM'] ?? 0);
+                for ($k = 0; $k < $target; $k++) {
+                    $targetNames[] = [
+                        'manzana' => null,
+                        'identificador' => 'SM L' . $globalL
+                    ];
+                    $globalL++;
+                }
+            }
 
-                    if (!$manzanaNumber) {
-                        DB::rollBack();
-                        return response()->json([
-                            'message' => 'La manzana seleccionada es inválida.'
-                        ], 422);
+            // 3. Mapeo secuencial
+            $affected = [];
+            $actions = [];
+            
+            $maxCount = max(count($existingLots), count($targetNames));
+            
+            for ($i = 0; $i < $maxCount; $i++) {
+                $lot = $existingLots[$i] ?? null;
+                $target = $targetNames[$i] ?? null;
+                
+                if ($lot && $target) {
+                    if ($lot->identificador !== $target['identificador']) {
+                        if ($lot->status_id != $libreStatusId) {
+                            $affected[] = "{$lot->identificador} pasará a ser {$target['identificador']}";
+                        }
+                        $actions[] = ['action' => 'update', 'lot_id' => $lot->id, 'new_iden' => $target['identificador'], 'new_manz' => $target['manzana']];
                     }
-
-                    $manzanaCode = 'M' . $manzanaNumber;
-
-                    for ($l = 1; $l <= $lotesPorManzana; $l++) {
-                        $identifier = $manzanaCode . ' L' . $l;
-
-                        $lotId = DB::table('lots')->insertGetId([
-                            'development_id' => $developmentId,
-                            'identificador' => $identifier,
-                            'manzana' => $manzanaCode,
-                            'precio_contado' => $data['precio_contado'],
-                            'precio_credito' => $data['precio_credito'],
-                            'status_id' => $libreStatusId,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]);
-
-                        $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
-                        $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
+                } elseif ($lot && !$target) {
+                    if ($lot->status_id != $libreStatusId) {
+                        $affected[] = "{$lot->identificador} será eliminado";
                     }
-                } else {
-                    for ($l = 1; $l <= $lotesPorManzana; $l++) {
-                        $identifier = 'SM L' . $l;
+                    $actions[] = ['action' => 'delete', 'lot_id' => $lot->id, 'old_iden' => $lot->identificador];
+                } elseif (!$lot && $target) {
+                    $actions[] = ['action' => 'create', 'new_iden' => $target['identificador'], 'new_manz' => $target['manzana']];
+                }
+            }
+            
+            // 4. Validar afectaciones
+            if (!empty($affected) && !$force) {
+                DB::rollBack();
+                return response()->json([
+                    'requires_confirmation' => true,
+                    'affected' => $affected,
+                    'message' => 'Hay lotes apartados o vendidos que se verán afectados.'
+                ], 409);
+            }
 
-                        $lotId = DB::table('lots')->insertGetId([
-                            'development_id' => $developmentId,
-                            'identificador' => $identifier,
-                            'manzana' => null,
-                            'precio_contado' => $data['precio_contado'],
-                            'precio_credito' => $data['precio_credito'],
-                            'status_id' => $libreStatusId,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]);
-
-                        $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
-                        $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
-                    }
+            // 5. Ejecutar actualizaciones a nombres TEMP_ para evitar colisiones UNIQUE
+            $updateActions = array_filter($actions, fn($a) => $a['action'] === 'update');
+            foreach ($updateActions as $act) {
+                DB::table('lots')->where('id', $act['lot_id'])->update([
+                    'identificador' => 'TEMP_' . $act['lot_id'] . '_' . time()
+                ]);
+            }
+            
+            // 6. Aplicar las acciones finales
+            foreach ($actions as $act) {
+                if ($act['action'] === 'update') {
+                    DB::table('lots')->where('id', $act['lot_id'])->update([
+                        'identificador' => $act['new_iden'],
+                        'manzana' => $act['new_manz'],
+                        'updated_at' => now(),
+                    ]);
+                } elseif ($act['action'] === 'delete') {
+                    DB::table('lots')->where('id', $act['lot_id'])->update([
+                        'identificador' => $act['old_iden'] . '_DEL_' . time() . '_' . $act['lot_id'],
+                        'fecha_baja' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } elseif ($act['action'] === 'create') {
+                    $lotId = DB::table('lots')->insertGetId([
+                        'development_id' => $developmentId,
+                        'identificador' => $act['new_iden'],
+                        'manzana' => $act['new_manz'],
+                        'precio_contado' => $data['precio_contado'],
+                        'precio_credito' => $data['precio_credito'],
+                        'status_id' => $libreStatusId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $this->syncLotOffices($lotId, $data['office_ids'] ?? []);
+                    $this->syncLotPartners($lotId, $data['partner_ids'] ?? []);
                 }
             }
 
@@ -403,7 +434,7 @@ class DevelopmentLotController extends Controller
 
             return response()->json([
                 'ok' => true,
-                'message' => 'Lotes generados correctamente en estado libre.',
+                'message' => 'Secuencia de lotes ajustada correctamente.',
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();

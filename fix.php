@@ -1,0 +1,1 @@
+<?php foreach(DB::table('lots')->whereNotNull('fecha_baja')->where('identificador', 'NOT LIKE', '%_DEL_%')->get() as $l) { DB::table('lots')->where('id', $l->id)->update(['identificador' => $l->identificador . '_DEL_' . $l->id]); } echo 'Fixed';
