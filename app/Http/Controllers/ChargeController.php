@@ -63,6 +63,7 @@ class ChargeController extends Controller
                 's.nombre as estado_nombre',
                 'd.nombre as lotificacion',
                 'cpt.nombre as tipo_pago',
+                'c.is_migration',
             ])
             ->map(function ($row) use ($service) {
                 if ($row->estado_clave === 'VIGENTE') {
@@ -93,9 +94,12 @@ class ChargeController extends Controller
         ]);
     }
 
-    public function preview(int $contractId, ContractCollectionService $service)
+    public function preview(Request $request, int $contractId, ContractCollectionService $service)
     {
-        return response()->json($service->preview($contractId));
+        $fechaCobro = $request->query('fecha_cobro');
+        $waiveLateFee = $request->boolean('waive_late_fee', false);
+
+        return response()->json($service->preview($contractId, $fechaCobro, $waiveLateFee));
     }
 
     public function contractOffices(int $contractId)
@@ -185,6 +189,7 @@ class ChargeController extends Controller
             'office_receives_charge_id' => ['required', 'integer', 'exists:offices,id'],
             'observacion' => ['nullable', 'string', 'max:1000'],
             'fecha_cobro' => ['required', 'date_format:Y-m-d H:i:s'],
+            'waive_late_fee' => ['nullable', 'boolean'],
         ]);
 
         try {

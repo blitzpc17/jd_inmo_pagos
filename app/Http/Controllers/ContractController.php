@@ -295,6 +295,8 @@ class ContractController extends Controller
     public function store(Request $request)
     {
         $data = Validator::make($request->all(), [
+            'fecha_emision' => ['nullable', 'date'],
+            'is_migration' => ['nullable', 'boolean'],
             'client_id' => ['required', 'integer', 'exists:clients,id'],
             'reservation_id' => ['nullable', 'integer', 'exists:reservations,id'],
             'development_id' => ['required', 'integer', 'exists:developments,id'],
@@ -458,7 +460,8 @@ class ContractController extends Controller
         try {
             $contractId = DB::table('contracts')->insertGetId([
                 'numero_referencia' => '',
-                'fecha_emision' => now()->toDateString(),
+                'fecha_emision' => $data['fecha_emision'] ?? now()->toDateString(),
+                'is_migration' => $data['is_migration'] ?? false,
                 'status_id' => $contractStatusId,
                 'client_id' => $data['client_id'],
                 'development_id' => $data['development_id'],

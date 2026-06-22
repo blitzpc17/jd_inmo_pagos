@@ -693,8 +693,6 @@ class BulkModificationController extends Controller
 
 
 
-    // --- Helper Methods ---
-
     protected function getTableName(string $type): string
     {
         switch ($type) {
@@ -709,49 +707,20 @@ class BulkModificationController extends Controller
     {
         $schedules = DB::table('payment_schedules')
             ->where('contract_id', $contractId)
-            ->orderBy('installment_number')
-            ->orderBy('due_date')
             ->get();
-
-        $currentDate = now()->startOfDay();
 
         foreach ($schedules as $schedule) {
             $totalPaid = (float)DB::table('charges')
                 ->where('payment_schedule_id', $schedule->id)
                 ->whereNull('fecha_baja')
+                ->whereNotIn('status_id', function ($q) {
+                    $q->select('s.id')
+                      ->from('statuses as s')
+                      ->join('processes as p', 'p.id', '=', 's.process_id')
+                      ->where('p.clave', 'CHARGE_STATUS')
+                      ->where('s.clave', 'CANCELADO');
+                })
                 ->sum('monto');
-
-            $totalRecargo = (float)DB::table('charges')
-                ->where('payment_schedule_id', $schedule->id)
-                ->whereNull('fecha_baja')
-                ->sum('monto_recargo');
-
-            $due = Carbon::parse($schedule->due_date)->startOfDay();
-            $dueMonth = $due->copy()->startOfMonth();
-            $currentMonth = $currentDate->copy()->startOfMonth();
-
-            $amount = (float)$schedule->amount;
-            $amountPaid = round($totalPaid, 2);
-            $principalRemaining = max(0.0, round($amount - $amountPaid, 2));
-
-            $monthDiff = (int)$dueMonth->diffInMonths($currentMonth, false);
-            $isOverdue = $monthDiff > 0 && $principalRemaining > 0.009;
-
-            $isFuture = $dueMonth->greaterThan($currentMonth);
-            $isPaid = $principalRemaining <= 0.009;
-
-            if ($isPaid) {
-                $status = $isFuture ? 'ADELANTADO' : 'PAGADO';
-                $amountPaid = $amount; // Normalise
-            } elseif ($isOverdue && $amountPaid > 0) {
-                $status = 'ATRASADO_PARCIAL';
-            } elseif ($isOverdue) {
-                $status = 'ATRASADO';
-            } elseif ($amountPaid > 0) {
-                $status = 'PARCIAL';
-            } else {
-                $status = 'PENDIENTE';
-            }
 
             $lastChargeId = DB::table('charges')
                 ->where('payment_schedule_id', $schedule->id)
@@ -762,14 +731,14 @@ class BulkModificationController extends Controller
             DB::table('payment_schedules')
                 ->where('id', $schedule->id)
                 ->update([
-                    'amount_paid' => $amountPaid,
-                    'late_fee_amount' => $totalRecargo,
-                    'late_fee_applied' => $totalRecargo > 0.009,
-                    'status' => $status,
+                    'amount_paid' => round($totalPaid, 2),
                     'charge_id' => $lastChargeId,
                     'updated_at' => now(),
                 ]);
         }
+
+        $collectionService = app(\App\Services\ContractCollectionService::class);
+        $collectionService->refreshScheduleStatuses($contractId);
 
         // Check if contract is fully paid
         $allSchedules = DB::table('payment_schedules')
@@ -821,4 +790,5 @@ class BulkModificationController extends Controller
             }
         }
     }
+
 }

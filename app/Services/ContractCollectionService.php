@@ -16,7 +16,7 @@ class ContractCollectionService
         $this->loadRules();
     }
 
-    public function preview(int $contractId): array
+    public function preview(int $contractId, ?string $fechaCobro = null, bool $waiveLateFee = false): array
     {
         $this->enforceDelinquencyRule($contractId);
 
@@ -44,13 +44,13 @@ class ContractCollectionService
         }
 
         $calendar = $this->calendar($contractId);
-        $currentDate = now()->startOfDay();
+        $currentDate = $fechaCobro ? Carbon::parse($fechaCobro)->startOfDay() : now()->startOfDay();
 
         $concepts = [];
         $overdueTotal = 0.0;
 
         foreach ($calendar as $row) {
-            $analysis = $this->scheduleAnalysis($row, $currentDate);
+            $analysis = $this->scheduleAnalysis($row, $currentDate, $waiveLateFee);
 
             if ($analysis['is_overdue'] && !$analysis['is_paid']) {
                 if ($analysis['principal_remaining'] > 0) {
@@ -85,7 +85,7 @@ class ContractCollectionService
         $currentRemaining = 0.0;
 
         if ($currentSchedule) {
-            $currentAnalysis = $this->scheduleAnalysis($currentSchedule, $currentDate);
+            $currentAnalysis = $this->scheduleAnalysis($currentSchedule, $currentDate, $waiveLateFee);
 
             if (!$currentAnalysis['is_paid']) {
                 $currentRemaining = $currentAnalysis['principal_remaining'];
@@ -109,7 +109,7 @@ class ContractCollectionService
 
         $minimumToPay = round($overdueTotal > 0 ? $overdueTotal : $currentRemaining, 2);
 
-        $calendarRows = $this->calendarRowsForUi($calendar, $currentDate);
+        $calendarRows = $this->calendarRowsForUi($calendar, $currentDate, $waiveLateFee);
 
         return [
             'can_charge' => true,
@@ -150,8 +150,10 @@ class ContractCollectionService
             $paymentMethodId = (int) $data['payment_method_id'];
             $officeId = (int) $data['office_receives_charge_id'];
             $observation = $data['observacion'] ?? null;
+            $fechaCobroString = $data['fecha_cobro'] ?? now()->toDateTimeString();
+            $waiveLateFee = !empty($data['waive_late_fee']);
 
-            $preview = $this->preview($contractId);
+            $preview = $this->preview($contractId, $fechaCobroString, $waiveLateFee);
 
             if (!$preview['can_charge']) {
                 throw new \RuntimeException($preview['blocking_reason'] ?? 'El contrato no permite cobros.');
@@ -181,7 +183,6 @@ class ContractCollectionService
             $createdCharges = [];
             $remaining = $amount;
 
-            $fechaCobroString = $data['fecha_cobro'] ?? now()->toDateTimeString();
             $calendar = $this->calendar($contractId);
             $currentDate = Carbon::parse($fechaCobroString)->startOfDay();
 
@@ -437,6 +438,16 @@ class ContractCollectionService
 
             if ($isCurrent) {
                 $type = $isFull ? 'MENSUALIDAD' : 'PAGO PARCIAL';
+                
+                if ($isFull && !empty($contract->is_migration)) {
+                    DB::table('contracts')
+                        ->where('id', $contract->id)
+                        ->update([
+                            'is_migration' => false,
+                            'updated_at' => now()
+                        ]);
+                    $contract->is_migration = false;
+                }
             } elseif ($isFuture) {
                 $type = $isFull ? 'MENSUALIDAD ADELANTADA' : 'PAGO PARCIAL ADELANTADO';
             } else {
@@ -562,6 +573,17 @@ class ContractCollectionService
             return;
         }
 
+        if (!empty($contract->is_migration)) {
+            return;
+        }
+
+        // GRACE PERIOD: If the contract was updated in the last 24 hours (e.g. by a Bulk Modification),
+        // give the user a 24-hour window to register the missing charges before auto-finalizing.
+        $updatedAt = \Carbon\Carbon::parse($contract->updated_at);
+        if ($updatedAt->greaterThanOrEqualTo(now()->subHours(24))) {
+            return;
+        }
+
         $calendar = $this->calendar($contractId);
         $currentDate = now()->startOfDay();
 
@@ -659,7 +681,7 @@ class ContractCollectionService
             ]);
     }
 
-    protected function refreshScheduleStatuses(int $contractId): void
+    public function refreshScheduleStatuses(int $contractId): void
     {
         $calendar = $this->calendar($contractId);
         $currentDate = now()->startOfDay();
@@ -690,10 +712,10 @@ class ContractCollectionService
         }
     }
 
-    protected function calendarRowsForUi($calendar, Carbon $currentDate): array
+    protected function calendarRowsForUi($calendar, Carbon $currentDate, bool $waiveLateFee = false): array
     {
-        return $calendar->map(function ($schedule) use ($currentDate) {
-            $analysis = $this->scheduleAnalysis($schedule, $currentDate);
+        return $calendar->map(function ($schedule) use ($currentDate, $waiveLateFee) {
+            $analysis = $this->scheduleAnalysis($schedule, $currentDate, $waiveLateFee);
 
             $chargeCount = DB::table('charges')
                 ->where('payment_schedule_id', $schedule->id)
@@ -717,7 +739,7 @@ class ContractCollectionService
         })->values()->all();
     }
 
-    protected function scheduleAnalysis(object $schedule, Carbon $currentDate): array
+    protected function scheduleAnalysis(object $schedule, Carbon $currentDate, bool $waiveLateFee = false): array
     {
         $due = Carbon::parse($schedule->due_date)->startOfDay();
         $dueMonth = $due->copy()->startOfMonth();
@@ -731,7 +753,7 @@ class ContractCollectionService
         $isOverdue = $monthDiff > 0 && $principalRemaining > 0;
         $lateMonths = $isOverdue ? $monthDiff : 0;
 
-        $lateFee = $lateMonths > 0
+        $lateFee = ($lateMonths > 0 && !$waiveLateFee)
             ? round($amount * ($this->lateFeePercent / 100) * $lateMonths, 2)
             : 0.0;
 

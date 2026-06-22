@@ -109,6 +109,11 @@
                 <div class="modal-body">
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">
+                            <label class="form-label">Fecha de emisión</label>
+                            <input type="date" class="form-control" id="fecha_emision" name="fecha_emision" value="{{ date('Y-m-d') }}">
+                        </div>
+
+                        <div class="col-md-4">
                             <label class="form-label">Cliente</label>
                             <select class="form-select select2-contrato" id="client_id" name="client_id"></select>
                         </div>
@@ -138,6 +143,19 @@
                             <label class="form-label">Tipo de pago</label>
                             <select class="form-select select2-contrato" id="contract_payment_type_id" name="contract_payment_type_id"></select>
                             <div class="form-text">Define si la plantilla será CONTADO o CRÉDITO.</div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <div class="form-check bg-light border rounded p-3 mb-2">
+                                <input class="form-check-input ms-1" type="checkbox" id="is_migration" name="is_migration" value="1">
+                                <label class="form-check-label fw-bold ms-2" for="is_migration">
+                                    <i class="fa-solid fa-clock-rotate-left text-primary me-1"></i>
+                                    Es contrato de migración (histórico)
+                                </label>
+                                <div class="form-text ms-2 mt-1">
+                                    Permite asignar fechas antiguas sin que el sistema cancele el contrato por morosidad, y habilita la opción de exentar recargos al registrar los cobros atrasados. La bandera se retirará automáticamente cuando el contrato se ponga al corriente.
+                                </div>
+                            </div>
                         </div>
 
                         <div class="col-md-4">

@@ -158,7 +158,10 @@
     <div class="charge-card">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
             <div>
-                <h5 class="charge-title" id="contractTitle">Contrato</h5>
+                <div class="d-flex align-items-center mb-1">
+                    <h5 class="charge-title mb-0" id="contractTitle">Contrato</h5>
+                    <span id="migrationBadge" class="badge bg-warning text-dark d-none ms-2 px-2 py-1"><i class="fa-solid fa-clock-rotate-left"></i> En Migración</span>
+                </div>
                 <div class="charge-muted" id="contractSubtitle"></div>
             </div>
 
@@ -211,6 +214,12 @@
                 <div class="col-md-3">
                     <label class="form-label">Fecha y hora del cobro</label>
                     <input type="text" class="form-control" id="fecha_cobro" name="fecha_cobro" placeholder="Seleccione fecha/hora...">
+                    <div class="form-check mt-2 d-none" id="waiveLateFeeContainer">
+                        <input class="form-check-input" type="checkbox" id="waive_late_fee" name="waive_late_fee" value="1" checked>
+                        <label class="form-check-label fw-bold text-primary small" for="waive_late_fee">
+                            Exentar recargos (Migración)
+                        </label>
+                    </div>
                 </div>
 
                 <div class="col-md-2">
@@ -478,8 +487,10 @@
             const disabled = row.can_charge ? '' : 'disabled';
             const badge = row.can_charge ? '' : ' - NO PERMITE COBROS';
 
+            const migrationAttr = row.is_migration ? 'data-is-migration="1"' : '';
+
             $('#contract_id').append(`
-                <option value="${row.id}" ${disabled}>
+                <option value="${row.id}" ${disabled} ${migrationAttr}>
                     ${row.text}${badge}
                 </option>
             `);
@@ -493,7 +504,11 @@
 
         if (!contractId) return;
 
-        const res = await fetch(`/cobros/contract/${contractId}/preview`, {
+        const fecha = $('#fecha_cobro').val() || '';
+        const waive = $('#waive_late_fee').is(':checked') ? 1 : 0;
+        const qs = new URLSearchParams({ fecha_cobro: fecha, waive_late_fee: waive }).toString();
+
+        const res = await fetch(`/cobros/contract/${contractId}/preview?${qs}`, {
             headers: {
                 'Accept': 'application/json'
             }
@@ -533,6 +548,15 @@
 
         $('#contractTitle').text(`${contract.folio || 'Contrato'} - ${contract.cliente || ''}`);
         $('#contractSubtitle').text(`${contract.lotificacion || ''} | ${contract.tipo_pago || ''} | Estado: ${contract.estado_nombre || ''}`);
+
+        const isMigration = $('#contract_id option:selected').data('is-migration') === 1;
+        if (isMigration) {
+            $('#migrationBadge').removeClass('d-none');
+            $('#waiveLateFeeContainer').removeClass('d-none');
+        } else {
+            $('#migrationBadge').addClass('d-none');
+            $('#waiveLateFeeContainer').addClass('d-none');
+        }
 
         $('#summaryBoxes').html(`
             ${summaryBox('Mensualidad', money(contract.mensualidad), 'info')}
@@ -789,7 +813,8 @@
             payment_method_id: $('#payment_method_id').val(),
             office_receives_charge_id: $('#office_receives_charge_id').val(),
             observacion: $('#observacion').val(),
-            fecha_cobro: $('#fecha_cobro').val()
+            fecha_cobro: $('#fecha_cobro').val(),
+            waive_late_fee: $('#waive_late_fee').is(':checked') ? 1 : 0
         };
 
         try {
@@ -867,6 +892,12 @@
 
     $('#client_id').on('change', function () {
         loadContracts(this.value);
+    });
+
+    $('#waive_late_fee').on('change', function() {
+        if ($('#contract_id').val()) {
+            loadPreview($('#contract_id').val());
+        }
     });
 
     $('#contract_id').on('change', async function () {
