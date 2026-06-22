@@ -35,9 +35,8 @@ use App\Http\Controllers\DevelopmentSummaryController;
 use App\Http\Controllers\DevelopmentCollectionReportController;
 
 use App\Http\Controllers\MonthlyCollectionReportController;
-
 use App\Http\Controllers\CollectionEmailSettingsController;
-
+use App\Http\Controllers\PaymentScheduleController;
 
 Route::get('/', fn () => redirect()->route('login'));
 
@@ -397,5 +396,42 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::get('/correos', [CollectionEmailSettingsController::class, 'index'])->name('index');
         Route::post('/correos', [CollectionEmailSettingsController::class, 'update'])->name('update');
     });
+
+    // =====================================================
+    // MODIFICACIONES MASIVAS Y AUTORIZACIONES (SOLICITUDES)
+    // =====================================================
+    Route::prefix('modificaciones-masivas')
+        ->name('bulk-modifications.')
+        ->middleware(['auth.custom', 'share.menu'])
+        ->group(function () {
+            Route::get('/', [\App\Http\Controllers\BulkModificationController::class, 'index'])->name('index');
+            Route::get('/datatable', [\App\Http\Controllers\BulkModificationController::class, 'datatable'])->name('datatable');
+            Route::post('/', [\App\Http\Controllers\BulkModificationController::class, 'store'])->name('store');
+            Route::get('/options', [\App\Http\Controllers\BulkModificationController::class, 'options'])->name('options');
+            Route::get('/search-records', [\App\Http\Controllers\BulkModificationController::class, 'searchRecords'])->name('search-records');
+            Route::get('/record-details', [\App\Http\Controllers\BulkModificationController::class, 'recordDetails'])->name('record-details');
+            Route::get('/{id}', [\App\Http\Controllers\BulkModificationController::class, 'show'])->whereNumber('id')->name('show');
+            Route::post('/{id}/approve', [\App\Http\Controllers\BulkModificationController::class, 'approve'])->whereNumber('id')->name('approve');
+            Route::post('/{id}/reject', [\App\Http\Controllers\BulkModificationController::class, 'reject'])->whereNumber('id')->name('reject');
+
+            // Cascading Search Endpoints
+            Route::get('/clients', [\App\Http\Controllers\BulkModificationController::class, 'getClients'])->name('clients');
+            Route::get('/client/{clientId}/contracts', [\App\Http\Controllers\BulkModificationController::class, 'getClientContracts'])->whereNumber('clientId')->name('client-contracts');
+            Route::get('/contract/{contractId}/charges', [\App\Http\Controllers\BulkModificationController::class, 'getContractCharges'])->whereNumber('contractId')->name('contract-charges');
+            Route::get('/client/{clientId}/reservations', [\App\Http\Controllers\BulkModificationController::class, 'getClientReservations'])->whereNumber('clientId')->name('client-reservations');
+        });
+
+    // =====================================================
+    // GESTIÓN DE AUTORIZANTES (MODULO STANDALONE)
+    // =====================================================
+    Route::prefix('autorizantes')
+        ->name('authorizers.')
+        ->middleware(['auth.custom', 'share.menu'])
+        ->group(function () {
+            Route::get('/', [\App\Http\Controllers\AuthorizerController::class, 'index'])->name('index');
+            Route::get('/datatable', [\App\Http\Controllers\AuthorizerController::class, 'datatable'])->name('datatable');
+            Route::post('/', [\App\Http\Controllers\AuthorizerController::class, 'store'])->name('store');
+            Route::delete('/{id}', [\App\Http\Controllers\AuthorizerController::class, 'destroy'])->whereNumber('id')->name('destroy');
+        });
     
 });

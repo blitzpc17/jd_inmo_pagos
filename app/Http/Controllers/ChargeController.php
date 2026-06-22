@@ -184,6 +184,7 @@ class ChargeController extends Controller
             'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'office_receives_charge_id' => ['required', 'integer', 'exists:offices,id'],
             'observacion' => ['nullable', 'string', 'max:1000'],
+            'fecha_cobro' => ['required', 'date_format:Y-m-d H:i:s'],
         ]);
 
         try {

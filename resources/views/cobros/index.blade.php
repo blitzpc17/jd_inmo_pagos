@@ -1,5 +1,9 @@
 @extends('layouts.app')
 
+@push('styles')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+@endpush
+
 @section('content')
 <style>
     .charge-card {
@@ -199,17 +203,22 @@
             @csrf
 
             <div class="row g-3">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Monto recibido</label>
                     <input type="number" step="0.01" min="0.01" class="form-control money-input" id="monto" name="monto">
                 </div>
 
                 <div class="col-md-3">
+                    <label class="form-label">Fecha y hora del cobro</label>
+                    <input type="text" class="form-control" id="fecha_cobro" name="fecha_cobro" placeholder="Seleccione fecha/hora...">
+                </div>
+
+                <div class="col-md-2">
                     <label class="form-label">Oficina recibe</label>
                     <select class="form-select" id="office_receives_charge_id" name="office_receives_charge_id"></select>
                 </div>
 
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Forma de pago</label>
                     <select class="form-select" id="payment_method_id" name="payment_method_id"></select>
                 </div>
@@ -316,6 +325,8 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 <script>
 (() => {
     let optionsCache = {
@@ -777,7 +788,8 @@
             monto: $('#monto').val(),
             payment_method_id: $('#payment_method_id').val(),
             office_receives_charge_id: $('#office_receives_charge_id').val(),
-            observacion: $('#observacion').val()
+            observacion: $('#observacion').val(),
+            fecha_cobro: $('#fecha_cobro').val()
         };
 
         try {
@@ -909,6 +921,15 @@
     });
 
     $('#formCharge').on('submit', saveCharge);
+
+    flatpickr("#fecha_cobro", {
+        enableTime: true,
+        dateFormat: "Y-m-d H:i:S",
+        enableSeconds: true,
+        defaultDate: new Date(),
+        locale: "es",
+        time_24hr: true
+    });
 
     initSelect2();
     modalAssociatedCharges = new bootstrap.Modal(document.getElementById('modalAssociatedCharges'));

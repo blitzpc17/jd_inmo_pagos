@@ -181,8 +181,9 @@ class ContractCollectionService
             $createdCharges = [];
             $remaining = $amount;
 
+            $fechaCobroString = $data['fecha_cobro'] ?? now()->toDateTimeString();
             $calendar = $this->calendar($contractId);
-            $currentDate = now()->startOfDay();
+            $currentDate = Carbon::parse($fechaCobroString)->startOfDay();
 
             $isLiquidation = abs($amount - $totalLiquidation) <= 0.009;
 
@@ -198,7 +199,8 @@ class ContractCollectionService
                         $chargeStatusId,
                         $paymentMethodId,
                         $officeId,
-                        $observation
+                        $observation,
+                        $fechaCobroString
                     )
                 );
 
@@ -216,6 +218,7 @@ class ContractCollectionService
                         'monto' => $remaining,
                         'monto_recargo' => 0,
                         'observacion' => $observation ?: 'Liquidación total del contrato.',
+                        'fecha_cobro' => $fechaCobroString,
                     ]);
 
                     $createdCharges[] = [
@@ -253,7 +256,8 @@ class ContractCollectionService
                     $chargeStatusId,
                     $paymentMethodId,
                     $officeId,
-                    $observation
+                    $observation,
+                    $fechaCobroString
                 )
             );
 
@@ -270,7 +274,8 @@ class ContractCollectionService
                         $chargeStatusId,
                         $paymentMethodId,
                         $officeId,
-                        $observation
+                        $observation,
+                        $fechaCobroString
                     )
                 );
             }
@@ -298,7 +303,8 @@ class ContractCollectionService
         int $chargeStatusId,
         int $paymentMethodId,
         int $officeId,
-        ?string $observation
+        ?string $observation,
+        string $fechaCobroString
     ): array {
         $created = [];
         $remaining = $availableAmount;
@@ -334,6 +340,7 @@ class ContractCollectionService
                     'monto' => $principal,
                     'monto_recargo' => 0,
                     'observacion' => $observation ?: 'Pago de mensualidad atrasada ' . $analysis['period_label'] . '.',
+                    'fecha_cobro' => $fechaCobroString,
                 ]);
 
                 $created[] = [
@@ -360,6 +367,7 @@ class ContractCollectionService
                     'monto' => 0,
                     'monto_recargo' => $lateFee,
                     'observacion' => $observation ?: 'Recargo de ' . $analysis['late_months'] . ' mes(es) sobre ' . $analysis['period_label'] . '.',
+                    'fecha_cobro' => $fechaCobroString,
                 ]);
 
                 $created[] = [
@@ -394,7 +402,8 @@ class ContractCollectionService
         int $chargeStatusId,
         int $paymentMethodId,
         int $officeId,
-        ?string $observation
+        ?string $observation,
+        string $fechaCobroString
     ): array {
         $created = [];
         $remaining = $availableAmount;
@@ -445,6 +454,7 @@ class ContractCollectionService
                 'monto' => $payAmount,
                 'monto_recargo' => 0,
                 'observacion' => $observation ?: $type . ' ' . $analysis['period_label'] . '.',
+                'fecha_cobro' => $fechaCobroString,
             ]);
 
             $created[] = [
@@ -468,10 +478,11 @@ class ContractCollectionService
     {
         $typeId = $this->chargeTypeId($payload['type']);
         $contract = $payload['contract'];
+        $fechaCobro = isset($payload['fecha_cobro']) ? Carbon::parse($payload['fecha_cobro']) : now();
 
         $chargeId = DB::table('charges')->insertGetId([
             'numero_referencia' => '',
-            'fecha_emision' => now()->toDateString(),
+            'fecha_emision' => $fechaCobro->toDateString(),
             'charge_type_id' => $typeId,
             'payment_method_id' => $payload['payment_method_id'],
             'client_id' => $contract->client_id,
@@ -486,7 +497,7 @@ class ContractCollectionService
             'payment_group_uuid' => $payload['group_uuid'],
             'payment_schedule_id' => $payload['schedule_id'] ?? null,
             'usuario_genero_id' => session('auth_user.id'),
-            'created_at' => now(),
+            'created_at' => $fechaCobro,
             'updated_at' => now(),
         ]);
 
