@@ -59,6 +59,7 @@ class ChargeController extends Controller
                 'c.numero_referencia',
                 'c.importe',
                 'c.cuota_mensual',
+                'c.meses',
                 's.clave as estado_clave',
                 's.nombre as estado_nombre',
                 'd.nombre as lotificacion',
@@ -83,7 +84,10 @@ class ChargeController extends Controller
                     }
                 }
 
-                $row->text = $row->numero_referencia . ' - ' . $row->lotificacion . ' - ' . $row->estado_nombre;
+                $mesesText = (mb_strtoupper($row->tipo_pago ?? '') === 'CRÉDITO' || mb_strtoupper($row->tipo_pago ?? '') === 'CREDITO') && (int)$row->meses > 0 
+                    ? ' (' . $row->meses . ' meses)' 
+                    : '';
+                $row->text = $row->numero_referencia . ' - ' . $row->lotificacion . ' - ' . ($row->tipo_pago ?? '') . $mesesText . ' - ' . $row->estado_nombre;
                 $row->can_charge = $row->estado_clave === 'VIGENTE';
 
                 return $row;
@@ -249,8 +253,10 @@ class ChargeController extends Controller
             ->leftJoin('payment_methods as pm', 'pm.id', '=', 'ch.payment_method_id')
             ->leftJoin('offices as o', 'o.id', '=', 'ch.office_receives_charge_id')
             ->leftJoin('clients as cl', 'cl.id', '=', 'ch.client_id')
+            ->leftJoin('statuses as s', 's.id', '=', 'ch.status_id')
             ->where('ch.payment_group_uuid', $paymentGroupUuid)
             ->whereNull('ch.fecha_baja')
+            ->where('s.clave', '!=', 'CANCELADO')
             ->orderBy('ch.id')
             ->select([
                 'ch.id',
@@ -301,8 +307,10 @@ class ChargeController extends Controller
             ->leftJoin('payment_methods as pm', 'pm.id', '=', 'ch.payment_method_id')
             ->leftJoin('offices as o', 'o.id', '=', 'ch.office_receives_charge_id')
             ->leftJoin('clients as cl', 'cl.id', '=', 'ch.client_id')
+            ->leftJoin('statuses as s', 's.id', '=', 'ch.status_id')
             ->where('ch.payment_schedule_id', $scheduleId)
             ->whereNull('ch.fecha_baja')
+            ->where('s.clave', '!=', 'CANCELADO')
             ->orderBy('ch.id')
             ->select([
                 'ch.id',

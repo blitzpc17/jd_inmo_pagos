@@ -581,7 +581,8 @@ class ContractController extends Controller
                     $contractId,
                     (int) $data['meses'],
                     (float) $data['cuota_mensual'],
-                    (int) ($data['dia_pago'] ?? now()->day)
+                    (int) ($data['dia_pago'] ?? now()->day),
+                    $data['fecha_emision'] ?? now()->toDateString()
                 );
             }
 
@@ -1042,9 +1043,9 @@ class ContractController extends Controller
         );
     }
 
-    protected function generateSchedule(int $contractId, int $months, float $monthlyAmount, int $dayOfMonth): void
+    protected function generateSchedule(int $contractId, int $months, float $monthlyAmount, int $dayOfMonth, string $fechaEmision): void
     {
-        $baseDate = now()->copy();
+        $baseDate = \Carbon\Carbon::parse($fechaEmision);
 
         for ($i = 1; $i <= $months; $i++) {
             $due = $baseDate->copy()->addMonthsNoOverflow($i);

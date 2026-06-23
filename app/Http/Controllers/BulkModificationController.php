@@ -351,7 +351,7 @@ class BulkModificationController extends Controller
                     if ($type === 'CONTRATO') {
                         $oldContract = DB::table('contracts')->where('id', $recordId)->first();
                         $newFechaEmision = $newData['fecha_emision'] ?? null;
-                        if ($oldContract && $newFechaEmision && $oldContract->fecha_emision !== $newFechaEmision) {
+                        if ($oldContract && $newFechaEmision) {
                             $this->updatePaymentSchedulesDueDates($recordId, $newFechaEmision);
                             $contractsToRecalculate[$recordId] = true;
                         }
@@ -376,10 +376,15 @@ class BulkModificationController extends Controller
                         }
                     }
 
+                    // Clean up alias keys that might have been accidentally pushed to new_data in frontend
+                    unset($newData['forma_pago'], $newData['oficina'], $newData['estado'], $newData['tipo_cobro']);
+
                     // Apply update
-                    DB::table($tableName)
-                        ->where('id', $recordId)
-                        ->update($newData);
+                    if (!empty($newData)) {
+                        DB::table($tableName)
+                            ->where('id', $recordId)
+                            ->update($newData);
+                    }
 
                     // For charges, check the contract ID after update too, just in case
                     if ($type === 'COBRO') {
@@ -675,6 +680,7 @@ class BulkModificationController extends Controller
             ->leftJoin('payment_methods as pm', 'pm.id', '=', 'ch.payment_method_id')
             ->where('ch.contract_id', $contractId)
             ->whereNull('ch.fecha_baja')
+            ->where('s.clave', '!=', 'CANCELADO')
             ->select([
                 'ch.*',
                 'ct.nombre as tipo_cobro',
@@ -777,7 +783,17 @@ class BulkModificationController extends Controller
         $contract = DB::table('contracts')->where('id', $contractId)->first();
         if (!$contract) return;
 
-        $baseDate = Carbon::parse($newFechaEmision);
+        $paymentType = DB::table('contract_payment_types')->where('id', $contract->contract_payment_type_id)->first();
+        if (!$paymentType) return;
+        
+        $typeName = mb_strtoupper(trim($paymentType->nombre));
+        $isCredit = $typeName === 'CRÉDITO' || $typeName === 'CREDITO';
+        
+        if (!$isCredit || (int)$contract->meses <= 0) {
+            return;
+        }
+
+        $baseDate = \Carbon\Carbon::parse($newFechaEmision);
         $diaPago = (int)($contract->dia_pago ?? $baseDate->day);
 
         $schedules = DB::table('payment_schedules')
@@ -785,19 +801,45 @@ class BulkModificationController extends Controller
             ->orderBy('installment_number')
             ->get();
 
-        foreach ($schedules as $schedule) {
-            $i = (int)$schedule->installment_number;
-            $due = $baseDate->copy()->addMonthsNoOverflow($i);
-            $lastDay = $due->copy()->endOfMonth()->day;
-            $safeDay = min($diaPago, $lastDay);
-            $due->day($safeDay);
+        if ($schedules->isEmpty()) {
+            $monthlyAmount = (float)$contract->cuota_mensual;
+            $rows = [];
+            for ($i = 1; $i <= (int)$contract->meses; $i++) {
+                $due = $baseDate->copy()->addMonthsNoOverflow($i);
+                $lastDay = $due->copy()->endOfMonth()->day;
+                $safeDay = min($diaPago, $lastDay);
+                $due->day($safeDay);
 
-            DB::table('payment_schedules')
-                ->where('id', $schedule->id)
-                ->update([
+                $rows[] = [
+                    'contract_id' => $contractId,
+                    'installment_number' => $i,
                     'due_date' => $due->toDateString(),
-                    'updated_at' => now()
-                ]);
+                    'amount' => $monthlyAmount,
+                    'amount_paid' => 0,
+                    'late_fee_amount' => 0,
+                    'late_fee_applied' => false,
+                    'status' => 'PENDIENTE',
+                    'charge_id' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+            DB::table('payment_schedules')->insert($rows);
+        } else {
+            foreach ($schedules as $schedule) {
+                $i = (int)$schedule->installment_number;
+                $due = $baseDate->copy()->addMonthsNoOverflow($i);
+                $lastDay = $due->copy()->endOfMonth()->day;
+                $safeDay = min($diaPago, $lastDay);
+                $due->day($safeDay);
+
+                DB::table('payment_schedules')
+                    ->where('id', $schedule->id)
+                    ->update([
+                        'due_date' => $due->toDateString(),
+                        'updated_at' => now()
+                    ]);
+            }
         }
     }
 

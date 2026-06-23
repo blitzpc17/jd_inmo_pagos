@@ -139,7 +139,13 @@
 
                 <!-- Tabla de Cargos Cargados -->
                 <div class="page-card mb-3 d-none" id="tableChargesCard">
-                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-money-check-dollar me-2 text-primary"></i>Cobros Realizados en este Contrato</h5>
+                    <h5 class="fw-bold mb-3">
+                        <i class="fa-solid fa-money-check-dollar me-2 text-primary"></i>Cobros Realizados en este Contrato 
+                        <span class="badge bg-primary ms-2" id="chargesCountBadge">0</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary float-end" id="btnSelectAllCharges">
+                            <i class="fa-solid fa-check-double me-1"></i> Seleccionar Todos
+                        </button>
+                    </h5>
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover align-middle w-100" id="tableContractCharges">
                             <thead>
@@ -218,7 +224,7 @@
 
                 <!-- Lista de Solicitudes Queue -->
                 <div class="page-card">
-                    <h5 class="fw-bold mb-3">3. Registros en la Solicitud</h5>
+                    <h5 class="fw-bold mb-3">3. Registros en la Solicitud <span class="badge bg-primary ms-2" id="selectedRecordsCountBadge">0</span></h5>
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered align-middle" id="tableSelectedRecords">
                             <thead>
@@ -684,10 +690,13 @@
         tbody.html('');
 
         if (loadedCharges.length === 0) {
+            $('#chargesCountBadge').text('0');
             tbody.html('<tr><td colspan="7" class="text-center text-muted">No hay cobros registrados en este contrato.</td></tr>');
             $('#tableChargesCard').removeClass('d-none');
             return;
         }
+
+        $('#chargesCountBadge').text(loadedCharges.length);
 
         loadedCharges.forEach(charge => {
             const importeFormated = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(charge.monto);
@@ -709,7 +718,7 @@
             tbody.append(`
                 <tr>
                     <td class="fw-bold">${charge.numero_referencia}</td>
-                    <td>${charge.fecha}</td>
+                    <td>${charge.fecha_emision || '-'}</td>
                     <td>${importeFormated}</td>
                     <td>${surchargeFormated}</td>
                     <td>${charge.forma_pago || '-'}</td>
@@ -809,6 +818,8 @@
     function renderSelectedRecordsTable() {
         const tbody = $('#bodySelectedRecords');
         tbody.html('');
+
+        $('#selectedRecordsCountBadge').text(selectedRecords.length);
 
         if (selectedRecords.length === 0) {
             tbody.html(`
@@ -1280,6 +1291,30 @@
         const clientText = $('#client_select option:selected').text();
         pushRecordToQueue(charge.id, charge.numero_referencia, clientText, charge, 'MODIFICAR');
     });
+
+        // === EVENTOS TABLA COBROS === //
+        $('#btnSelectAllCharges').on('click', function() {
+            if (loadedCharges.length === 0) return;
+            let added = 0;
+            loadedCharges.forEach(charge => {
+                if (!selectedRecords.some(r => String(r.id) === String(charge.id))) {
+                    pushRecordToQueue(
+                        charge.id,
+                        charge.numero_referencia || charge.folio,
+                        loadedContractDetails ? (loadedContractDetails.cliente || '') : '',
+                        charge,
+                        'MODIFICAR'
+                    );
+                    added++;
+                }
+            });
+            if (added > 0) {
+                renderChargesTable();
+                Swal.fire('Éxito', added + ' cobros agregados a la lista.', 'success');
+            } else {
+                Swal.fire('Aviso', 'Todos los cobros ya estaban en la lista.', 'info');
+            }
+        });
 
     // Add charge to queue for deletion
     $(document).on('click', '.btn-add-charge-delete', function() {

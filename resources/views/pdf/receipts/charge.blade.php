@@ -82,6 +82,7 @@
     $contractAmount = (float) ($contract->importe ?? $contractTotal);
     $contractFinancedBalance = (float) ($contract->saldo_financiado ?? $financedBalance);
     $contractMonthlyAmount = (float) ($contract->cuota_mensual ?? $monthlyAmount);
+    $lotsAssociated = data_get($stats, 'lots_associated', '');
 
     $emissionDateTime = $emittedAt ?? now();
 
@@ -202,6 +203,15 @@
                     <div class="value">{{ $conceptText ?: 'COBRO' }}</div>
                 </td>
             </tr>
+
+            @if(!empty($lotsAssociated))
+            <tr>
+                <td colspan="3">
+                    <div class="label">Lotes Asociados</div>
+                    <div class="value">{{ $lotsAssociated }}</div>
+                </td>
+            </tr>
+            @endif
         </table>
     </div>
 </div>

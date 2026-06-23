@@ -103,11 +103,20 @@ class ContractCollectionService
             }
         }
 
-        $remainingPrincipal = $this->remainingPrincipal($calendar);
-        $totalLateFees = $this->totalLateFees($calendar, $currentDate);
-        $totalLiquidation = round($remainingPrincipal + $totalLateFees, 2);
+        $contractSummary = $this->contractSummary($contract);
+        $isContado = mb_strtoupper(trim($contractSummary['tipo_pago'] ?? '')) === 'CONTADO';
 
-        $minimumToPay = round($overdueTotal > 0 ? $overdueTotal : $currentRemaining, 2);
+        if ($isContado) {
+            $remainingPrincipal = (float) $contractSummary['saldo_estimado'];
+            $totalLateFees = 0.0;
+            $totalLiquidation = $remainingPrincipal;
+            $minimumToPay = 0.0; // Allowed to pay any partial amount or full amount
+        } else {
+            $remainingPrincipal = $this->remainingPrincipal($calendar);
+            $totalLateFees = $this->totalLateFees($calendar, $currentDate);
+            $totalLiquidation = round($remainingPrincipal + $totalLateFees, 2);
+            $minimumToPay = round($overdueTotal > 0 ? $overdueTotal : $currentRemaining, 2);
+        }
 
         $calendarRows = $this->calendarRowsForUi($calendar, $currentDate, $waiveLateFee);
 
@@ -232,7 +241,9 @@ class ContractCollectionService
                     ];
                 }
 
-                $this->markAllSchedulesPaid($contractId);
+                if (!$calendar->isEmpty()) {
+                    $this->markAllSchedulesPaid($contractId);
+                }
                 $this->liquidateContract($contractId);
 
                 $createdCharges = $this->appendReceiptUrls($createdCharges);
@@ -265,23 +276,52 @@ class ContractCollectionService
             $remaining = round($amount - collect($createdCharges)->sum('total_amount'), 2);
 
             if ($remaining > 0.009) {
-                $createdCharges = array_merge(
-                    $createdCharges,
-                    $this->applyCurrentAndFuturePayments(
-                        $contract,
-                        $currentDate,
-                        $remaining,
-                        $groupUuid,
-                        $chargeStatusId,
-                        $paymentMethodId,
-                        $officeId,
-                        $observation,
-                        $fechaCobroString
-                    )
-                );
+                $isContado = mb_strtoupper(trim($preview['contract']['tipo_pago'] ?? '')) === 'CONTADO';
+                
+                if ($isContado) {
+                    $charge = $this->createCharge([
+                        'type' => 'PAGO PARCIAL',
+                        'contract' => $contract,
+                        'schedule_id' => null,
+                        'group_uuid' => $groupUuid,
+                        'charge_status_id' => $chargeStatusId,
+                        'payment_method_id' => $paymentMethodId,
+                        'office_id' => $officeId,
+                        'monto' => $remaining,
+                        'monto_recargo' => 0,
+                        'observacion' => $observation ?: 'Abono a contrato de contado.',
+                        'fecha_cobro' => $fechaCobroString,
+                    ]);
+
+                    $createdCharges[] = [
+                        'id' => $charge->id,
+                        'numero_referencia' => $charge->numero_referencia,
+                        'tipo' => 'PAGO PARCIAL',
+                        'monto' => $remaining,
+                        'monto_recargo' => 0,
+                        'total_amount' => $remaining,
+                    ];
+                } else {
+                    $createdCharges = array_merge(
+                        $createdCharges,
+                        $this->applyCurrentAndFuturePayments(
+                            $contract,
+                            $currentDate,
+                            $remaining,
+                            $groupUuid,
+                            $chargeStatusId,
+                            $paymentMethodId,
+                            $officeId,
+                            $observation,
+                            $fechaCobroString
+                        )
+                    );
+                }
             }
 
-            $this->refreshScheduleStatuses($contractId);
+            if (!$calendar->isEmpty()) {
+                $this->refreshScheduleStatuses($contractId);
+            }
 
             $createdCharges = $this->appendReceiptUrls($createdCharges);
 
@@ -850,15 +890,22 @@ class ContractCollectionService
 
     protected function contractSummary(object $contract): array
     {
-        $paid = (float) DB::table('charges')
-            ->where('contract_id', $contract->id)
-            ->whereNull('fecha_baja')
-            ->sum('monto');
+        $paid = (float) DB::table('charges as ch')
+            ->join('statuses as s', 's.id', '=', 'ch.status_id')
+            ->where('ch.contract_id', $contract->id)
+            ->whereNull('ch.fecha_baja')
+            ->where('s.clave', '!=', 'CANCELADO')
+            ->sum('ch.monto');
 
-        $lateFees = (float) DB::table('charges')
-            ->where('contract_id', $contract->id)
-            ->whereNull('fecha_baja')
-            ->sum('monto_recargo');
+        $lateFees = (float) DB::table('charges as ch')
+            ->join('statuses as s', 's.id', '=', 'ch.status_id')
+            ->where('ch.contract_id', $contract->id)
+            ->whereNull('ch.fecha_baja')
+            ->where('s.clave', '!=', 'CANCELADO')
+            ->sum('ch.monto_recargo');
+
+        $initialPayment = (float) ($contract->monto_pago_inicial ?? 0);
+        $totalPaid = $paid + $initialPayment;
 
         return [
             'id' => $contract->id,
@@ -870,9 +917,10 @@ class ContractCollectionService
             'estado_nombre' => $contract->estado_nombre,
             'importe' => round((float) $contract->importe, 2),
             'mensualidad' => round((float) $contract->cuota_mensual, 2),
-            'pagado_acumulado' => round($paid, 2),
+            'meses' => (int) ($contract->meses ?? 0),
+            'pagado_acumulado' => round($totalPaid, 2),
             'recargos_acumulados' => round($lateFees, 2),
-            'saldo_estimado' => round(max(0, (float) $contract->importe - $paid), 2),
+            'saldo_estimado' => round(max(0, (float) $contract->importe - $totalPaid), 2),
         ];
     }
 

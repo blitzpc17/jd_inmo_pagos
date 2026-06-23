@@ -137,12 +137,14 @@ class PdfReceiptService
             return $this->emptyStats();
         }
 
-        $chargesQuery = DB::table('charges')
-            ->where('contract_id', $contractId)
-            ->whereNull('fecha_baja');
+        $chargesQuery = DB::table('charges as ch')
+            ->join('statuses as s', 's.id', '=', 'ch.status_id')
+            ->where('ch.contract_id', $contractId)
+            ->whereNull('ch.fecha_baja')
+            ->where('s.clave', '!=', 'CANCELADO');
 
-        $paidPrincipalTotal = (float) (clone $chargesQuery)->sum('monto');
-        $lateFeeTotal = (float) (clone $chargesQuery)->sum('monto_recargo');
+        $paidPrincipalTotal = (float) (clone $chargesQuery)->sum('ch.monto');
+        $lateFeeTotal = (float) (clone $chargesQuery)->sum('ch.monto_recargo');
         $realCollectedTotal = $paidPrincipalTotal + $lateFeeTotal;
 
         $contractTotal = (float) ($contract->importe ?? 0);
@@ -174,6 +176,17 @@ class PdfReceiptService
         $schedulePaidTotal = (float) (clone $scheduleBase)->sum('amount_paid');
         $scheduleLateFeeTotal = (float) (clone $scheduleBase)->sum('late_fee_amount');
 
+        $lots = DB::table('contract_lots as cl')
+            ->join('lots as l', 'l.id', '=', 'cl.lot_id')
+            ->where('cl.contract_id', $contractId)
+            ->whereNull('l.fecha_baja')
+            ->select('l.identificador', 'l.manzana')
+            ->get()
+            ->map(function ($lot) {
+                return trim(($lot->manzana ? "Mza {$lot->manzana} " : "") . "Lote {$lot->identificador}");
+            })
+            ->implode(', ');
+
         return [
             'contract_id' => $contractId,
             'contract_total' => round($contractTotal, 2),
@@ -188,10 +201,12 @@ class PdfReceiptService
             'late_fee_total' => round($lateFeeTotal, 2),
             'real_collected_total' => round($realCollectedTotal, 2),
 
-            'balance' => round(max(0, $contractTotal - $paidPrincipalTotal), 2),
+            'balance' => round(max(0, $contractTotal - ($paidPrincipalTotal + $initialPayment)), 2),
             'progress_percent' => $contractTotal > 0
-                ? round(min(100, ($paidPrincipalTotal / $contractTotal) * 100), 2)
+                ? round(min(100, (($paidPrincipalTotal + $initialPayment) / $contractTotal) * 100), 2)
                 : 0,
+                
+            'lots_associated' => $lots,
 
             'installments_total' => $installmentsTotal,
             'installments_paid' => $installmentsPaid,
@@ -219,6 +234,7 @@ class PdfReceiptService
             'real_collected_total' => 0,
             'balance' => 0,
             'progress_percent' => 0,
+            'lots_associated' => '',
             'installments_total' => 0,
             'installments_paid' => 0,
             'installments_pending' => 0,

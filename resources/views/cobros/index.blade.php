@@ -547,7 +547,8 @@
         const required = preview.required_payment || {};
 
         $('#contractTitle').text(`${contract.folio || 'Contrato'} - ${contract.cliente || ''}`);
-        $('#contractSubtitle').text(`${contract.lotificacion || ''} | ${contract.tipo_pago || ''} | Estado: ${contract.estado_nombre || ''}`);
+        const mesesText = (contract.tipo_pago && contract.tipo_pago.toUpperCase().includes('CRÉDITO') && contract.meses > 0) ? ` (${contract.meses} meses)` : '';
+        $('#contractSubtitle').text(`${contract.lotificacion || ''} | ${contract.tipo_pago || ''}${mesesText} | Estado: ${contract.estado_nombre || ''}`);
 
         const isMigration = $('#contract_id option:selected').data('is-migration') === 1;
         if (isMigration) {

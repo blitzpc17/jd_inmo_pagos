@@ -1220,7 +1220,7 @@
 
             modal.hide();
 
-            table.ajax.reload(null, false);
+            table.ajax.reload();
 
             Swal.fire({
                 icon: 'success',
