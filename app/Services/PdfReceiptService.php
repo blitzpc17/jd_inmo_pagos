@@ -49,8 +49,8 @@ class PdfReceiptService
             'company_subtitle' => 'DOCUMENTOS OFICIALES',
             'logo_path' => 'assets/images/logo.png',
             'footer_text' => 'Este documento fue generado por el sistema.',
-            'address_line' => 'VISITANOS EN 3 ORIENTE #736 COL. RICARDO FLORES MAGON TEHUACAN PUEBLA.',
-            'phone_line' => 'TELEFONO 238 289 0712',
+            'address_line' => '',
+            'phone_line' => '',
         ];
 
         try {

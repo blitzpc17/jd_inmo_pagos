@@ -44,8 +44,8 @@
 
         $companyName = $branding['company_name'] ?? 'JD Inmobiliaria';
         $companySubtitle = $branding['company_subtitle'] ?? 'DOCUMENTOS OFICIALES';
-        $addressLine = $branding['address_line'] ?? 'VISITANOS EN 3 ORIENTE #736 COL. RICARDO FLORES MAGON TEHUACAN PUEBLA.';
-        $phoneLine = $branding['phone_line'] ?? 'TELEFONO 238 289 0712';
+        $addressLine = $branding['address_line'] ?? '';
+        $phoneLine = $branding['phone_line'] ?? '';
     @endphp
 
     <style>

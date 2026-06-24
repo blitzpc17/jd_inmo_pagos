@@ -218,8 +218,8 @@
 
     $hasLogo = file_exists($logoPath);
 
-    $footerAddress = $branding['address_line'] ?? 'VISITANOS EN 3 ORIENTE #736 COL. RICARDO FLORES MAGON TEHUACAN PUEBLA.';
-    $footerPhone = $branding['phone_line'] ?? 'TELEFONO 238 289 0712';
+    $footerAddress = $branding['address_line'] ?? '';
+    $footerPhone = $branding['phone_line'] ?? '';
 
     $lotNames = $documentData['lote_numero'] ?? $lots->pluck('identificador')->filter()->implode(', ');
     $manzanas = $documentData['manzana_numero'] ?? $lots->pluck('manzana')->filter()->unique()->implode(', ');
