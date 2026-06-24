@@ -94,6 +94,8 @@ class CreditorVoucherController extends Controller
             'fecha_inicio' => ['required', 'date'],
             'meses' => ['required', 'integer', 'min:1'],
             'observacion' => ['nullable', 'string'],
+            'partner_percentages' => ['nullable', 'array'],
+            'partner_percentages.*' => ['numeric', 'min:0', 'max:100'],
         ])->validate();
 
         $statusId = $this->getActiveStatusId();
@@ -101,6 +103,16 @@ class CreditorVoucherController extends Controller
         $total = round((float) $data['total'], 2);
         $enganche = round((float) $data['enganche'], 2);
         $numSocios = (int) $data['num_socios'];
+        
+        $partnerPercentages = null;
+        if (!empty($data['partner_percentages'])) {
+            $sum = array_sum($data['partner_percentages']);
+            if (abs($sum - 100) > 0.01 || count($data['partner_percentages']) !== $numSocios) {
+                abort(422, 'Los porcentajes de los socios son inválidos o no suman 100.');
+            }
+            $partnerPercentages = json_encode(array_map(fn($v) => (float)$v, $data['partner_percentages']));
+        }
+
         $meses = (int) $data['meses'];
         $mensualidad = round(($total - $enganche) / max(1, $meses), 2);
         
@@ -116,6 +128,7 @@ class CreditorVoucherController extends Controller
                 'total' => $total,
                 'enganche' => $enganche,
                 'num_socios' => $numSocios,
+                'partner_percentages' => $partnerPercentages,
                 'fecha_inicio' => $fechaInicio->toDateString(),
                 'fecha_fin' => $fechaFin->toDateString(),
                 'meses' => $meses,
@@ -136,6 +149,24 @@ class CreditorVoucherController extends Controller
                     'numero_referencia' => 'BOL-ACR-' . str_pad((string) $voucherId, 6, '0', STR_PAD_LEFT),
                     'updated_at' => now(),
                 ]);
+
+            $schedules = [];
+            for ($i = 1; $i <= $meses; $i++) {
+                $dueDate = $fechaInicio->copy()->addMonths($i);
+                $schedules[] = [
+                    'creditor_voucher_id' => $voucherId,
+                    'installment_number' => $i,
+                    'due_date' => $dueDate->toDateString(),
+                    'amount' => $mensualidad,
+                    'amount_paid' => 0,
+                    'status' => 'PENDING',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+            if (!empty($schedules)) {
+                DB::table('creditor_payment_schedules')->insert($schedules);
+            }
 
             DB::commit();
 
@@ -191,6 +222,7 @@ class CreditorVoucherController extends Controller
                 'total' => $row->total,
                 'enganche' => $row->enganche,
                 'num_socios' => $row->num_socios,
+                'partner_percentages' => $row->partner_percentages,
                 'fecha_inicio' => $row->fecha_inicio,
                 'fecha_fin' => $row->fecha_fin,
                 'meses' => $row->meses,
@@ -233,7 +265,7 @@ class CreditorVoucherController extends Controller
 
     protected function getVoucherProgressStatus(object $voucher): array
     {
-        $fechaInicio = Carbon::parse($voucher->fecha_registro)->startOfDay();
+        $fechaInicio = Carbon::parse($voucher->fecha_inicio ?? $voucher->fecha_registro)->startOfDay();
         $hoy = now()->startOfDay();
 
         $mesesTranscurridos = max(1, $fechaInicio->diffInMonths($hoy) + 1);

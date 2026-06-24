@@ -55,7 +55,7 @@
                         <!-- PANEL POR SOCIO -->
                         <div class="col-md-6">
                             <div class="card bg-light border-0 mb-3 h-100">
-                                <div class="card-body">
+                                <div class="card-body" id="s_partner_container">
                                     <h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Totales Por Socio (<span id="s_num_socios_lbl"></span>)</h6>
                                     <div class="row g-3">
                                         <div class="col-6"><label class="form-label text-muted small mb-0">Total a Pagar (Socio)</label><input type="text" class="form-control form-control-sm" id="s_total_socio" readonly></div>
@@ -66,6 +66,27 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="page-card mb-3">
+                        <h6 class="fw-bold mb-3"><i class="fa-solid fa-calendar-alt me-1"></i> Calendario de Pagos</h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm align-middle mb-0 text-center" style="font-size: 0.85rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th># Pago</th>
+                                        <th>F. Programada</th>
+                                        <th>Cantidad</th>
+                                        <th>Abonado</th>
+                                        <th>Pendiente</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="calendarAcreedorBody">
+                                    <tr><td colspan="6" class="text-muted">Seleccione una boleta para ver su calendario.</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
@@ -137,6 +158,7 @@
     const form = document.getElementById('formAbonoAcreedor');
     let optionsCache = null;
     let rowIndex = 0;
+    let currentVoucher = null;
 
     function initSelect2() {
         $('.select2-abono-acreedor').select2({
@@ -182,6 +204,7 @@
             .forEach(id => document.getElementById(id).value = '');
         document.getElementById('s_num_socios_lbl').textContent = '';
         document.getElementById('historicoAbonosBody').innerHTML = '';
+        document.getElementById('calendarAcreedorBody').innerHTML = '<tr><td colspan="6" class="text-muted">Seleccione una boleta para ver su calendario.</td></tr>';
     }
 
     function resetForm() {
@@ -190,6 +213,7 @@
         fillSelect('creditor_voucher_id', []);
         document.getElementById('abonoAcreedorItemsBody').innerHTML = '';
         rowIndex = 0;
+        currentVoucher = null;
         addItem();
         resetSummary();
     }
@@ -224,6 +248,8 @@
             if (!res.ok) return;
 
             const d = json.data;
+            currentVoucher = d;
+            
             const total = parseFloat(d.total) || 0;
             const enganche = parseFloat(d.enganche) || 0;
             const meses = parseInt(d.meses) || 1;
@@ -240,13 +266,49 @@
             document.getElementById('s_meses').value = meses;
             document.getElementById('s_mensualidad').value = fCurrency(mensualidad);
             
-            // Por Socio
-            document.getElementById('s_num_socios_lbl').textContent = numSocios;
-            document.getElementById('s_total_socio').value = fCurrency(total / numSocios);
-            document.getElementById('s_enganche_socio').value = fCurrency(enganche / numSocios);
-            document.getElementById('s_debe_socio').value = fCurrency(debe / numSocios);
-            document.getElementById('s_meses_socio').value = meses;
-            document.getElementById('s_mensualidad_socio').value = fCurrency(mensualidad / numSocios);
+            // Por Socio Dinámico
+            const partnerContainer = document.getElementById('s_partner_container');
+            let partnerHtml = `<h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Desglose por Socio (${numSocios})</h6>`;
+            
+            let pcts = d.partner_percentages;
+            if (typeof pcts === 'string') {
+                try { pcts = JSON.parse(pcts); } catch(e) { pcts = null; }
+            }
+
+            if (!Array.isArray(pcts) || pcts.length !== numSocios) {
+                pcts = Array(numSocios).fill(100 / numSocios);
+            }
+
+            partnerHtml += `<div class="accordion" id="accordionSociosAbono">`;
+            pcts.forEach((pct, i) => {
+                const factor = pct / 100;
+                const socioTotal = total * factor;
+                const socioEnganche = enganche * factor;
+                const socioDebe = debe * factor;
+                const socioMensualidad = mensualidad * factor;
+
+                partnerHtml += `
+                    <div class="accordion-item mb-1 border-0 shadow-sm">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed py-2 rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSocioAbono${i}">
+                                Socio ${i+1} <span class="badge bg-secondary ms-2">${pct.toFixed(2)}%</span>
+                            </button>
+                        </h2>
+                        <div id="collapseSocioAbono${i}" class="accordion-collapse collapse" data-bs-parent="#accordionSociosAbono">
+                            <div class="accordion-body p-2 bg-white border rounded mt-1">
+                                <div class="row g-2">
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Total</label><input type="text" class="form-control form-control-sm" value="${fCurrency(socioTotal)}" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Enganche</label><input type="text" class="form-control form-control-sm" value="${fCurrency(socioEnganche)}" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Resta</label><input type="text" class="form-control form-control-sm text-danger fw-bold" value="${fCurrency(socioDebe)}" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Mensualidad</label><input type="text" class="form-control form-control-sm text-primary fw-bold" value="${fCurrency(socioMensualidad)}" readonly></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            partnerHtml += `</div>`;
+            partnerContainer.innerHTML = partnerHtml;
 
             const tbody = document.getElementById('historicoAbonosBody');
             tbody.innerHTML = '';
@@ -271,6 +333,36 @@
                 `;
             });
             
+            const calTbody = document.getElementById('calendarAcreedorBody');
+            calTbody.innerHTML = '';
+            if (d.schedules && d.schedules.length > 0) {
+                d.schedules.forEach(sc => {
+                    let badge = '';
+                    if (sc.status === 'PAID') badge = '<span class="badge bg-success">PAGADO</span>';
+                    else if (sc.status === 'PARTIAL') badge = '<span class="badge bg-warning text-dark">PARCIAL</span>';
+                    else badge = '<span class="badge bg-secondary">PENDIENTE</span>';
+                    
+                    const p = Math.max(0, parseFloat(sc.amount) - parseFloat(sc.amount_paid));
+                    
+                    calTbody.innerHTML += `
+                        <tr>
+                            <td>${sc.installment_number}</td>
+                            <td>${sc.due_date}</td>
+                            <td>${fCurrency(sc.amount)}</td>
+                            <td><span class="text-success">${fCurrency(sc.amount_paid)}</span></td>
+                            <td><span class="text-danger">${fCurrency(p)}</span></td>
+                            <td>${badge}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                calTbody.innerHTML = '<tr><td colspan="6" class="text-muted">No hay calendario de pagos generado.</td></tr>';
+            }
+            
+            document.getElementById('abonoAcreedorItemsBody').innerHTML = '';
+            rowIndex = 0;
+            addItem();
+            
         } catch (e) {
             console.error(e);
             Swal.fire({
@@ -285,11 +377,26 @@
         rowIndex++;
         const today = new Date().toISOString().slice(0, 10);
 
+        let progStr = '';
+        let cantPagar = '';
+
+        if (currentVoucher && currentVoucher.fecha_inicio) {
+            const numHistoricos = (currentVoucher.items || []).length;
+            const tableRows = document.querySelectorAll('#abonoAcreedorItemsBody tr').length;
+            const monthOffset = numHistoricos + tableRows + 1;
+            
+            const f = new Date(currentVoucher.fecha_inicio + 'T00:00:00');
+            f.setMonth(f.getMonth() + monthOffset);
+            progStr = f.toISOString().slice(0, 10);
+            
+            cantPagar = (parseFloat(currentVoucher.mensualidad) || 0).toFixed(2);
+        }
+
         document.getElementById('abonoAcreedorItemsBody').insertAdjacentHTML('beforeend', `
             <tr data-row="${rowIndex}">
                 <td>${rowIndex}</td>
-                <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-programada"></td>
-                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm item-cant-pagar"></td>
+                <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-programada" value="${progStr}"></td>
+                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm item-cant-pagar" value="${cantPagar}"></td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-fecha" value="${today}"></td>
                 <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm text-success fw-bold item-cantidad"></td>
                 <td style="min-width: 120px;"><input type="number" step="0.01" class="form-control form-control-sm text-danger item-interes"></td>

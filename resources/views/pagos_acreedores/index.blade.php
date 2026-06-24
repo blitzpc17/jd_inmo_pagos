@@ -67,7 +67,12 @@
                         
                         <div class="col-md-3">
                             <label class="form-label">Núm. Socios</label>
-                            <input type="number" min="1" value="2" class="form-control" id="num_socios" name="num_socios">
+                            <input type="number" min="1" value="1" class="form-control" id="num_socios" name="num_socios">
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="equal_split" checked>
+                                <label class="form-check-label" for="equal_split" style="font-size: 11px;">Dividir en partes iguales</label>
+                            </div>
+                            <div id="partner_percentages_container" class="mt-2 row g-2"></div>
                         </div>
 
                         <div class="col-md-6">
@@ -125,7 +130,7 @@
                     <!-- PANEL POR SOCIO -->
                     <div class="col-md-6">
                         <div class="card bg-light border-0 h-100">
-                            <div class="card-body">
+                            <div class="card-body" id="dba_partner_container">
                                 <h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Totales Por Socio (<span id="dba_num_socios_lbl"></span>)</h6>
                                 <div class="row g-3">
                                     <div class="col-6"><label class="form-label text-muted small mb-0">Total a Pagar (Socio)</label><input type="text" class="form-control form-control-sm" id="dba_total_socio" readonly></div>
@@ -263,6 +268,25 @@
             observacion: document.getElementById('observacion').value
         };
 
+        const equalSplit = document.getElementById('equal_split').checked;
+        if (!equalSplit) {
+            const inputs = document.querySelectorAll('.partner-pct-input');
+            let sum = 0;
+            const pcts = [];
+            inputs.forEach(el => {
+                const val = parseFloat(el.value) || 0;
+                sum += val;
+                pcts.push(val);
+            });
+            if (Math.abs(sum - 100) > 0.01) {
+                Swal.fire('Error', 'La suma de los porcentajes debe ser exactamente 100.', 'error');
+                return;
+            }
+            payload.partner_percentages = pcts;
+        } else {
+            payload.partner_percentages = null;
+        }
+
         try {
             const res = await fetch('/pagos-acreedores', {
                 method: 'POST',
@@ -316,13 +340,49 @@
         document.getElementById('dba_meses').value = meses;
         document.getElementById('dba_mensualidad').value = fCurrency(mensualidad);
         
-        // Por Socio
-        document.getElementById('dba_num_socios_lbl').textContent = numSocios;
-        document.getElementById('dba_total_socio').value = fCurrency(total / numSocios);
-        document.getElementById('dba_enganche_socio').value = fCurrency(enganche / numSocios);
-        document.getElementById('dba_debe_socio').value = fCurrency(debe / numSocios);
-        document.getElementById('dba_meses_socio').value = meses;
-        document.getElementById('dba_mensualidad_socio').value = fCurrency(mensualidad / numSocios);
+        // Por Socio Dinámico
+        const partnerContainer = document.getElementById('dba_partner_container');
+        let partnerHtml = `<h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Desglose por Socio (${numSocios})</h6>`;
+        
+        let pcts = d.partner_percentages;
+        if (typeof pcts === 'string') {
+            try { pcts = JSON.parse(pcts); } catch(e) { pcts = null; }
+        }
+
+        if (!Array.isArray(pcts) || pcts.length !== numSocios) {
+            pcts = Array(numSocios).fill(100 / numSocios);
+        }
+
+        partnerHtml += `<div class="accordion" id="accordionSocios">`;
+        pcts.forEach((pct, i) => {
+            const factor = pct / 100;
+            const socioTotal = total * factor;
+            const socioEnganche = enganche * factor;
+            const socioDebe = debe * factor;
+            const socioMensualidad = mensualidad * factor;
+
+            partnerHtml += `
+                <div class="accordion-item mb-1 border-0 shadow-sm">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-2 rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSocio${i}">
+                            Socio ${i+1} <span class="badge bg-secondary ms-2">${pct.toFixed(2)}%</span>
+                        </button>
+                    </h2>
+                    <div id="collapseSocio${i}" class="accordion-collapse collapse" data-bs-parent="#accordionSocios">
+                        <div class="accordion-body p-2 bg-white border rounded mt-1">
+                            <div class="row g-2">
+                                <div class="col-6"><label class="form-label text-muted small mb-0">Total</label><input type="text" class="form-control form-control-sm" value="${fCurrency(socioTotal)}" readonly></div>
+                                <div class="col-6"><label class="form-label text-muted small mb-0">Enganche</label><input type="text" class="form-control form-control-sm" value="${fCurrency(socioEnganche)}" readonly></div>
+                                <div class="col-6"><label class="form-label text-muted small mb-0">Resta</label><input type="text" class="form-control form-control-sm text-danger fw-bold" value="${fCurrency(socioDebe)}" readonly></div>
+                                <div class="col-6"><label class="form-label text-muted small mb-0">Mensualidad</label><input type="text" class="form-control form-control-sm text-primary fw-bold" value="${fCurrency(socioMensualidad)}" readonly></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        partnerHtml += `</div>`;
+        partnerContainer.innerHTML = partnerHtml;
         
         document.getElementById('dba_observacion').value = d.observacion || '';
 
@@ -353,6 +413,33 @@
     $('#tblPagosAcreedores').on('click', '.btn-view', function () {
         viewItem(this.dataset.id);
     });
+
+    function renderPercentages() {
+        const container = document.getElementById('partner_percentages_container');
+        const num = parseInt(document.getElementById('num_socios').value) || 1;
+        const equalSplit = document.getElementById('equal_split').checked;
+
+        if (equalSplit || num <= 1) {
+            container.innerHTML = '';
+            container.classList.add('d-none');
+            return;
+        }
+
+        container.classList.remove('d-none');
+        let html = '';
+        for (let i = 1; i <= num; i++) {
+            html += `
+                <div class="col-6">
+                    <label class="form-label mb-0" style="font-size:11px;">Socio ${i} (%)</label>
+                    <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm partner-pct-input" required>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+    }
+
+    document.getElementById('num_socios').addEventListener('input', renderPercentages);
+    document.getElementById('equal_split').addEventListener('change', renderPercentages);
 
     initSelect2();
     initTable();

@@ -97,6 +97,11 @@ class CreditorVoucherPaymentController extends Controller
                 'u.alias as usuario_registro',
             ]);
 
+        $schedules = DB::table('creditor_payment_schedules')
+            ->where('creditor_voucher_id', $voucherId)
+            ->orderBy('installment_number')
+            ->get();
+
         $progress = $this->getVoucherProgressStatus($row);
 
         return response()->json([
@@ -108,6 +113,7 @@ class CreditorVoucherPaymentController extends Controller
                 'total' => $row->total,
                 'enganche' => $row->enganche,
                 'num_socios' => $row->num_socios,
+                'partner_percentages' => $row->partner_percentages,
                 'fecha_inicio' => $row->fecha_inicio,
                 'fecha_fin' => $row->fecha_fin,
                 'meses' => $row->meses,
@@ -121,6 +127,7 @@ class CreditorVoucherPaymentController extends Controller
                 'diferencia' => $progress['diferencia'],
                 'estado_pago' => $progress['estado_pago'],
                 'items' => $items,
+                'schedules' => $schedules,
             ]
         ]);
     }
@@ -199,11 +206,42 @@ class CreditorVoucherPaymentController extends Controller
                 'saldo_pendiente' => $saldoPendiente,
                 'updated_at' => now(),
             ]);
+
+        $schedules = DB::table('creditor_payment_schedules')
+            ->where('creditor_voucher_id', $voucherId)
+            ->orderBy('installment_number')
+            ->get();
+
+        $remainingPaid = $totalPagado;
+
+        foreach ($schedules as $schedule) {
+            $amount = (float) $schedule->amount;
+            if ($remainingPaid >= $amount) {
+                $paid = $amount;
+                $status = 'PAID';
+                $remainingPaid -= $amount;
+            } elseif ($remainingPaid > 0) {
+                $paid = $remainingPaid;
+                $status = 'PARTIAL';
+                $remainingPaid = 0;
+            } else {
+                $paid = 0;
+                $status = 'PENDING';
+            }
+
+            DB::table('creditor_payment_schedules')
+                ->where('id', $schedule->id)
+                ->update([
+                    'amount_paid' => $paid,
+                    'status' => $status,
+                    'updated_at' => now(),
+                ]);
+        }
     }
 
     protected function getVoucherProgressStatus(object $voucher): array
     {
-        $fechaInicio = Carbon::parse($voucher->fecha_registro)->startOfDay();
+        $fechaInicio = Carbon::parse($voucher->fecha_inicio ?? $voucher->fecha_registro)->startOfDay();
         $hoy = now()->startOfDay();
 
         $mesesTranscurridos = max(1, $fechaInicio->diffInMonths($hoy) + 1);
