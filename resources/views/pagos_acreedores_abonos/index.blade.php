@@ -382,25 +382,57 @@
         let progStr = '';
         let cantPagar = '';
 
-        if (currentVoucher && currentVoucher.fecha_inicio) {
-            const numHistoricos = (currentVoucher.items || []).length;
-            const tableRows = document.querySelectorAll('#abonoAcreedorItemsBody tr').length;
-            const monthOffset = numHistoricos + tableRows + 1;
-            
-            const f = new Date(currentVoucher.fecha_inicio + 'T00:00:00');
-            f.setMonth(f.getMonth() + monthOffset);
-            progStr = f.toISOString().slice(0, 10);
-            
-            cantPagar = (parseFloat(currentVoucher.mensualidad) || 0).toFixed(2);
+        if (currentVoucher && currentVoucher.schedules) {
+            // Find the first schedule that is not fully paid
+            // We must also account for any rows already added in the current UI
+            let alreadyAllocated = 0;
+            document.querySelectorAll('#abonoAcreedorItemsBody tr').forEach(row => {
+                const amountInput = row.querySelector('.item-cantidad');
+                if (amountInput) {
+                    alreadyAllocated += parseFloat(amountInput.value) || 0;
+                }
+            });
+
+            // Iterate over schedules to find the pending one taking into account 'alreadyAllocated'
+            let pendingAmount = 0;
+            let targetSchedule = null;
+
+            for (const sc of currentVoucher.schedules) {
+                if (sc.status !== 'PAID' && sc.status !== 'PAGADO') { // Just to be safe with DB status strings
+                    let schedulePending = parseFloat(sc.amount) - parseFloat(sc.amount_paid);
+                    if (alreadyAllocated >= schedulePending) {
+                        alreadyAllocated -= schedulePending;
+                    } else {
+                        schedulePending -= alreadyAllocated;
+                        alreadyAllocated = 0;
+                        targetSchedule = sc;
+                        pendingAmount = schedulePending;
+                        break;
+                    }
+                }
+            }
+
+            if (targetSchedule) {
+                progStr = targetSchedule.due_date;
+                cantPagar = pendingAmount.toFixed(2);
+            } else {
+                cantPagar = (parseFloat(currentVoucher.mensualidad) || 0).toFixed(2);
+                
+                const tableRows = document.querySelectorAll('#abonoAcreedorItemsBody tr').length;
+                const monthOffset = (currentVoucher.schedules.length || 0) + tableRows + 1;
+                const f = new Date((currentVoucher.fecha_inicio || today) + 'T00:00:00');
+                f.setMonth(f.getMonth() + monthOffset);
+                progStr = f.toISOString().slice(0, 10);
+            }
         }
 
         document.getElementById('abonoAcreedorItemsBody').insertAdjacentHTML('beforeend', `
             <tr data-row="${rowIndex}">
                 <td>${rowIndex}</td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-programada" value="${progStr}"></td>
-                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm item-cant-pagar" value="${cantPagar}"></td>
+                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm item-cant-pagar" value="${cantPagar}" readonly></td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-fecha" value="${today}"></td>
-                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm text-success fw-bold item-cantidad"></td>
+                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm text-success fw-bold item-cantidad" value="${cantPagar}"></td>
                 <td style="min-width: 120px;"><input type="number" step="0.01" class="form-control form-control-sm text-danger item-interes"></td>
                 <td style="min-width: 160px;"><select class="form-select form-select-sm item-payment-method">${paymentMethodOptionsHtml()}</select></td>
                 <td style="min-width: 160px;"><input type="text" class="form-control form-control-sm item-observacion"></td>

@@ -416,16 +416,16 @@
         text-align: center;
         cursor: pointer;
         transition: all 0.25s ease;
-        background: #fff;
+        background: var(--card);
     }
     .type-tile:hover {
         border-color: var(--primary);
         transform: translateY(-3px);
-        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
     }
     .type-tile.active {
         border-color: var(--primary);
-        background: rgba(7, 89, 140, 0.05);
+        background: var(--hover-bg);
         color: var(--primary);
     }
     .type-tile i {
@@ -433,23 +433,24 @@
         margin-bottom: 10px;
     }
     .comparison-table th {
-        background: #eef5fb !important;
+        background: var(--hover-bg) !important;
         font-size: .8rem;
         text-transform: uppercase;
+        color: var(--text);
     }
     .comparison-table td {
         vertical-align: middle;
     }
     .diff-removed {
-        background-color: #fee2e2;
-        color: #991b1b;
+        background-color: rgba(220, 38, 38, 0.15);
+        color: #ef4444;
         text-decoration: line-through;
         padding: 2px 6px;
         border-radius: 4px;
     }
     .diff-added {
-        background-color: #dcfce7;
-        color: #166534;
+        background-color: rgba(22, 163, 74, 0.15);
+        color: #22c55e;
         padding: 2px 6px;
         border-radius: 4px;
         font-weight: 700;
@@ -461,16 +462,16 @@
         font-weight: 800;
     }
     .badge-status-req.PENDIENTE {
-        background: #fef3c7;
-        color: #92400e;
+        background: rgba(217, 119, 6, 0.15);
+        color: #f59e0b;
     }
     .badge-status-req.APROBADO {
-        background: #dcfce7;
-        color: #166534;
+        background: rgba(22, 163, 74, 0.15);
+        color: #22c55e;
     }
     .badge-status-req.RECHAZADO {
-        background: #fee2e2;
-        color: #991b1b;
+        background: rgba(220, 38, 38, 0.15);
+        color: #ef4444;
     }
     .bg-light-success {
         background-color: rgba(22, 163, 74, 0.08) !important;
@@ -550,7 +551,7 @@
                 {name: 'total', label: 'Total', type: 'number'},
                 {name: 'enganche', label: 'Enganche', type: 'number'},
                 {name: 'meses', label: 'Plazo (Meses)', type: 'integer'},
-                {name: 'mensualidad', label: 'Mensualidad', type: 'number'}
+                {name: 'mensualidad', label: 'Mensualidad', type: 'number', readonly: true}
             ]
         },
         PARTIDA_ACREEDOR: {
@@ -1070,11 +1071,11 @@
                     
                     if (f.type === 'date') {
                         const dateVal = value ? value.substring(0, 10) : '';
-                        inputHtml = `<input type="date" class="form-control form-control-sm field-input" data-index="${index}" data-field="${f.name}" value="${dateVal}">`;
+                        inputHtml = `<input type="date" class="form-control form-control-sm field-input" data-index="${index}" data-field="${f.name}" value="${dateVal}" ${f.readonly ? 'readonly' : ''}>`;
                     } else if (f.type === 'number') {
-                        inputHtml = `<input type="number" step="0.01" class="form-control form-control-sm field-input text-end" data-index="${index}" data-field="${f.name}" value="${value}">`;
+                        inputHtml = `<input type="number" step="0.01" class="form-control form-control-sm field-input text-end" data-index="${index}" data-field="${f.name}" value="${value}" ${f.readonly ? 'readonly' : ''}>`;
                     } else if (f.type === 'integer') {
-                        inputHtml = `<input type="number" class="form-control form-control-sm field-input text-end" data-index="${index}" data-field="${f.name}" value="${value}">`;
+                        inputHtml = `<input type="number" class="form-control form-control-sm field-input text-end" data-index="${index}" data-field="${f.name}" value="${value}" ${f.readonly ? 'readonly' : ''}>`;
                     } else if (f.type === 'select') {
                         const options = catalogsOptions[f.optionKey] || [];
                         inputHtml = `<select class="form-select form-select-sm field-input" data-index="${index}" data-field="${f.name}">
@@ -1475,6 +1476,20 @@
         }
 
         selectedRecords[index].new_data[fieldName] = val;
+
+        // Auto-recalculate Boleta Acreedor Mensualidad
+        if (currentType === 'BOLETA_ACREEDOR' && (fieldName === 'enganche' || fieldName === 'total' || fieldName === 'meses')) {
+            const record = selectedRecords[index];
+            const newTotal = parseFloat(record.new_data['total']) || 0;
+            const newEnganche = parseFloat(record.new_data['enganche']) || 0;
+            const newMeses = parseInt(record.new_data['meses']) || 1;
+            
+            if (newMeses > 0) {
+                const nuevaMensualidad = (newTotal - newEnganche) / newMeses;
+                record.new_data['mensualidad'] = nuevaMensualidad.toFixed(2);
+                $(`.field-input[data-index="${index}"][data-field="mensualidad"]`).val(nuevaMensualidad.toFixed(2));
+            }
+        }
     });
 
     // Add contract to queue for modification

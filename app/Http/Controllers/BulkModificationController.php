@@ -424,19 +424,34 @@ class BulkModificationController extends Controller
                         }
                         continue;
                     } elseif ($type === 'BOLETA_ACREEDOR') {
+                        $boleta = DB::table('creditor_vouchers')->where('id', $recordId)->first();
+                        
+                        // Recalculate mensualidad if total, enganche, or meses is modified
+                        if (isset($newData['enganche']) || isset($newData['meses']) || isset($newData['total'])) {
+                            $newEnganche = isset($newData['enganche']) ? (float)$newData['enganche'] : (float)$boleta->enganche;
+                            $newMeses = isset($newData['meses']) ? (int)$newData['meses'] : (int)$boleta->meses;
+                            $newTotal = isset($newData['total']) ? (float)$newData['total'] : (float)$boleta->total;
+                            
+                            if ($newMeses > 0) {
+                                $newData['mensualidad'] = ($newTotal - $newEnganche) / $newMeses;
+                            }
+                        }
+
                         if (!empty($newData)) {
                             DB::table($tableName)->where('id', $recordId)->update($newData);
                         }
                         
-                        if (isset($newData['meses']) || isset($newData['fecha_inicio']) || isset($newData['mensualidad'])) {
-                            $boleta = DB::table('creditor_vouchers')->where('id', $recordId)->first();
+                        // Re-fetch to get updated values
+                        $boleta = DB::table('creditor_vouchers')->where('id', $recordId)->first();
+                        
+                        if (isset($newData['meses']) || isset($newData['fecha_inicio']) || isset($newData['mensualidad']) || isset($newData['enganche']) || isset($newData['total'])) {
                             if ($boleta && $boleta->meses > 0) {
                                 // Destroy old schedules
                                 DB::table('creditor_payment_schedules')->where('creditor_voucher_id', $recordId)->delete();
                                 
                                 // Recreate schedules
                                 $schedules = [];
-                                $fechaInicio = Carbon::parse($boleta->fecha_inicio);
+                                $fechaInicio = \Carbon\Carbon::parse($boleta->fecha_inicio);
                                 for ($i = 1; $i <= $boleta->meses; $i++) {
                                     $dueDate = $fechaInicio->copy()->addMonths($i);
                                     $schedules[] = [
@@ -897,14 +912,14 @@ class BulkModificationController extends Controller
         $query = DB::table('creditors as c')
             ->select([
                 'c.id',
-                'c.nombres as text'
+                DB::raw("TRIM(CONCAT(COALESCE(c.nombres,''), ' ', COALESCE(c.apellidos,''))) as text")
             ])
             ->whereNull('c.fecha_baja')
             ->orderBy('c.nombres')
             ->limit(30);
 
         if ($q !== '') {
-            $query->where('c.nombres', 'ILIKE', '%' . $q . '%');
+            $query->where(DB::raw("CONCAT(COALESCE(c.nombres,''), ' ', COALESCE(c.apellidos,''))"), 'ILIKE', '%' . $q . '%');
         }
 
         return response()->json($query->get());

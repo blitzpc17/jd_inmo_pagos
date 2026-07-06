@@ -185,7 +185,7 @@ class CreditorVoucherPaymentController extends Controller
         }
     }
 
-    protected function recalculateVoucherTotals(int $voucherId): void
+    public function recalculateVoucherTotals(int $voucherId): void
     {
         $voucher = DB::table('creditor_vouchers')->where('id', $voucherId)->first();
         if (!$voucher) {
