@@ -400,6 +400,11 @@
             transform: scale(1.1);
         }
 
+        /* Fix Modal Form Scroll Issues */
+        .modal-content > form {
+            display: contents;
+        }
+
         /* Pro DataTables */
         table.dataTable {
             border-collapse: collapse !important;
@@ -580,6 +585,9 @@
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         }
     });
+
+    // Make all modals scrollable globally
+    $('.modal-dialog').addClass('modal-dialog-scrollable');
 
     const appSidebar = document.getElementById('appSidebar');
     const drawerOverlay = document.getElementById('drawerOverlay');

@@ -15,9 +15,8 @@
 
 <div class="modal fade" id="modalAbonoAcreedor" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <form id="formAbonoAcreedor">
-                <div class="modal-header">
+        <form class="modal-content" id="formAbonoAcreedor">
+            <div class="modal-header">
                     <h5 class="modal-title">Registrar abono acreedor</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
@@ -145,8 +144,7 @@
                     <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cerrar</button>
                     <button class="btn btn-primary" type="submit">Guardar abonos</button>
                 </div>
-            </form>
-        </div>
+        </form>
     </div>
 </div>
 @endsection
@@ -201,8 +199,12 @@
 
     function resetSummary() {
         ['s_total','s_mensualidad','s_meses','s_debe','s_total_socio','s_enganche','s_enganche_socio','s_debe_socio','s_meses_socio','s_mensualidad_socio']
-            .forEach(id => document.getElementById(id).value = '');
-        document.getElementById('s_num_socios_lbl').textContent = '';
+            .forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+        const lbl = document.getElementById('s_num_socios_lbl');
+        if (lbl) lbl.textContent = '';
         document.getElementById('historicoAbonosBody').innerHTML = '';
         document.getElementById('calendarAcreedorBody').innerHTML = '<tr><td colspan="6" class="text-muted">Seleccione una boleta para ver su calendario.</td></tr>';
     }
