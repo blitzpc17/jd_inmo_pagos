@@ -152,7 +152,7 @@
 
     {{-- TABLA --}}
     <div class="card shadow-sm border-0">
-        <div class="card-header bg-white border-0 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+        <div class="card-header bg-transparent border-0 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
             <div>
                 <h6 class="mb-0 fw-bold">Detalle por lotificación</h6>
                 <small class="text-muted">

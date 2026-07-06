@@ -120,7 +120,7 @@
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="card h-100 shadow-sm border-0 bg-white">
+                        <div class="card h-100 shadow-sm border-0 bg-transparent">
                             <div class="card-body">
                                 <h5 class="fw-bold mb-3"><i class="fa-solid fa-calculator me-2 text-primary"></i>Finanzas</h5>
                                 <div class="d-flex justify-content-between mb-1">
@@ -147,7 +147,7 @@
 
                 <!-- Tabla de Partidas -->
                 <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
                         <h6 class="fw-bold mb-0">Partidas (Abonos Realizados)</h6>
                         <button class="btn btn-sm btn-success" id="btnAgregarAbono">
                             <i class="fa-solid fa-plus me-1"></i> Agregar Abono

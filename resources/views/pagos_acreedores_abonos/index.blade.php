@@ -38,7 +38,7 @@
                     <div class="row">
                         <!-- PANEL GENERAL -->
                         <div class="col-md-6">
-                            <div class="card bg-light border-0 mb-3">
+                            <div class="card bg-transparent border-0 mb-3">
                                 <div class="card-body">
                                     <h6 class="fw-bold mb-3"><i class="fa-solid fa-chart-pie me-1"></i> Totales Generales</h6>
                                     <div class="row g-3">
@@ -54,7 +54,7 @@
                         
                         <!-- PANEL POR SOCIO -->
                         <div class="col-md-6">
-                            <div class="card bg-light border-0 mb-3 h-100">
+                            <div class="card bg-transparent border-0 mb-3 h-100">
                                 <div class="card-body" id="s_partner_container">
                                     <h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Totales Por Socio (<span id="s_num_socios_lbl"></span>)</h6>
                                     <div class="row g-3">
@@ -295,7 +295,7 @@
                             </button>
                         </h2>
                         <div id="collapseSocioAbono${i}" class="accordion-collapse collapse" data-bs-parent="#accordionSociosAbono">
-                            <div class="accordion-body p-2 bg-white border rounded mt-1">
+                            <div class="accordion-body p-2 bg-transparent border rounded mt-1">
                                 <div class="row g-2">
                                     <div class="col-6"><label class="form-label text-muted small mb-0">Total</label><input type="text" class="form-control form-control-sm" value="${fCurrency(socioTotal)}" readonly></div>
                                     <div class="col-6"><label class="form-label text-muted small mb-0">Enganche</label><input type="text" class="form-control form-control-sm" value="${fCurrency(socioEnganche)}" readonly></div>
