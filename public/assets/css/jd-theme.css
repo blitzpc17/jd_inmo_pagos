@@ -1,90 +1,111 @@
-:root{
-    --jd-primary:#D9042B;
-    --jd-gray:#676767;
-    --jd-blue:#0511F2;
-    --jd-danger:#F20505;
-    --jd-dark:#0D0D0D;
-    --jd-surface:#ffffff;
-    --jd-border:rgba(103,103,103,.18);
-}
+/* jd-theme.css */
+/* Uses variables defined in app.blade.php: --primary, --bg, --card, --text, --border */
 
-body{
-    background:#f6f7fb;
-    color:var(--jd-dark);
-}
-
-.sidebar,
-.main-sidebar,
-.app-sidebar{
-    background:linear-gradient(180deg, var(--jd-dark), #1b1b1b) !important;
-}
-
-.brand-link,
-.logo-link{
-    background:transparent !important;
-    color:#fff !important;
-    border-bottom:1px solid rgba(255,255,255,.08) !important;
-}
-
-.sidebar a,
-.nav-sidebar .nav-link{
-    color:rgba(255,255,255,.86) !important;
-    border-radius:14px;
-    margin:4px 8px;
-}
-
-.sidebar a:hover,
-.nav-sidebar .nav-link:hover{
-    background:rgba(217,4,43,.18) !important;
-    color:#fff !important;
-}
-
-.nav-sidebar .nav-link.active{
-    background:linear-gradient(90deg, var(--jd-primary), var(--jd-blue)) !important;
-    color:#fff !important;
-    box-shadow:0 10px 24px rgba(217,4,43,.20);
+body {
+    background: var(--bg);
+    color: var(--text);
 }
 
 .content-wrapper,
-.main-content{
-    background:#f6f7fb !important;
+.main-content {
+    background: var(--bg) !important;
 }
 
+/* Card Styling */
 .card,
-.content-card,
-.page-card{
-    border:1px solid var(--jd-border) !important;
-    border-radius:22px !important;
-    box-shadow:0 10px 30px rgba(13,13,13,.06) !important;
+.content-card {
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 20px !important;
+    box-shadow: var(--shadow-lg) !important;
+    color: var(--text) !important;
 }
 
-.btn-primary{
-    background:var(--jd-primary) !important;
-    border-color:var(--jd-primary) !important;
+.card-header {
+    border-bottom: 1px solid var(--border) !important;
+    background: transparent !important;
 }
 
-.btn-primary:hover{
-    background:var(--jd-danger) !important;
-    border-color:var(--jd-danger) !important;
+.card-footer {
+    border-top: 1px solid var(--border) !important;
+    background: transparent !important;
 }
 
-.btn-outline-primary{
-    color:var(--jd-blue) !important;
-    border-color:var(--jd-blue) !important;
+/* Premium Buttons */
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2)) !important;
+    border: none !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 15px rgba(59,130,246,0.3) !important;
 }
 
-.btn-outline-primary:hover{
-    background:var(--jd-blue) !important;
-    color:#fff !important;
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59,130,246,0.4) !important;
+    filter: brightness(1.1);
 }
 
-.table thead th{
-    background:var(--jd-dark);
-    color:#fff;
+.btn-outline-primary {
+    color: var(--primary) !important;
+    border-color: var(--primary) !important;
+    background: transparent !important;
+}
+
+.btn-outline-primary:hover {
+    background: rgba(59, 130, 246, 0.1) !important;
+    color: var(--primary) !important;
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    border: none !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4) !important;
+}
+
+/* Tables */
+.table {
+    color: var(--text) !important;
+}
+
+.table thead th {
+    background: var(--hover-bg) !important;
+    color: var(--muted) !important;
+    border-bottom: 1px solid var(--border) !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.table tbody td {
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+
+/* Forms */
+.form-control, .form-select {
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
 }
 
 .form-control:focus,
-.form-select:focus{
-    border-color:var(--jd-blue);
-    box-shadow:0 0 0 .2rem rgba(5,17,242,.12);
+.form-select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: var(--focus-ring) !important;
+    background-color: var(--input-bg) !important;
+    color: var(--text) !important;
+}
+
+.input-group-text {
+    background-color: var(--hover-bg) !important;
+    border-color: var(--border) !important;
+    color: var(--muted) !important;
 }

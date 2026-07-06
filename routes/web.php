@@ -424,6 +424,10 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
             Route::get('/suppliers', [\App\Http\Controllers\BulkModificationController::class, 'getSuppliers'])->name('suppliers');
             Route::get('/supplier/{supplierId}/boletas', [\App\Http\Controllers\BulkModificationController::class, 'getSupplierBoletas'])->whereNumber('supplierId')->name('supplier-boletas');
             Route::get('/boleta/{boletaId}/partidas', [\App\Http\Controllers\BulkModificationController::class, 'getBoletaPartidas'])->whereNumber('boletaId')->name('boleta-partidas');
+
+            Route::get('/creditors', [\App\Http\Controllers\BulkModificationController::class, 'getCreditors'])->name('creditors');
+            Route::get('/creditor/{creditorId}/boletas', [\App\Http\Controllers\BulkModificationController::class, 'getCreditorBoletas'])->whereNumber('creditorId')->name('creditor-boletas');
+            Route::get('/acreedor-boleta/{boletaId}/partidas', [\App\Http\Controllers\BulkModificationController::class, 'getCreditorBoletaPartidas'])->whereNumber('boletaId')->name('acreedor-boleta-partidas');
         });
 
     // =====================================================

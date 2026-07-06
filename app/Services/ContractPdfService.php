@@ -77,7 +77,10 @@ class ContractPdfService
                 return $default;
             }
 
-            return array_merge($default, $json);
+            $branding = array_merge($default, $json);
+            $branding['address_line'] = '';
+            $branding['phone_line'] = '';
+            return $branding;
         } catch (\Throwable $e) {
             return $default;
         }

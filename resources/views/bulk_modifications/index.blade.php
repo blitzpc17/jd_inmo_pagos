@@ -71,12 +71,22 @@
                         <div class="type-tile" data-type="BOLETA_PROVEEDOR">
                             <i class="fa-solid fa-file-invoice-dollar"></i>
                             <div class="fw-bold">Boletas (Proveedor)</div>
-                            <small class="text-muted">Ajuste de total a pagar, plazo, fechas y lotificación.</small>
+                            <small class="text-muted">Ajuste de total a pagar, plazo, fechas, lotificación y eliminación.</small>
                         </div>
                         <div class="type-tile" data-type="PARTIDA_PROVEEDOR">
                             <i class="fa-solid fa-receipt"></i>
                             <div class="fw-bold">Partidas (Proveedor)</div>
-                            <small class="text-muted">Ajuste de montos y fechas de abonos a proveedores.</small>
+                            <small class="text-muted">Ajuste de montos, fechas y eliminación de abonos a proveedores.</small>
+                        </div>
+                        <div class="type-tile" data-type="BOLETA_ACREEDOR">
+                            <i class="fa-solid fa-file-invoice"></i>
+                            <div class="fw-bold">Boletas (Acreedor)</div>
+                            <small class="text-muted">Ajuste de montos, enganche, meses y eliminación.</small>
+                        </div>
+                        <div class="type-tile" data-type="PARTIDA_ACREEDOR">
+                            <i class="fa-solid fa-file-invoice-dollar"></i>
+                            <div class="fw-bold">Partidas (Acreedor)</div>
+                            <small class="text-muted">Ajuste de cantidades, fechas y eliminación de abonos a acreedores.</small>
                         </div>
                     </div>
                 </div>
@@ -108,6 +118,19 @@
                             <label class="form-label fw-bold">Boleta / Proyecto</label>
                             <select id="boleta_select" class="form-select" disabled>
                                 <option value="">Selecciona proveedor primero...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 d-none" id="cascade_creditors">
+                        <div class="col-md-4" id="creditor_select_wrapper">
+                            <label class="form-label fw-bold">Acreedor</label>
+                            <select id="creditor_select" class="form-select"></select>
+                        </div>
+                        <div class="col-md-8" id="creditor_boleta_select_wrapper">
+                            <label class="form-label fw-bold">Boleta</label>
+                            <select id="creditor_boleta_select" class="form-select" disabled>
+                                <option value="">Selecciona acreedor primero...</option>
                             </select>
                         </div>
                     </div>
@@ -200,6 +223,9 @@
                         <button type="button" class="btn btn-outline-primary" id="btnEditBoleta">
                             <i class="fa-solid fa-pen me-1"></i> Solicitar Modificación de Boleta
                         </button>
+                        <button type="button" class="btn btn-outline-danger" id="btnDeleteBoleta">
+                            <i class="fa-solid fa-trash me-1"></i> Solicitar Eliminación de Boleta
+                        </button>
                     </div>
                 </div>
 
@@ -214,6 +240,49 @@
                                     <th>Fecha</th>
                                     <th>Importe</th>
                                     <th>Concepto</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Detalles de Boleta Acreedor -->
+                <div class="page-card mb-3 d-none" id="detailsBoletaAcreedorCard">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-circle-info me-2 text-primary"></i>Detalles de la Boleta (Acreedor)</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-3"><strong>Referencia:</strong> <span id="lblBoletaAcreedorRef"></span></div>
+                        <div class="col-md-3"><strong>Total:</strong> <span id="lblBoletaAcreedorTotal"></span></div>
+                        <div class="col-md-3"><strong>Enganche:</strong> <span id="lblBoletaAcreedorEnganche"></span></div>
+                        <div class="col-md-3"><strong>Mensualidad:</strong> <span id="lblBoletaAcreedorMensualidad"></span></div>
+                        <div class="col-md-3 mt-2"><strong>Plazo:</strong> <span id="lblBoletaAcreedorPlazo"></span> meses</div>
+                        <div class="col-md-3 mt-2"><strong>F. Inicio:</strong> <span id="lblBoletaAcreedorInicio"></span></div>
+                        <div class="col-md-3 mt-2"><strong>Socios:</strong> <span id="lblBoletaAcreedorSocios"></span></div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary" id="btnEditBoletaAcreedor">
+                            <i class="fa-solid fa-pen me-1"></i> Solicitar Modificación
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" id="btnDeleteBoletaAcreedor">
+                            <i class="fa-solid fa-trash me-1"></i> Solicitar Eliminación
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla de Partidas Acreedor -->
+                <div class="page-card mb-3 d-none" id="tablePartidasAcreedorCard">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-receipt me-2 text-primary"></i>Abonos (Partidas) del Acreedor</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle w-100" id="tableBoletaAcreedorPartidas">
+                            <thead>
+                                <tr>
+                                    <th># Partida</th>
+                                    <th>Fecha</th>
+                                    <th>F. Programada</th>
+                                    <th>Cantidad</th>
+                                    <th>Interés</th>
+                                    <th>Forma de Pago</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -473,6 +542,26 @@
                 {name: 'fecha', label: 'Fecha', type: 'date'},
                 {name: 'importe', label: 'Monto', type: 'number'}
             ]
+        },
+        BOLETA_ACREEDOR: {
+            headers: ['Folio', 'Acción', 'F. Inicio', 'Total', 'Enganche', 'Plazo (Meses)', 'Mensualidad', 'Quitar'],
+            fields: [
+                {name: 'fecha_inicio', label: 'Fecha Inicio', type: 'date'},
+                {name: 'total', label: 'Total', type: 'number'},
+                {name: 'enganche', label: 'Enganche', type: 'number'},
+                {name: 'meses', label: 'Plazo (Meses)', type: 'integer'},
+                {name: 'mensualidad', label: 'Mensualidad', type: 'number'}
+            ]
+        },
+        PARTIDA_ACREEDOR: {
+            headers: ['Partida', 'Acción', 'F. Recibido', 'F. Programada', 'Cantidad', 'Interés', 'Forma Pago', 'Quitar'],
+            fields: [
+                {name: 'fecha_recibido', label: 'Fecha Recibido', type: 'date'},
+                {name: 'fecha_pago_programada', label: 'Fecha Programada', type: 'date'},
+                {name: 'cantidad', label: 'Cantidad', type: 'number'},
+                {name: 'interes_pagado', label: 'Interés', type: 'number'},
+                {name: 'payment_method_id', label: 'Forma Pago', type: 'select', optionKey: 'payment_methods'}
+            ]
         }
     };
 
@@ -540,6 +629,23 @@
             minimumInputLength: 1,
             ajax: {
                 url: '{{ route('bulk-modifications.suppliers') }}',
+                dataType: 'json',
+                delay: 250,
+                data: params => ({
+                    q: params.term || ''
+                }),
+                processResults: data => ({
+                    results: data.map(item => ({ id: item.id, text: item.text }))
+                })
+            }
+        });
+
+        $('#creditor_select').select2({
+            width: '100%',
+            placeholder: 'Buscar acreedor...',
+            minimumInputLength: 1,
+            ajax: {
+                url: '/modificaciones-masivas/creditors',
                 dataType: 'json',
                 delay: 250,
                 data: params => ({
@@ -673,6 +779,62 @@
                 renderPartidasTable();
             }
         });
+
+        // Creditor change -> load boletas
+        $('#creditor_select').on('change', async function() {
+            const creditorId = $(this).val();
+            resetCascadeOutputs();
+
+            if (!creditorId) return;
+
+            Swal.showLoading();
+            const res = await fetch(`/modificaciones-masivas/creditor/${creditorId}/boletas`);
+            const boletas = await res.json();
+            Swal.close();
+
+            const boletaSelect = $('#creditor_boleta_select');
+            boletaSelect.html('<option value="">Selecciona boleta...</option>');
+            boletas.forEach(b => {
+                boletaSelect.append(`<option value="${b.id}">${b.text}</option>`);
+            });
+            boletaSelect.prop('disabled', false);
+        });
+
+        // Creditor Boleta change -> load details / partidas
+        $('#creditor_boleta_select').on('change', async function() {
+            const boletaId = $(this).val();
+            $('#detailsBoletaAcreedorCard').addClass('d-none');
+            $('#tablePartidasAcreedorCard').addClass('d-none');
+
+            if (!boletaId) return;
+
+            if (currentType === 'BOLETA_ACREEDOR') {
+                Swal.showLoading();
+                const res = await fetch(`{{ route('bulk-modifications.record-details') }}?type=BOLETA_ACREEDOR&id=${boletaId}`);
+                const data = await res.json();
+                Swal.close();
+
+                if (data.ok) {
+                    loadedContractDetails = data.data; 
+                    $('#lblBoletaAcreedorRef').text(data.data.numero_referencia);
+                    $('#lblBoletaAcreedorTotal').text('$' + parseFloat(data.data.total).toFixed(2));
+                    $('#lblBoletaAcreedorEnganche').text('$' + parseFloat(data.data.enganche).toFixed(2));
+                    $('#lblBoletaAcreedorMensualidad').text('$' + parseFloat(data.data.mensualidad).toFixed(2));
+                    $('#lblBoletaAcreedorInicio').text(data.data.fecha_inicio);
+                    $('#lblBoletaAcreedorPlazo').text(data.data.meses);
+                    $('#lblBoletaAcreedorSocios').text(data.data.num_socios);
+
+                    $('#detailsBoletaAcreedorCard').removeClass('d-none');
+                }
+            } else if (currentType === 'PARTIDA_ACREEDOR') {
+                Swal.showLoading();
+                const res = await fetch(`/modificaciones-masivas/acreedor-boleta/${boletaId}/partidas`);
+                loadedCharges = await res.json(); 
+                Swal.close();
+
+                renderPartidasAcreedorTable();
+            }
+        });
     }
 
     function resetCascadeOutputs() {
@@ -680,6 +842,15 @@
         $('#detailsContractCard').addClass('d-none');
         $('#tableChargesCard').addClass('d-none');
         $('#tableReservationsCard').addClass('d-none');
+
+        $('#boleta_select').html('<option value="">Selecciona proveedor primero...</option>').prop('disabled', true);
+        $('#detailsBoletaCard').addClass('d-none');
+        $('#tablePartidasCard').addClass('d-none');
+
+        $('#creditor_boleta_select').html('<option value="">Selecciona acreedor primero...</option>').prop('disabled', true);
+        $('#detailsBoletaAcreedorCard').addClass('d-none');
+        $('#tablePartidasAcreedorCard').addClass('d-none');
+
         loadedCharges = [];
         loadedReservations = [];
         loadedContractDetails = null;
@@ -746,6 +917,9 @@
 
             let actionsHtml = `<button type="button" class="btn btn-sm btn-outline-primary btn-add-partida-modify" data-id="${partida.id}">
                                     <i class="fa-solid fa-pen"></i> Modificar
+                               </button>
+                               <button type="button" class="btn btn-sm btn-outline-danger btn-add-partida-delete" data-id="${partida.id}">
+                                    <i class="fa-solid fa-trash"></i> Eliminar
                                </button>`;
             
             if (isQueued) {
@@ -764,6 +938,46 @@
         });
 
         $('#tablePartidasCard').removeClass('d-none');
+    }
+
+    function renderPartidasAcreedorTable() {
+        const tbody = $('#tableBoletaAcreedorPartidas tbody');
+        tbody.html('');
+
+        if (loadedCharges.length === 0) {
+            tbody.html('<tr><td colspan="7" class="text-center text-muted">No hay partidas de abono en esta boleta de acreedor.</td></tr>');
+            $('#tablePartidasAcreedorCard').removeClass('d-none');
+            return;
+        }
+
+        loadedCharges.forEach(partida => {
+            const isQueued = selectedRecords.some(r => r.record_id === partida.id);
+
+            let actionsHtml = `<button type="button" class="btn btn-sm btn-outline-primary btn-add-partida-acreedor-modify" data-id="${partida.id}">
+                                    <i class="fa-solid fa-pen"></i> Modificar
+                               </button>
+                               <button type="button" class="btn btn-sm btn-outline-danger btn-add-partida-acreedor-delete" data-id="${partida.id}">
+                                    <i class="fa-solid fa-trash"></i> Eliminar
+                               </button>`;
+            
+            if (isQueued) {
+                actionsHtml = `<span class="badge bg-secondary">En Lista</span>`;
+            }
+
+            tbody.append(`
+                <tr>
+                    <td class="fw-bold">${partida.id}</td>
+                    <td>${partida.fecha_recibido}</td>
+                    <td>${partida.fecha_pago_programada}</td>
+                    <td>$${parseFloat(partida.cantidad).toFixed(2)}</td>
+                    <td>$${parseFloat(partida.interes_pagado || 0).toFixed(2)}</td>
+                    <td>${partida.forma_pago || '-'}</td>
+                    <td>${actionsHtml}</td>
+                </tr>
+            `);
+        });
+
+        $('#tablePartidasAcreedorCard').removeClass('d-none');
     }
 
     function renderReservationsTable() {
@@ -1229,9 +1443,15 @@
         // Toggle cascades
         if (currentType === 'BOLETA_PROVEEDOR' || currentType === 'PARTIDA_PROVEEDOR') {
             $('#cascade_clients').addClass('d-none');
+            $('#cascade_creditors').addClass('d-none');
             $('#cascade_suppliers').removeClass('d-none');
+        } else if (currentType === 'BOLETA_ACREEDOR' || currentType === 'PARTIDA_ACREEDOR') {
+            $('#cascade_clients').addClass('d-none');
+            $('#cascade_suppliers').addClass('d-none');
+            $('#cascade_creditors').removeClass('d-none');
         } else {
             $('#cascade_suppliers').addClass('d-none');
+            $('#cascade_creditors').addClass('d-none');
             $('#cascade_clients').removeClass('d-none');
         }
     });
@@ -1356,6 +1576,45 @@
         );
     });
 
+    // Add boleta to queue for deletion
+    $('#btnDeleteBoleta').on('click', function() {
+        if (!loadedContractDetails) return;
+        const suppText = $('#supplier_select option:selected').text();
+        pushRecordToQueue(
+            loadedContractDetails.id,
+            loadedContractDetails.numero_referencia,
+            suppText,
+            loadedContractDetails,
+            'ELIMINAR'
+        );
+    });
+
+    // Add boleta acreedor to queue for modification
+    $('#btnEditBoletaAcreedor').on('click', function() {
+        if (!loadedContractDetails) return;
+        const acreedorText = $('#creditor_select option:selected').text();
+        pushRecordToQueue(
+            loadedContractDetails.id,
+            loadedContractDetails.numero_referencia,
+            acreedorText,
+            loadedContractDetails,
+            'MODIFICAR'
+        );
+    });
+
+    // Add boleta acreedor to queue for deletion
+    $('#btnDeleteBoletaAcreedor').on('click', function() {
+        if (!loadedContractDetails) return;
+        const acreedorText = $('#creditor_select option:selected').text();
+        pushRecordToQueue(
+            loadedContractDetails.id,
+            loadedContractDetails.numero_referencia,
+            acreedorText,
+            loadedContractDetails,
+            'ELIMINAR'
+        );
+    });
+
     // Add partida to queue for modification
     $(document).on('click', '.btn-add-partida-modify', function() {
         const pId = $(this).data('id');
@@ -1363,6 +1622,33 @@
         if (!p) return;
         const suppText = $('#supplier_select option:selected').text();
         pushRecordToQueue(p.id, 'Partida ' + p.id, suppText, p, 'MODIFICAR');
+    });
+
+    // Add partida to queue for deletion
+    $(document).on('click', '.btn-add-partida-delete', function() {
+        const pId = $(this).data('id');
+        const p = loadedCharges.find(c => String(c.id) === String(pId));
+        if (!p) return;
+        const suppText = $('#supplier_select option:selected').text();
+        pushRecordToQueue(p.id, 'Partida ' + p.id, suppText, p, 'ELIMINAR');
+    });
+
+    // Add partida acreedor to queue for modification
+    $(document).on('click', '.btn-add-partida-acreedor-modify', function() {
+        const pId = $(this).data('id');
+        const p = loadedCharges.find(c => String(c.id) === String(pId));
+        if (!p) return;
+        const acreedorText = $('#creditor_select option:selected').text();
+        pushRecordToQueue(p.id, 'Partida Acreedor ' + p.id, acreedorText, p, 'MODIFICAR');
+    });
+
+    // Add partida acreedor to queue for deletion
+    $(document).on('click', '.btn-add-partida-acreedor-delete', function() {
+        const pId = $(this).data('id');
+        const p = loadedCharges.find(c => String(c.id) === String(pId));
+        if (!p) return;
+        const acreedorText = $('#creditor_select option:selected').text();
+        pushRecordToQueue(p.id, 'Partida Acreedor ' + p.id, acreedorText, p, 'ELIMINAR');
     });
 
     // Show request detail modal

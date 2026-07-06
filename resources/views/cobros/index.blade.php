@@ -7,12 +7,13 @@
 @section('content')
 <style>
     .charge-card {
-        border: 1px solid rgba(0,0,0,.08);
+        border: 1px solid var(--border);
         border-radius: 18px;
-        background: var(--bs-body-bg);
-        box-shadow: 0 10px 28px rgba(15, 23, 42, .08);
+        background: var(--card);
+        box-shadow: var(--shadow-lg);
         padding: 18px;
         margin-bottom: 16px;
+        color: var(--text);
     }
 
     .charge-title {
@@ -21,22 +22,23 @@
     }
 
     .charge-muted {
-        color: #6b7280;
+        color: var(--muted);
         font-size: .9rem;
     }
 
     .summary-box {
         border-radius: 16px;
         padding: 14px;
-        border: 1px solid rgba(0,0,0,.08);
-        background: rgba(248,249,250,.8);
+        border: 1px solid var(--border);
+        background: var(--hover-bg);
         height: 100%;
+        color: var(--text);
     }
 
     .summary-box .label {
         font-size: .75rem;
         text-transform: uppercase;
-        color: #6b7280;
+        color: var(--muted);
         font-weight: 700;
         letter-spacing: .02em;
     }
@@ -45,14 +47,16 @@
         font-size: 1.25rem;
         font-weight: 800;
         margin-top: 4px;
+        color: var(--text);
     }
 
     .concept-row {
-        border-left: 5px solid #6b7280;
+        border-left: 5px solid var(--muted);
         border-radius: 12px;
         padding: 10px 12px;
-        background: rgba(248,249,250,.9);
+        background: var(--hover-bg);
         margin-bottom: 8px;
+        color: var(--text);
     }
 
     .concept-row.danger {
@@ -81,45 +85,47 @@
     }
 
     .badge-status.success {
-        background: #dcfce7;
-        color: #166534;
+        background: rgba(22, 163, 74, 0.15);
+        color: #16a34a;
     }
 
     .badge-status.danger {
-        background: #fee2e2;
-        color: #991b1b;
+        background: rgba(220, 38, 38, 0.15);
+        color: #dc2626;
     }
 
     .badge-status.warning {
-        background: #fef3c7;
-        color: #92400e;
+        background: rgba(245, 158, 11, 0.15);
+        color: #d97706;
     }
 
     .badge-status.secondary {
-        background: #e5e7eb;
-        color: #374151;
+        background: var(--hover-bg);
+        color: var(--muted);
     }
 
     .money-input {
         font-size: 1.35rem;
         font-weight: 800;
+        background: var(--input-bg);
+        color: var(--text);
     }
 
     .blocked-box {
-        border: 1px solid #fecaca;
-        background: #fef2f2;
-        color: #991b1b;
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        background: rgba(220, 38, 38, 0.1);
+        color: #ef4444;
         border-radius: 16px;
         padding: 14px;
         font-weight: 700;
     }
 
     .empty-state {
-        border: 1px dashed rgba(0,0,0,.2);
+        border: 1px dashed var(--border);
         border-radius: 18px;
         padding: 32px;
         text-align: center;
-        color: #6b7280;
+        color: var(--muted);
     }
 
     #modalAssociatedCharges .modal-dialog {
