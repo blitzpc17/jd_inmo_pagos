@@ -41,11 +41,16 @@
                                 <div class="card-body">
                                     <h6 class="fw-bold mb-3"><i class="fa-solid fa-chart-pie me-1"></i> Totales Generales</h6>
                                     <div class="row g-3">
-                                        <div class="col-6"><label class="form-label text-muted small mb-0">Total a Pagar</label><input type="text" class="form-control form-control-sm" id="s_total" readonly></div>
-                                        <div class="col-6"><label class="form-label text-muted small mb-0">Enganche</label><input type="text" class="form-control form-control-sm" id="s_enganche" readonly></div>
-                                        <div class="col-6"><label class="form-label text-muted small mb-0">Resta por Pagar</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="s_debe" readonly></div>
-                                        <div class="col-6"><label class="form-label text-muted small mb-0">Tiempo a Pagar (Meses)</label><input type="text" class="form-control form-control-sm" id="s_meses" readonly></div>
-                                        <div class="col-12"><label class="form-label text-muted small mb-0">Letra Mensual</label><input type="text" class="form-control form-control-sm text-primary fw-bold" id="s_mensualidad" readonly></div>
+                                        <div class="col-4"><label class="form-label text-muted small mb-0">Total a Pagar (Capital)</label><input type="text" class="form-control form-control-sm" id="s_total" readonly></div>
+                                        <div class="col-4"><label class="form-label text-muted small mb-0">Enganche</label><input type="text" class="form-control form-control-sm" id="s_enganche" readonly></div>
+                                        <div class="col-4"><label class="form-label text-muted small mb-0">Meses</label><input type="text" class="form-control form-control-sm" id="s_meses" readonly></div>
+                                        
+                                        <div class="col-6"><label class="form-label text-muted small mb-0">Capital Pendiente</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="s_debe" readonly></div>
+                                        <div class="col-6"><label class="form-label text-muted small mb-0">Letra Mensual</label><input type="text" class="form-control form-control-sm text-primary fw-bold" id="s_mensualidad" readonly></div>
+                                        
+                                        <div class="col-4 mt-4"><label class="form-label text-muted small mb-0">Interés Generado</label><input type="text" class="form-control form-control-sm text-warning fw-bold" id="s_interes_acumulado" readonly></div>
+                                        <div class="col-4 mt-4"><label class="form-label text-muted small mb-0">Interés Pagado</label><input type="text" class="form-control form-control-sm text-success fw-bold" id="s_interes_pagado" readonly></div>
+                                        <div class="col-4 mt-4"><label class="form-label text-muted small mb-0">Interés Pendiente</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="s_interes_pendiente" readonly></div>
                                     </div>
                                 </div>
                             </div>
@@ -105,8 +110,8 @@
                                         <th>F. Programada</th>
                                         <th>Cant. a Pagar</th>
                                         <th>F. de Pago (Real)</th>
-                                        <th>Monto Pagado</th>
-                                        <th>Interés</th>
+                                        <th>Monto Pagado (Abono)</th>
+                                        <th>Interés Generado (Cargo)</th>
                                         <th>Forma de pago</th>
                                         <th>Observaciones</th>
                                         <th>Acción</th>
@@ -127,8 +132,8 @@
                                         <th>F. Programada</th>
                                         <th>Cant. a Pagar</th>
                                         <th>F. de Pago (Real)</th>
-                                        <th>Monto Pagado</th>
-                                        <th>Interés</th>
+                                        <th>Monto Pagado (Abono)</th>
+                                        <th>Interés Generado (Cargo)</th>
                                         <th>Forma de pago</th>
                                         <th>Observaciones</th>
                                         <th>Recibo</th>
@@ -198,7 +203,7 @@
     }
 
     function resetSummary() {
-        ['s_total','s_mensualidad','s_meses','s_debe','s_total_socio','s_enganche','s_enganche_socio','s_debe_socio','s_meses_socio','s_mensualidad_socio']
+        ['s_total','s_mensualidad','s_meses','s_debe','s_total_socio','s_enganche','s_enganche_socio','s_debe_socio','s_meses_socio','s_mensualidad_socio', 's_interes_acumulado', 's_interes_pagado', 's_interes_pendiente']
             .forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
@@ -267,6 +272,10 @@
             document.getElementById('s_debe').value = fCurrency(debe);
             document.getElementById('s_meses').value = meses;
             document.getElementById('s_mensualidad').value = fCurrency(mensualidad);
+            
+            document.getElementById('s_interes_acumulado').value = fCurrency(d.interes_acumulado || 0);
+            document.getElementById('s_interes_pagado').value = fCurrency(d.interes_pagado || 0);
+            document.getElementById('s_interes_pendiente').value = fCurrency(d.interes_pendiente || 0);
             
             // Por Socio Dinámico
             const partnerContainer = document.getElementById('s_partner_container');
@@ -381,30 +390,29 @@
 
         let progStr = '';
         let cantPagar = '';
+        let initialCapital = '';
+        let initialInterest = '';
+        let observacionStr = '';
 
         if (currentVoucher && currentVoucher.schedules) {
-            // Find the first schedule that is not fully paid
-            // We must also account for any rows already added in the current UI
-            let alreadyAllocated = 0;
+            let alreadyAllocatedCapital = 0;
+            let alreadyAllocatedInterest = 0;
             document.querySelectorAll('#abonoAcreedorItemsBody tr').forEach(row => {
-                const amountInput = row.querySelector('.item-cantidad');
-                if (amountInput) {
-                    alreadyAllocated += parseFloat(amountInput.value) || 0;
-                }
+                alreadyAllocatedCapital += parseFloat(row.querySelector('.item-cantidad')?.value || 0);
+                alreadyAllocatedInterest += parseFloat(row.querySelector('.item-interes')?.value || 0);
             });
 
-            // Iterate over schedules to find the pending one taking into account 'alreadyAllocated'
             let pendingAmount = 0;
             let targetSchedule = null;
 
             for (const sc of currentVoucher.schedules) {
-                if (sc.status !== 'PAID' && sc.status !== 'PAGADO') { // Just to be safe with DB status strings
+                if (sc.status !== 'PAID' && sc.status !== 'PAGADO') {
                     let schedulePending = parseFloat(sc.amount) - parseFloat(sc.amount_paid);
-                    if (alreadyAllocated >= schedulePending) {
-                        alreadyAllocated -= schedulePending;
+                    if (alreadyAllocatedCapital >= schedulePending) {
+                        alreadyAllocatedCapital -= schedulePending;
                     } else {
-                        schedulePending -= alreadyAllocated;
-                        alreadyAllocated = 0;
+                        schedulePending -= alreadyAllocatedCapital;
+                        alreadyAllocatedCapital = 0;
                         targetSchedule = sc;
                         pendingAmount = schedulePending;
                         break;
@@ -415,14 +423,25 @@
             if (targetSchedule) {
                 progStr = targetSchedule.due_date;
                 cantPagar = pendingAmount.toFixed(2);
+                initialCapital = cantPagar;
             } else {
-                cantPagar = (parseFloat(currentVoucher.mensualidad) || 0).toFixed(2);
-                
-                const tableRows = document.querySelectorAll('#abonoAcreedorItemsBody tr').length;
-                const monthOffset = (currentVoucher.schedules.length || 0) + tableRows + 1;
-                const f = new Date((currentVoucher.fecha_inicio || today) + 'T00:00:00');
-                f.setMonth(f.getMonth() + monthOffset);
-                progStr = f.toISOString().slice(0, 10);
+                let interesPendiente = parseFloat(currentVoucher.interes_pendiente) || 0;
+                if (interesPendiente > alreadyAllocatedInterest) {
+                    cantPagar = (interesPendiente - alreadyAllocatedInterest).toFixed(2);
+                    initialCapital = '0.00';
+                    initialInterest = (interesPendiente - alreadyAllocatedInterest).toFixed(2);
+                    observacionStr = 'Pago de interés';
+                    progStr = today;
+                } else {
+                    cantPagar = (parseFloat(currentVoucher.mensualidad) || 0).toFixed(2);
+                    initialCapital = cantPagar;
+                    
+                    const tableRows = document.querySelectorAll('#abonoAcreedorItemsBody tr').length;
+                    const monthOffset = (currentVoucher.schedules.length || 0) + tableRows + 1;
+                    const f = new Date((currentVoucher.fecha_inicio || today) + 'T00:00:00');
+                    f.setMonth(f.getMonth() + monthOffset);
+                    progStr = f.toISOString().slice(0, 10);
+                }
             }
         }
 
@@ -432,10 +451,10 @@
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-programada" value="${progStr}"></td>
                 <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm item-cant-pagar" value="${cantPagar}" readonly></td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-fecha" value="${today}"></td>
-                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm text-success fw-bold item-cantidad" value="${cantPagar}"></td>
-                <td style="min-width: 120px;"><input type="number" step="0.01" class="form-control form-control-sm text-danger item-interes"></td>
+                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm text-success fw-bold item-cantidad" value="${initialCapital}"></td>
+                <td style="min-width: 120px;"><input type="number" step="0.01" class="form-control form-control-sm text-danger item-interes" value="${initialInterest}"></td>
                 <td style="min-width: 160px;"><select class="form-select form-select-sm item-payment-method">${paymentMethodOptionsHtml()}</select></td>
-                <td style="min-width: 160px;"><input type="text" class="form-control form-control-sm item-observacion"></td>
+                <td style="min-width: 160px;"><input type="text" class="form-control form-control-sm item-observacion" value="${observacionStr}"></td>
                 <td class="text-center" style="min-width: 60px;">
                     <button type="button" class="btn btn-sm btn-outline-danger btn-remove-item">
                         <i class="fa-solid fa-trash"></i>
@@ -458,7 +477,7 @@
             const payment_method_id = row.querySelector('.item-payment-method')?.value || '';
             const observaciones = row.querySelector('.item-observacion')?.value || null;
 
-            if (fecha_recibido && payment_method_id && cantidad > 0) {
+            if (fecha_recibido && payment_method_id && (cantidad > 0 || interes_pagado > 0)) {
                 items.push({
                     fecha_pago_programada,
                     cantidad_a_pagar,
@@ -491,6 +510,19 @@
         const items = buildPayload();
         if (!items.length) {
             return Swal.fire({ icon: 'warning', title: 'Debes capturar al menos un abono válido' });
+        }
+
+        if (currentVoucher) {
+            const totalCapitalToPay = items.reduce((sum, item) => sum + parseFloat(item.cantidad || 0), 0);
+            const remainingCapital = parseFloat(currentVoucher.saldo_pendiente || 0);
+            
+            if (parseFloat(totalCapitalToPay.toFixed(2)) > parseFloat(remainingCapital.toFixed(2))) {
+                return Swal.fire({ 
+                    icon: 'warning', 
+                    title: 'Monto Excedido', 
+                    text: `El total a abonar a capital ($${totalCapitalToPay.toLocaleString('en-US', {minimumFractionDigits: 2})}) no puede ser mayor al saldo pendiente de capital ($${remainingCapital.toLocaleString('en-US', {minimumFractionDigits: 2})}).`
+                });
+            }
         }
 
         const payload = {

@@ -49,16 +49,40 @@ class CreditorVoucherPaymentController extends Controller
             ->whereNull('cv.fecha_baja')
             ->orderByDesc('cv.id')
             ->get([
-                'cv.id as value',
-                DB::raw("
-                    cv.numero_referencia
-                    || ' | TOTAL: ' || cv.total
-                    || ' | PAGADO: ' || cv.total_pagado
-                    || ' | DEBE: ' || cv.saldo_pendiente as text
-                ")
+                'cv.id',
+                'cv.numero_referencia',
+                'cv.total',
+                'cv.enganche',
+                'cv.total_pagado',
+                'cv.saldo_pendiente',
+                'cv.fecha_inicio',
+                'cv.fecha_registro',
+                'cv.meses',
+                'cv.mensualidad'
             ]);
 
-        return response()->json($rows);
+        $result = [];
+        foreach ($rows as $row) {
+            $progress = $this->getVoucherProgressStatus($row);
+            
+            if ($progress['estado_pago'] === 'LIQUIDADO') {
+                continue;
+            }
+            
+            $interesPendiente = $progress['interes_pendiente'] ?? 0;
+            
+            $text = "{$row->numero_referencia} | TOTAL: {$row->total} | PAGADO: {$row->total_pagado} | DEBE: {$row->saldo_pendiente}";
+            if ($interesPendiente > 0) {
+                $text .= " | INT. PENDIENTE: " . number_format($interesPendiente, 2, '.', '');
+            }
+            
+            $result[] = [
+                'value' => $row->id,
+                'text'  => $text
+            ];
+        }
+
+        return response()->json($result);
     }
 
     public function voucherSummary(int $voucherId)
@@ -126,6 +150,9 @@ class CreditorVoucherPaymentController extends Controller
                 'meses_exigibles' => $progress['meses_exigibles'],
                 'diferencia' => $progress['diferencia'],
                 'estado_pago' => $progress['estado_pago'],
+                'interes_acumulado' => $progress['interes_acumulado'],
+                'interes_pagado' => $progress['interes_pagado'],
+                'interes_pendiente' => $progress['interes_pendiente'],
                 'items' => $items,
                 'schedules' => $schedules,
             ]
@@ -141,12 +168,26 @@ class CreditorVoucherPaymentController extends Controller
             'items.*.cantidad_a_pagar' => ['nullable', 'numeric', 'min:0'],
             'items.*.fecha_recibido' => ['required', 'date'],
             'items.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
-            'items.*.cantidad' => ['required', 'numeric', 'min:0.01'],
+            'items.*.cantidad' => ['required', 'numeric', 'min:0'],
             'items.*.interes_pagado' => ['nullable', 'numeric', 'min:0'],
             'items.*.observaciones' => ['nullable', 'string'],
         ])->validate();
 
         $statusId = $this->getActiveStatusId();
+
+        $voucher = DB::table('creditor_vouchers')->where('id', $data['creditor_voucher_id'])->first();
+        if (!$voucher) {
+            return response()->json(['message' => 'Boleta no encontrada.'], 404);
+        }
+
+        $totalCapitalPagadoNuevo = collect($data['items'])->sum('cantidad');
+        $saldoPendiente = (float) $voucher->saldo_pendiente;
+
+        if (round($totalCapitalPagadoNuevo, 2) > round($saldoPendiente, 2)) {
+            return response()->json([
+                'message' => 'El total abonado a capital ($' . number_format($totalCapitalPagadoNuevo, 2) . ') excede el saldo pendiente de capital ($' . number_format($saldoPendiente, 2) . ').'
+            ], 422);
+        }
 
         DB::beginTransaction();
 
@@ -196,14 +237,25 @@ class CreditorVoucherPaymentController extends Controller
             ->where('creditor_voucher_id', $voucherId)
             ->whereNull('fecha_baja')
             ->sum('cantidad');
+            
+        $interesGenerado = (float) DB::table('creditor_voucher_items')
+            ->where('creditor_voucher_id', $voucherId)
+            ->whereNull('fecha_baja')
+            ->sum('interes_pagado'); // interes_pagado in DB represents interes_generado from UI
 
-        $saldoPendiente = max(0, (float) $voucher->total - (float) $voucher->enganche - $totalPagado);
+        $capitalTotal = max(0, (float) $voucher->total - (float) $voucher->enganche);
+        $capitalPagado = min($totalPagado, $capitalTotal);
+        $excesoParaInteres = max(0, $totalPagado - $capitalTotal);
+
+        $interesPagado = min($excesoParaInteres, $interesGenerado);
+        
+        $saldoPendienteCapital = $capitalTotal - $capitalPagado;
 
         DB::table('creditor_vouchers')
             ->where('id', $voucherId)
             ->update([
                 'total_pagado' => $totalPagado,
-                'saldo_pendiente' => $saldoPendiente,
+                'saldo_pendiente' => $saldoPendienteCapital,
                 'updated_at' => now(),
             ]);
 
@@ -222,11 +274,11 @@ class CreditorVoucherPaymentController extends Controller
                 $remainingPaid -= $amount;
             } elseif ($remainingPaid > 0) {
                 $paid = $remainingPaid;
-                $status = 'PARTIAL';
+                $status = ($saldoPendienteCapital <= 0.01) ? 'PAID' : 'PARTIAL';
                 $remainingPaid = 0;
             } else {
                 $paid = 0;
-                $status = 'PENDING';
+                $status = ($saldoPendienteCapital <= 0.01) ? 'PAID' : 'PENDING';
             }
 
             DB::table('creditor_payment_schedules')
@@ -248,17 +300,44 @@ class CreditorVoucherPaymentController extends Controller
         $mesesExigibles = min((int) $voucher->meses, $mesesTranscurridos);
 
         $deberiaLlevar = round($mesesExigibles * (float) $voucher->mensualidad, 2);
-        $haPagado = (float) $voucher->total_pagado;
-        $diferencia = round($deberiaLlevar - $haPagado, 2);
+        
+        $totalAbonado = (float) DB::table('creditor_voucher_items')
+            ->where('creditor_voucher_id', $voucher->id)
+            ->whereNull('fecha_baja')
+            ->sum('cantidad');
+            
+        $interesGenerado = (float) DB::table('creditor_voucher_items')
+            ->where('creditor_voucher_id', $voucher->id)
+            ->whereNull('fecha_baja')
+            ->sum('interes_pagado');
+            
+        $capitalTotal = max(0, (float) $voucher->total - (float) $voucher->enganche);
+        $capitalPagado = min($totalAbonado, $capitalTotal);
+        $excesoParaInteres = max(0, $totalAbonado - $capitalTotal);
 
-        $estadoPago = $diferencia > 0.009 ? 'ATRASADO' : 'AL CORRIENTE';
+        $interesPagado = min($excesoParaInteres, $interesGenerado);
+        
+        $saldoPendienteCapital = $capitalTotal - $capitalPagado;
+        $saldoInteresPendiente = $interesGenerado - $interesPagado;
+        
+        $diferencia = round($deberiaLlevar - $capitalPagado, 2);
+
+        $estadoPago = 'AL CORRIENTE';
+        if ($saldoPendienteCapital <= 0.009 && $saldoInteresPendiente <= 0.009) {
+            $estadoPago = 'LIQUIDADO';
+        } elseif ($diferencia > 0.009) {
+            $estadoPago = 'ATRASADO';
+        }
 
         return [
             'meses_exigibles' => $mesesExigibles,
             'deberia_llevar' => $deberiaLlevar,
-            'ha_pagado' => $haPagado,
+            'ha_pagado' => $capitalPagado,
             'diferencia' => max(0, $diferencia),
             'estado_pago' => $estadoPago,
+            'interes_acumulado' => $interesGenerado,
+            'interes_pagado' => $interesPagado,
+            'interes_pendiente' => $saldoInteresPendiente,
         ];
     }
 

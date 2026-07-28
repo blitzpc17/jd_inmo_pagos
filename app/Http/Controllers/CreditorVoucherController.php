@@ -24,6 +24,7 @@ class CreditorVoucherController extends Controller
                 'cv.id',
                 'cv.numero_referencia',
                 'cv.total',
+                'cv.enganche',
                 'cv.meses',
                 'cv.mensualidad',
                 'cv.total_pagado',
@@ -40,6 +41,9 @@ class CreditorVoucherController extends Controller
                 $r->acreedor = trim(($r->nombres ?? '') . ' ' . ($r->apellidos ?? ''));
 
                 $progress = $this->getVoucherProgressStatus((object) [
+                    'id' => $r->id,
+                    'total' => $r->total,
+                    'enganche' => $r->enganche ?? 0,
                     'fecha_registro' => $r->fecha_registro,
                     'meses' => $r->meses,
                     'mensualidad' => $r->mensualidad,
@@ -49,9 +53,14 @@ class CreditorVoucherController extends Controller
                 $r->estado_pago_texto = $progress['estado_pago'];
                 $r->deberia_llevar = $progress['deberia_llevar'];
                 $r->diferencia = $progress['diferencia'];
-                $r->estado_pago_badge = $progress['estado_pago'] === 'ATRASADO'
-                    ? '<span class="badge bg-danger">ATRASADO</span>'
-                    : '<span class="badge bg-success">AL CORRIENTE</span>';
+                
+                $badge = '<span class="badge bg-success">AL CORRIENTE</span>';
+                if ($progress['estado_pago'] === 'ATRASADO') {
+                    $badge = '<span class="badge bg-danger">ATRASADO</span>';
+                } elseif ($progress['estado_pago'] === 'LIQUIDADO') {
+                    $badge = '<span class="badge bg-primary">LIQUIDADO</span>';
+                }
+                $r->estado_pago_badge = $badge;
 
                 $r->acciones = '
                     <button class="btn btn-sm btn-outline-info btn-view" data-id="'.$r->id.'">
@@ -151,13 +160,22 @@ class CreditorVoucherController extends Controller
                 ]);
 
             $schedules = [];
+            $totalCapital = (float) $total - (float) $enganche;
+            $accumulated = 0;
             for ($i = 1; $i <= $meses; $i++) {
                 $dueDate = $fechaInicio->copy()->addMonths($i);
+                $isLast = ($i === (int)$meses);
+                if ($isLast) {
+                    $amount = round($totalCapital - $accumulated, 2);
+                } else {
+                    $amount = (float) $mensualidad;
+                    $accumulated += $amount;
+                }
                 $schedules[] = [
                     'creditor_voucher_id' => $voucherId,
                     'installment_number' => $i,
                     'due_date' => $dueDate->toDateString(),
-                    'amount' => $mensualidad,
+                    'amount' => $amount,
                     'amount_paid' => 0,
                     'status' => 'PENDING',
                     'created_at' => now(),
@@ -272,17 +290,44 @@ class CreditorVoucherController extends Controller
         $mesesExigibles = min((int) $voucher->meses, $mesesTranscurridos);
 
         $deberiaLlevar = round($mesesExigibles * (float) $voucher->mensualidad, 2);
-        $haPagado = (float) $voucher->total_pagado;
-        $diferencia = round($deberiaLlevar - $haPagado, 2);
+        
+        $totalAbonado = (float) DB::table('creditor_voucher_items')
+            ->where('creditor_voucher_id', $voucher->id)
+            ->whereNull('fecha_baja')
+            ->sum('cantidad');
+            
+        $interesGenerado = (float) DB::table('creditor_voucher_items')
+            ->where('creditor_voucher_id', $voucher->id)
+            ->whereNull('fecha_baja')
+            ->sum('interes_pagado');
+            
+        $capitalTotal = max(0, (float) $voucher->total - (float) $voucher->enganche);
+        $capitalPagado = min($totalAbonado, $capitalTotal);
+        $excesoParaInteres = max(0, $totalAbonado - $capitalTotal);
 
-        $estadoPago = $diferencia > 0.009 ? 'ATRASADO' : 'AL CORRIENTE';
+        $interesPagado = min($excesoParaInteres, $interesGenerado);
+        
+        $saldoPendienteCapital = $capitalTotal - $capitalPagado;
+        $saldoInteresPendiente = $interesGenerado - $interesPagado;
+        
+        $diferencia = round($deberiaLlevar - $capitalPagado, 2);
+
+        $estadoPago = 'AL CORRIENTE';
+        if ($saldoPendienteCapital <= 0.009 && $saldoInteresPendiente <= 0.009) {
+            $estadoPago = 'LIQUIDADO';
+        } elseif ($diferencia > 0.009) {
+            $estadoPago = 'ATRASADO';
+        }
 
         return [
             'meses_exigibles' => $mesesExigibles,
             'deberia_llevar' => $deberiaLlevar,
-            'ha_pagado' => $haPagado,
+            'ha_pagado' => $capitalPagado,
             'diferencia' => max(0, $diferencia),
             'estado_pago' => $estadoPago,
+            'interes_acumulado' => $interesGenerado,
+            'interes_pagado' => $interesPagado,
+            'interes_pendiente' => $saldoInteresPendiente,
         ];
     }
 

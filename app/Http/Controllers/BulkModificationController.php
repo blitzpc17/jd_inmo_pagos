@@ -362,17 +362,17 @@ class BulkModificationController extends Controller
                         ]);
                     } elseif ($type === 'BOLETA_ACREEDOR') {
                         DB::table('creditor_vouchers')->where('id', $recordId)->update([
-                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId
+                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId, 'status_id' => 14
                         ]);
                         DB::table('creditor_payment_schedules')->where('creditor_voucher_id', $recordId)->update([
                             'status' => 'CANCELADO', 'updated_at' => now()
                         ]);
                         DB::table('creditor_voucher_items')->where('creditor_voucher_id', $recordId)->update([
-                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId
+                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId, 'status_id' => 14
                         ]);
                     } elseif ($type === 'PARTIDA_ACREEDOR') {
                         DB::table('creditor_voucher_items')->where('id', $recordId)->update([
-                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId
+                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId, 'status_id' => 14
                         ]);
                         $boletaId = DB::table('creditor_voucher_items')->where('id', $recordId)->value('creditor_voucher_id');
                         if ($boletaId) {
@@ -449,16 +449,24 @@ class BulkModificationController extends Controller
                                 // Destroy old schedules
                                 DB::table('creditor_payment_schedules')->where('creditor_voucher_id', $recordId)->delete();
                                 
-                                // Recreate schedules
                                 $schedules = [];
                                 $fechaInicio = \Carbon\Carbon::parse($boleta->fecha_inicio);
+                                $totalCapital = (float) $boleta->total - (float) $boleta->enganche;
+                                $accumulated = 0;
                                 for ($i = 1; $i <= $boleta->meses; $i++) {
                                     $dueDate = $fechaInicio->copy()->addMonths($i);
+                                    $isLast = ($i === (int)$boleta->meses);
+                                    if ($isLast) {
+                                        $amount = round($totalCapital - $accumulated, 2);
+                                    } else {
+                                        $amount = (float) $boleta->mensualidad;
+                                        $accumulated += $amount;
+                                    }
                                     $schedules[] = [
                                         'creditor_voucher_id' => $recordId,
                                         'installment_number' => $i,
                                         'due_date' => $dueDate->toDateString(),
-                                        'amount' => $boleta->mensualidad,
+                                        'amount' => $amount,
                                         'amount_paid' => 0,
                                         'status' => 'PENDING',
                                         'created_at' => now(),
