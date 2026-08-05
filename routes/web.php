@@ -362,6 +362,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     Route::prefix('acreedores')->name('acreedores.')->group(function () {
         Route::get('/', [CreditorController::class, 'index'])->name('index');
         Route::get('/datatable', [CreditorController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [CreditorController::class, 'options'])->name('options');
         Route::post('/', [CreditorController::class, 'store'])->name('store');
         Route::get('/{id}', [CreditorController::class, 'show'])->name('show');
         Route::put('/{id}', [CreditorController::class, 'update'])->name('update');
