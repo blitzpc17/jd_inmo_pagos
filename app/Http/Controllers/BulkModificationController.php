@@ -68,17 +68,17 @@ class BulkModificationController extends Controller
                     $ref = DB::table('contracts')->where('id', $item->record_id)->value('numero_referencia');
                 } elseif ($request->type === 'APARTADO') {
                     $ref = DB::table('reservations')->where('id', $item->record_id)->value('numero_referencia');
-                } elseif ($request->type === 'BOLETA_PROVEEDOR') {
-                    $ref = DB::table('supplier_payments')->where('id', $item->record_id)->value('numero_referencia');
-                } elseif ($request->type === 'PARTIDA_PROVEEDOR') {
-                    $boletaId = DB::table('supplier_payment_concepts')->where('id', $item->record_id)->value('supplier_payment_id');
-                    $refBoleta = DB::table('supplier_payments')->where('id', $boletaId)->value('numero_referencia');
-                    $ref = $refBoleta ? ('Boleta: ' . $refBoleta . ' - Partida ID: ' . $item->record_id) : '';
                 } elseif ($request->type === 'BOLETA_ACREEDOR') {
-                    $ref = DB::table('creditor_vouchers')->where('id', $item->record_id)->value('numero_referencia');
+                    $ref = DB::table('creditor_payments')->where('id', $item->record_id)->value('numero_referencia');
                 } elseif ($request->type === 'PARTIDA_ACREEDOR') {
-                    $boletaId = DB::table('creditor_voucher_items')->where('id', $item->record_id)->value('creditor_voucher_id');
-                    $refBoleta = DB::table('creditor_vouchers')->where('id', $boletaId)->value('numero_referencia');
+                    $boletaId = DB::table('creditor_payment_concepts')->where('id', $item->record_id)->value('creditor_payment_id');
+                    $refBoleta = DB::table('creditor_payments')->where('id', $boletaId)->value('numero_referencia');
+                    $ref = $refBoleta ? ('Boleta: ' . $refBoleta . ' - Partida ID: ' . $item->record_id) : '';
+                } elseif ($request->type === 'BOLETA_PROVEEDOR') {
+                    $ref = DB::table('supplier_vouchers')->where('id', $item->record_id)->value('numero_referencia');
+                } elseif ($request->type === 'PARTIDA_PROVEEDOR') {
+                    $boletaId = DB::table('supplier_voucher_items')->where('id', $item->record_id)->value('supplier_voucher_id');
+                    $refBoleta = DB::table('supplier_vouchers')->where('id', $boletaId)->value('numero_referencia');
                     $ref = $refBoleta ? ('Boleta: ' . $refBoleta . ' - Partida ID: ' . $item->record_id) : '';
                 }
                 $item->reference = $ref ?: ('ID: ' . $item->record_id);
@@ -96,7 +96,7 @@ class BulkModificationController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'type' => ['required', 'string', 'in:COBRO,CONTRATO,APARTADO,BOLETA_PROVEEDOR,PARTIDA_PROVEEDOR,BOLETA_ACREEDOR,PARTIDA_ACREEDOR'],
+            'type' => ['required', 'string', 'in:COBRO,CONTRATO,APARTADO,BOLETA_ACREEDOR,PARTIDA_ACREEDOR,BOLETA_PROVEEDOR,PARTIDA_PROVEEDOR'],
             'justification' => ['required', 'string', 'min:5'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.record_id' => ['required', 'integer'],
@@ -349,34 +349,34 @@ class BulkModificationController extends Controller
                                     'updated_at' => now(),
                                 ]);
                         }
-                    } elseif ($type === 'BOLETA_PROVEEDOR') {
-                        DB::table('supplier_payments')->where('id', $recordId)->update([
-                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId
-                        ]);
-                        DB::table('supplier_payment_concepts')->where('supplier_payment_id', $recordId)->update([
-                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId
-                        ]);
-                    } elseif ($type === 'PARTIDA_PROVEEDOR') {
-                        DB::table('supplier_payment_concepts')->where('id', $recordId)->update([
-                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId
-                        ]);
                     } elseif ($type === 'BOLETA_ACREEDOR') {
-                        DB::table('creditor_vouchers')->where('id', $recordId)->update([
-                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId, 'status_id' => 14
+                        DB::table('creditor_payments')->where('id', $recordId)->update([
+                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId
                         ]);
-                        DB::table('creditor_payment_schedules')->where('creditor_voucher_id', $recordId)->update([
-                            'status' => 'CANCELADO', 'updated_at' => now()
-                        ]);
-                        DB::table('creditor_voucher_items')->where('creditor_voucher_id', $recordId)->update([
-                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId, 'status_id' => 14
+                        DB::table('creditor_payment_concepts')->where('creditor_payment_id', $recordId)->update([
+                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId
                         ]);
                     } elseif ($type === 'PARTIDA_ACREEDOR') {
-                        DB::table('creditor_voucher_items')->where('id', $recordId)->update([
+                        DB::table('creditor_payment_concepts')->where('id', $recordId)->update([
+                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId
+                        ]);
+                    } elseif ($type === 'BOLETA_PROVEEDOR') {
+                        DB::table('supplier_vouchers')->where('id', $recordId)->update([
                             'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId, 'status_id' => 14
                         ]);
-                        $boletaId = DB::table('creditor_voucher_items')->where('id', $recordId)->value('creditor_voucher_id');
+                        DB::table('supplier_payment_schedules')->where('supplier_voucher_id', $recordId)->update([
+                            'status' => 'CANCELADO', 'updated_at' => now()
+                        ]);
+                        DB::table('supplier_voucher_items')->where('supplier_voucher_id', $recordId)->update([
+                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId, 'status_id' => 14
+                        ]);
+                    } elseif ($type === 'PARTIDA_PROVEEDOR') {
+                        DB::table('supplier_voucher_items')->where('id', $recordId)->update([
+                            'fecha_baja' => now(), 'updated_at' => now(), 'usuario_baja_id' => $userId, 'status_id' => 14
+                        ]);
+                        $boletaId = DB::table('supplier_voucher_items')->where('id', $recordId)->value('supplier_voucher_id');
                         if ($boletaId) {
-                            app(\App\Http\Controllers\CreditorVoucherPaymentController::class)->recalculateVoucherTotals((int)$boletaId);
+                            app(\App\Http\Controllers\SupplierVoucherPaymentController::class)->recalculateVoucherTotals((int)$boletaId);
                         }
                     }
                 } else {
@@ -401,8 +401,8 @@ class BulkModificationController extends Controller
                     }
 
                     // For Boletas Proveedor, recalculate fecha_fin if fecha_inicio or plazo changes
-                    if ($type === 'BOLETA_PROVEEDOR') {
-                        $oldBoleta = DB::table('supplier_payments')->where('id', $recordId)->first();
+                    if ($type === 'BOLETA_ACREEDOR') {
+                        $oldBoleta = DB::table('creditor_payments')->where('id', $recordId)->first();
                         $newFechaInicio = $newData['fecha_inicio'] ?? $oldBoleta->fecha_inicio;
                         $newPlazo = $newData['plazo'] ?? $oldBoleta->plazo;
                         
@@ -411,20 +411,29 @@ class BulkModificationController extends Controller
                         }
                     }
 
-                    if ($type === 'PARTIDA_ACREEDOR') {
-                        unset($newData['forma_pago']);
+                    if ($type === 'PARTIDA_PROVEEDOR') {
+                        unset($newData['forma_pago'], $newData['concepto']);
+                        
+                        if (array_key_exists('fecha', $newData)) {
+                            $newData['fecha_recibido'] = $newData['fecha'];
+                            unset($newData['fecha']);
+                        }
+                        if (array_key_exists('importe', $newData)) {
+                            $newData['cantidad'] = $newData['importe'];
+                            unset($newData['importe']);
+                        }
                         
                         if (!empty($newData)) {
                             DB::table($tableName)->where('id', $recordId)->update($newData);
                         }
 
-                        $boletaId = DB::table('creditor_voucher_items')->where('id', $recordId)->value('creditor_voucher_id');
+                        $boletaId = DB::table('supplier_voucher_items')->where('id', $recordId)->value('supplier_voucher_id');
                         if ($boletaId) {
-                            app(\App\Http\Controllers\CreditorVoucherPaymentController::class)->recalculateVoucherTotals((int)$boletaId);
+                            app(\App\Http\Controllers\SupplierVoucherPaymentController::class)->recalculateVoucherTotals((int)$boletaId);
                         }
                         continue;
-                    } elseif ($type === 'BOLETA_ACREEDOR') {
-                        $boleta = DB::table('creditor_vouchers')->where('id', $recordId)->first();
+                    } elseif ($type === 'BOLETA_PROVEEDOR') {
+                        $boleta = DB::table('supplier_vouchers')->where('id', $recordId)->first();
                         
                         // Recalculate mensualidad if total, enganche, or meses is modified
                         if (isset($newData['enganche']) || isset($newData['meses']) || isset($newData['total'])) {
@@ -442,12 +451,12 @@ class BulkModificationController extends Controller
                         }
                         
                         // Re-fetch to get updated values
-                        $boleta = DB::table('creditor_vouchers')->where('id', $recordId)->first();
+                        $boleta = DB::table('supplier_vouchers')->where('id', $recordId)->first();
                         
                         if (isset($newData['meses']) || isset($newData['fecha_inicio']) || isset($newData['mensualidad']) || isset($newData['enganche']) || isset($newData['total'])) {
                             if ($boleta && $boleta->meses > 0) {
                                 // Destroy old schedules
-                                DB::table('creditor_payment_schedules')->where('creditor_voucher_id', $recordId)->delete();
+                                DB::table('supplier_payment_schedules')->where('supplier_voucher_id', $recordId)->delete();
                                 
                                 $schedules = [];
                                 $fechaInicio = \Carbon\Carbon::parse($boleta->fecha_inicio);
@@ -463,7 +472,7 @@ class BulkModificationController extends Controller
                                         $accumulated += $amount;
                                     }
                                     $schedules[] = [
-                                        'creditor_voucher_id' => $recordId,
+                                        'supplier_voucher_id' => $recordId,
                                         'installment_number' => $i,
                                         'due_date' => $dueDate->toDateString(),
                                         'amount' => $amount,
@@ -474,9 +483,9 @@ class BulkModificationController extends Controller
                                     ];
                                 }
                                 if (!empty($schedules)) {
-                                    DB::table('creditor_payment_schedules')->insert($schedules);
+                                    DB::table('supplier_payment_schedules')->insert($schedules);
                                 }
-                                app(\App\Http\Controllers\CreditorVoucherPaymentController::class)->recalculateVoucherTotals((int)$recordId);
+                                app(\App\Http\Controllers\SupplierVoucherPaymentController::class)->recalculateVoucherTotals((int)$recordId);
                             }
                         }
                         continue;
@@ -643,7 +652,7 @@ class BulkModificationController extends Controller
             ->orderBy('u.alias')
             ->get();
 
-        $suppliers = DB::table('suppliers as s')
+        $creditors = DB::table('creditors as s')
             ->join('statuses as st', 'st.id', '=', 's.status_id')
             ->join('processes as p', 'p.id', '=', 'st.process_id')
             ->where('p.clave', 'GENERAL')
@@ -653,6 +662,14 @@ class BulkModificationController extends Controller
             ->get([
                 's.id as value',
                 's.nombre as text',
+            ]);
+
+        $suppliers = DB::table('suppliers as s')
+            ->whereNull('s.fecha_baja')
+            ->orderBy('s.nombres')
+            ->get([
+                's.id as value',
+                DB::raw("TRIM(CONCAT(COALESCE(s.nombres,''), ' ', COALESCE(s.apellidos,''))) as text")
             ]);
 
         $developments = DB::table('developments')
@@ -669,6 +686,7 @@ class BulkModificationController extends Controller
             'charge_statuses' => $chargeStatuses,
             'reservation_statuses' => $reservationStatuses,
             'available_users' => $availableUsers,
+            'creditors' => $creditors,
             'suppliers' => $suppliers,
             'developments' => $developments,
         ]);
@@ -742,9 +760,9 @@ class BulkModificationController extends Controller
         $tableName = $this->getTableName($type);
         $query = DB::table($tableName)->where($tableName . '.id', $id);
 
-        if ($type === 'BOLETA_PROVEEDOR') {
+        if ($type === 'BOLETA_ACREEDOR') {
             $query->leftJoin('developments as d', 'd.id', '=', $tableName . '.development_id')
-                  ->leftJoin('suppliers as s', 's.id', '=', $tableName . '.supplier_id')
+                  ->leftJoin('creditors as s', 's.id', '=', $tableName . '.creditor_id')
                   ->select([
                       $tableName . '.*',
                       'd.nombre as lotificacion_nombre',
@@ -854,10 +872,10 @@ class BulkModificationController extends Controller
         return response()->json($reservations);
     }
 
-    public function getSuppliers(Request $request)
+    public function getCreditors(Request $request)
     {
         $q = trim((string)$request->input('q', ''));
-        $query = DB::table('suppliers as s')
+        $query = DB::table('creditors as s')
             ->select([
                 's.id',
                 's.nombre as text'
@@ -872,12 +890,12 @@ class BulkModificationController extends Controller
         return response()->json($query->get());
     }
 
-    public function getSupplierBoletas(int $supplierId)
+    public function getCreditorBoletas(int $supplierId)
     {
-        $boletas = DB::table('supplier_payments as sp')
+        $boletas = DB::table('creditor_payments as sp')
             ->leftJoin('developments as d', 'd.id', '=', 'sp.development_id')
             ->join('statuses as st', 'st.id', '=', 'sp.status_id')
-            ->where('sp.supplier_id', $supplierId)
+            ->where('sp.creditor_id', $supplierId)
             ->select([
                 'sp.id',
                 'sp.numero_referencia',
@@ -887,7 +905,7 @@ class BulkModificationController extends Controller
                 'sp.enganche',
                 'd.nombre as lotificacion',
                 'st.nombre as estado',
-                'sp.supplier_id',
+                'sp.creditor_id',
                 'sp.development_id'
             ])
             ->orderByDesc('sp.id')
@@ -900,10 +918,10 @@ class BulkModificationController extends Controller
         return response()->json($boletas);
     }
 
-    public function getBoletaPartidas(int $boletaId)
+    public function getCreditorBoletaPartidas(int $boletaId)
     {
-        $partidas = DB::table('supplier_payment_concepts')
-            ->where('supplier_payment_id', $boletaId)
+        $partidas = DB::table('creditor_payment_concepts')
+            ->where('creditor_payment_id', $boletaId)
             ->orderBy('fecha')
             ->get()
             ->map(function($row) {
@@ -914,10 +932,10 @@ class BulkModificationController extends Controller
         return response()->json($partidas);
     }
 
-    public function getCreditors(Request $request)
+    public function getSuppliers(Request $request)
     {
         $q = trim((string)$request->input('q', ''));
-        $query = DB::table('creditors as c')
+        $query = DB::table('suppliers as c')
             ->select([
                 'c.id',
                 DB::raw("TRIM(CONCAT(COALESCE(c.nombres,''), ' ', COALESCE(c.apellidos,''))) as text")
@@ -933,11 +951,11 @@ class BulkModificationController extends Controller
         return response()->json($query->get());
     }
 
-    public function getCreditorBoletas(int $creditorId)
+    public function getSupplierBoletas(int $creditorId)
     {
-        $boletas = DB::table('creditor_vouchers as cv')
+        $boletas = DB::table('supplier_vouchers as cv')
             ->join('statuses as st', 'st.id', '=', 'cv.status_id')
-            ->where('cv.creditor_id', $creditorId)
+            ->where('cv.supplier_id', $creditorId)
             ->whereNull('cv.fecha_baja')
             ->select([
                 'cv.id',
@@ -947,7 +965,7 @@ class BulkModificationController extends Controller
                 'cv.fecha_inicio',
                 'cv.enganche',
                 'st.nombre as estado',
-                'cv.creditor_id'
+                'cv.supplier_id'
             ])
             ->orderByDesc('cv.id')
             ->get()
@@ -959,11 +977,11 @@ class BulkModificationController extends Controller
         return response()->json($boletas);
     }
 
-    public function getCreditorBoletaPartidas(int $boletaId)
+    public function getSupplierBoletaPartidas(int $boletaId)
     {
-        $partidas = DB::table('creditor_voucher_items as cvi')
+        $partidas = DB::table('supplier_voucher_items as cvi')
             ->leftJoin('payment_methods as pm', 'pm.id', '=', 'cvi.payment_method_id')
-            ->where('cvi.creditor_voucher_id', $boletaId)
+            ->where('cvi.supplier_voucher_id', $boletaId)
             ->whereNull('cvi.fecha_baja')
             ->orderBy('cvi.fecha_recibido')
             ->select([
@@ -973,6 +991,9 @@ class BulkModificationController extends Controller
             ->get()
             ->map(function($row) {
                 $row->text = 'Partida ' . $row->id . ' | ' . $row->fecha_recibido . ' | $' . number_format($row->cantidad, 2);
+                $row->fecha = $row->fecha_recibido;
+                $row->importe = $row->cantidad;
+                $row->concepto = mb_strtoupper($row->forma_pago ?? 'ABONO');
                 return $row;
             });
 
@@ -1052,10 +1073,10 @@ class BulkModificationController extends Controller
             case 'COBRO': return 'charges';
             case 'CONTRATO': return 'contracts';
             case 'APARTADO': return 'reservations';
-            case 'BOLETA_PROVEEDOR': return 'supplier_payments';
-            case 'PARTIDA_PROVEEDOR': return 'supplier_payment_concepts';
-            case 'BOLETA_ACREEDOR': return 'creditor_vouchers';
-            case 'PARTIDA_ACREEDOR': return 'creditor_voucher_items';
+            case 'BOLETA_ACREEDOR': return 'creditor_payments';
+            case 'PARTIDA_ACREEDOR': return 'creditor_payment_concepts';
+            case 'BOLETA_PROVEEDOR': return 'supplier_vouchers';
+            case 'PARTIDA_PROVEEDOR': return 'supplier_voucher_items';
             default: throw new \InvalidArgumentException("Tipo inválido: {$type}");
         }
     }

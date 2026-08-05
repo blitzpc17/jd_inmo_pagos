@@ -63,6 +63,17 @@
             --glass-border: rgba(255,255,255,0.08);
         }
 
+        /* SweetAlert2 Dark Mode */
+        [data-bs-theme="dark"] .swal2-popup {
+            background: var(--card) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border);
+        }
+        [data-bs-theme="dark"] .swal2-title, 
+        [data-bs-theme="dark"] .swal2-html-container {
+            color: var(--text) !important;
+        }
+
         /* Base Pro Styling */
         body {
             margin: 0;

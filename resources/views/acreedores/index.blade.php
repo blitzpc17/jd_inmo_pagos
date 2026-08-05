@@ -5,7 +5,7 @@
     <div class="d-flex justify-content-between align-items-center">
         <div>
             <h3 class="fw-bold mb-1">Acreedores</h3>
-            <div class="text-muted">Catálogo de acreedores</div>
+            <div class="text-muted">Catálogo de acreedores (Empresas)</div>
         </div>
         <button class="btn btn-primary" id="btnNuevoAcreedor">
             <i class="fa-solid fa-plus me-1"></i> Nuevo acreedor
@@ -19,9 +19,9 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Nombre</th>
-                    <th>Teléfono</th>
-                    <th>Dirección</th>
+                    <th>Nombre de Empresa</th>
+                    <th>Teléfonos</th>
+                    <th>Direcciones</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
@@ -34,7 +34,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <form id="formAcreedor">
-                <input type="hidden" id="acreedor_id">
+                <input type="hidden" id="acreedorId">
 
                 <div class="modal-header">
                     <h5 class="modal-title" id="acreedorModalTitle">Nuevo acreedor</h5>
@@ -43,24 +43,24 @@
 
                 <div class="modal-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Nombres</label>
-                            <input type="text" class="form-control" id="nombres" name="nombres">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Apellidos</label>
-                            <input type="text" class="form-control" id="apellidos" name="apellidos">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Teléfono</label>
-                            <input type="text" class="form-control" id="telefono" name="telefono">
-                        </div>
-
                         <div class="col-md-12">
-                            <label class="form-label">Dirección</label>
-                            <textarea class="form-control" id="direccion" name="direccion" rows="3"></textarea>
+                            <label class="form-label">Nombre de Empresa</label>
+                            <input type="text" class="form-control" id="nombre" name="nombre" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Teléfonos</label>
+                            <textarea class="form-control" id="telefonos" name="telefonos" rows="3"></textarea>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Direcciones</label>
+                            <textarea class="form-control" id="direcciones" name="direcciones" rows="3"></textarea>
+                        </div>
+
+                        <div class="col-md-6" style="display:none;">
+                            <label class="form-label">Estado</label>
+                            <select class="form-select select2-prov" id="status_id" name="status_id"></select>
                         </div>
                     </div>
                 </div>
@@ -80,11 +80,37 @@
 (() => {
     const modal = new bootstrap.Modal(document.getElementById('modalAcreedor'));
     const form = document.getElementById('formAcreedor');
+    const acreedorId = document.getElementById('acreedorId');
     let table = null;
+    let optionsCache = null;
+
+    function initSelect2() {
+        $('.select2-prov').select2({
+            theme: 'bootstrap4',
+            width: '100%',
+            dropdownParent: $('#modalAcreedor')
+        });
+    }
+
+    async function loadOptions() {
+        if (optionsCache) return optionsCache;
+        const res = await fetch('/acreedores/options');
+        optionsCache = await res.json();
+        fillSelect('status_id', optionsCache.statuses);
+        return optionsCache;
+    }
+
+    function fillSelect(id, items) {
+        const el = document.getElementById(id);
+        el.innerHTML = '<option value="">Seleccione...</option>';
+        items.forEach(item => el.innerHTML += `<option value="${item.value}">${item.text}</option>`);
+        $(el).trigger('change');
+    }
 
     function resetForm() {
         form.reset();
-        document.getElementById('acreedor_id').value = '';
+        acreedorId.value = '';
+        $('.select2-prov').val(null).trigger('change');
         document.getElementById('acreedorModalTitle').textContent = 'Nuevo acreedor';
     }
 
@@ -93,101 +119,80 @@
             ajax: { url: '/acreedores/datatable', dataSrc: 'data' },
             columns: [
                 { data: null, render: (_, __, ___, meta) => meta.row + 1 },
-                { data: 'nombre_completo' },
-                { data: 'telefono' },
-                { data: 'direccion' },
+                { data: 'nombre' },
+                { data: 'telefonos', defaultContent: '' },
+                { data: 'direcciones', defaultContent: '' },
                 { data: 'estado' },
                 { data: 'acciones', orderable: false, searchable: false }
             ],
             pageLength: 10,
             order: [],
-            language: {
-                processing: "Procesando...",
-                lengthMenu: "Mostrar _MENU_ registros",
-                zeroRecords: "No se encontraron resultados",
-                emptyTable: "No hay datos disponibles",
-                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-                infoEmpty: "Mostrando 0 a 0 de 0 registros",
-                infoFiltered: "(filtrado de _MAX_ registros totales)",
-                search: "Buscar:",
-                loadingRecords: "Cargando...",
-                paginate: {
-                    first: "Primero",
-                    last: "Último",
-                    next: "Siguiente",
-                    previous: "Anterior"
-                }
-            }
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
         });
     }
 
     async function openNew() {
+        await loadOptions();
         resetForm();
+        
+        // Find ACTIVE status
+        const activeStatus = optionsCache.statuses.find(s => s.text === 'ACTIVE');
+        if (activeStatus) {
+            $('#status_id').val(activeStatus.value).trigger('change');
+        }
+
         modal.show();
     }
 
     async function editItem(id) {
+        await loadOptions();
+        resetForm();
+
         const res = await fetch(`/acreedores/${id}`);
         const json = await res.json();
 
-        document.getElementById('acreedor_id').value = json.data.id;
-        document.getElementById('nombres').value = json.data.nombres || '';
-        document.getElementById('apellidos').value = json.data.apellidos || '';
-        document.getElementById('telefono').value = json.data.telefono || '';
-        document.getElementById('direccion').value = json.data.direccion || '';
-        document.getElementById('acreedorModalTitle').textContent = 'Editar acreedor';
+        acreedorId.value = json.data.id;
+        document.getElementById('nombre').value = json.data.nombre || '';
+        document.getElementById('telefonos').value = json.data.telefonos || '';
+        document.getElementById('direcciones').value = json.data.direcciones || '';
+        $('#status_id').val(json.data.status_id).trigger('change');
 
+        document.getElementById('acreedorModalTitle').textContent = 'Editar acreedor';
         modal.show();
     }
 
     async function saveItem(e) {
         e.preventDefault();
 
-        const id = document.getElementById('acreedor_id').value;
-        const isEdit = !!id;
+        const id = acreedorId.value;
+        const formData = new FormData(form);
+        if (id) formData.append('_method', 'PUT');
 
-        const payload = {
-            nombres: document.getElementById('nombres').value,
-            apellidos: document.getElementById('apellidos').value,
-            telefono: document.getElementById('telefono').value,
-            direccion: document.getElementById('direccion').value
-        };
+        const url = id ? `/acreedores/${id}` : '/acreedores';
 
         try {
-            const res = await fetch(isEdit ? `/acreedores/${id}` : '/acreedores', {
-                method: isEdit ? 'PUT' : 'POST',
+            const res = await fetch(url, {
+                method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Accept': 'application/json'
                 },
-                body: JSON.stringify(payload)
+                body: formData
             });
-
             const json = await res.json();
             if (!res.ok) throw new Error(json.message || 'No se pudo guardar');
 
             modal.hide();
             table.ajax.reload(null, false);
 
-            Swal.fire({
-                icon: 'success',
-                title: 'Correcto',
-                text: json.message,
-                timer: 1600,
-                showConfirmButton: false
-            });
+            Swal.fire({ icon: 'success', title: 'Correcto', text: json.message, timer: 1500, showConfirmButton: false });
         } catch (err) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: err.message
-            });
+            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
         }
     }
 
     async function deleteItem(id) {
-        const ask = await Swal.fire({
+        const result = await Swal.fire({
             icon: 'warning',
             title: '¿Dar de baja acreedor?',
             showCancelButton: true,
@@ -195,36 +200,25 @@
             cancelButtonText: 'Cancelar'
         });
 
-        if (!ask.isConfirmed) return;
+        if (!result.isConfirmed) return;
 
-        try {
-            const res = await fetch(`/acreedores/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json'
-                }
-            });
+        const res = await fetch(`/acreedores/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json'
+            }
+        });
 
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.message || 'No se pudo dar de baja');
+        const json = await res.json();
 
-            table.ajax.reload(null, false);
+        Swal.fire({
+            icon: res.ok ? 'success' : 'error',
+            title: res.ok ? 'Correcto' : 'Error',
+            text: json.message || 'No se pudo dar de baja'
+        });
 
-            Swal.fire({
-                icon: 'success',
-                title: 'Correcto',
-                text: json.message,
-                timer: 1600,
-                showConfirmButton: false
-            });
-        } catch (err) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: err.message
-            });
-        }
+        if (res.ok) table.ajax.reload(null, false);
     }
 
     document.getElementById('btnNuevoAcreedor').addEventListener('click', openNew);
@@ -238,6 +232,7 @@
         deleteItem(this.dataset.id);
     });
 
+    initSelect2();
     initTable();
 })();
 </script>

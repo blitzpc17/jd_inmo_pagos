@@ -231,15 +231,17 @@
 
                 <!-- Tabla de Partidas Proveedor -->
                 <div class="page-card mb-3 d-none" id="tablePartidasCard">
-                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-receipt me-2 text-primary"></i>Abonos (Partidas) de la Boleta</h5>
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-receipt me-2 text-primary"></i>Abonos (Partidas) del Proveedor</h5>
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover align-middle w-100" id="tableBoletaPartidas">
                             <thead>
                                 <tr>
                                     <th># Partida</th>
                                     <th>Fecha</th>
-                                    <th>Importe</th>
-                                    <th>Concepto</th>
+                                    <th>F. Programada</th>
+                                    <th>Cantidad</th>
+                                    <th>Interés</th>
+                                    <th>Forma de Pago</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -279,10 +281,8 @@
                                 <tr>
                                     <th># Partida</th>
                                     <th>Fecha</th>
-                                    <th>F. Programada</th>
-                                    <th>Cantidad</th>
-                                    <th>Interés</th>
-                                    <th>Forma de Pago</th>
+                                    <th>Importe</th>
+                                    <th>Concepto</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -351,7 +351,7 @@
                     </div>
                     <div class="col-md-12">
                         <strong>Justificación:</strong>
-                        <div id="detailJustification" class="p-3 bg-light rounded mt-1 border text-uppercase"></div>
+                        <div id="detailJustification" class="p-3 rounded mt-1 border text-uppercase"></div>
                     </div>
                     <div class="col-md-12 d-none" id="detailRejectionRow">
                         <strong class="text-danger">Motivo de Rechazo:</strong>
@@ -526,10 +526,10 @@
                 {name: 'status_id', label: 'Estado', type: 'select', optionKey: 'reservation_statuses'}
             ]
         },
-        BOLETA_PROVEEDOR: {
-            headers: ['Folio', 'Acción', 'Proveedor', 'Lotificación', 'F. Inicio', 'Costo (Total)', 'Enganche ($)', 'Plazo (Meses)', 'Quitar'],
+        BOLETA_ACREEDOR: {
+            headers: ['Folio', 'Acción', 'Acreedor', 'Lotificación', 'F. Inicio', 'Costo (Total)', 'Enganche ($)', 'Plazo (Meses)', 'Quitar'],
             fields: [
-                {name: 'supplier_id', label: 'Proveedor', type: 'select', optionKey: 'suppliers'},
+                {name: 'creditor_id', label: 'Acreedor', type: 'select', optionKey: 'creditors'},
                 {name: 'development_id', label: 'Lotificación', type: 'select', optionKey: 'developments'},
                 {name: 'fecha_inicio', label: 'Fecha Inicio', type: 'date'},
                 {name: 'importe', label: 'Costo (Total)', type: 'number'},
@@ -537,16 +537,17 @@
                 {name: 'plazo', label: 'Plazo (Meses)', type: 'integer'}
             ]
         },
-        PARTIDA_PROVEEDOR: {
+        PARTIDA_ACREEDOR: {
             headers: ['Partida', 'Acción', 'Fecha', 'Monto ($)', 'Quitar'],
             fields: [
                 {name: 'fecha', label: 'Fecha', type: 'date'},
                 {name: 'importe', label: 'Monto', type: 'number'}
             ]
         },
-        BOLETA_ACREEDOR: {
-            headers: ['Folio', 'Acción', 'F. Inicio', 'Total', 'Enganche', 'Plazo (Meses)', 'Mensualidad', 'Quitar'],
+        BOLETA_PROVEEDOR: {
+            headers: ['Folio', 'Acción', 'Proveedor', 'F. Inicio', 'Total', 'Enganche', 'Plazo (Meses)', 'Mensualidad', 'Quitar'],
             fields: [
+                {name: 'supplier_id', label: 'Proveedor', type: 'select', optionKey: 'suppliers'},
                 {name: 'fecha_inicio', label: 'Fecha Inicio', type: 'date'},
                 {name: 'total', label: 'Total', type: 'number'},
                 {name: 'enganche', label: 'Enganche', type: 'number'},
@@ -554,7 +555,7 @@
                 {name: 'mensualidad', label: 'Mensualidad', type: 'number', readonly: true}
             ]
         },
-        PARTIDA_ACREEDOR: {
+        PARTIDA_PROVEEDOR: {
             headers: ['Partida', 'Acción', 'F. Recibido', 'F. Programada', 'Cantidad', 'Interés', 'Forma Pago', 'Quitar'],
             fields: [
                 {name: 'fecha_recibido', label: 'Fecha Recibido', type: 'date'},
@@ -908,7 +909,7 @@
         tbody.html('');
 
         if (loadedCharges.length === 0) {
-            tbody.html('<tr><td colspan="5" class="text-center text-muted">No hay partidas en esta boleta.</td></tr>');
+            tbody.html('<tr><td colspan="7" class="text-center text-muted">No hay partidas de abono en esta boleta de proveedor.</td></tr>');
             $('#tablePartidasCard').removeClass('d-none');
             return;
         }
@@ -930,9 +931,11 @@
             tbody.append(`
                 <tr>
                     <td class="fw-bold">${partida.id}</td>
-                    <td>${partida.fecha}</td>
-                    <td>$${parseFloat(partida.importe).toFixed(2)}</td>
-                    <td>${partida.concepto}</td>
+                    <td>${partida.fecha_recibido}</td>
+                    <td>${partida.fecha_pago_programada || '-'}</td>
+                    <td>$${parseFloat(partida.cantidad).toFixed(2)}</td>
+                    <td>$${parseFloat(partida.interes_pagado || 0).toFixed(2)}</td>
+                    <td>${partida.forma_pago || '-'}</td>
                     <td>${actionsHtml}</td>
                 </tr>
             `);
@@ -946,7 +949,7 @@
         tbody.html('');
 
         if (loadedCharges.length === 0) {
-            tbody.html('<tr><td colspan="7" class="text-center text-muted">No hay partidas de abono en esta boleta de acreedor.</td></tr>');
+            tbody.html('<tr><td colspan="5" class="text-center text-muted">No hay partidas de abono en esta boleta de acreedor.</td></tr>');
             $('#tablePartidasAcreedorCard').removeClass('d-none');
             return;
         }
@@ -968,11 +971,9 @@
             tbody.append(`
                 <tr>
                     <td class="fw-bold">${partida.id}</td>
-                    <td>${partida.fecha_recibido}</td>
-                    <td>${partida.fecha_pago_programada}</td>
-                    <td>$${parseFloat(partida.cantidad).toFixed(2)}</td>
-                    <td>$${parseFloat(partida.interes_pagado || 0).toFixed(2)}</td>
-                    <td>${partida.forma_pago || '-'}</td>
+                    <td>${partida.fecha}</td>
+                    <td>$${parseFloat(partida.importe).toFixed(2)}</td>
+                    <td>${partida.concepto || '-'}</td>
                     <td>${actionsHtml}</td>
                 </tr>
             `);

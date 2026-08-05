@@ -7,17 +7,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Services\PdfReceiptService;
 
-class SupplierPaymentController extends Controller
+class CreditorPaymentController extends Controller
 {
     public function index()
     {
-        return view('pagos_proveedores.index');
+        return view('pagos_acreedores.index');
     }
 
     public function datatable()
     {
-        $rows = DB::table('supplier_payments as sp')
-            ->join('suppliers as s', 's.id', '=', 'sp.supplier_id')
+        $rows = DB::table('creditor_payments as sp')
+            ->join('creditors as c', 'c.id', '=', 'sp.creditor_id')
             ->leftJoin('developments as d', 'd.id', '=', 'sp.development_id')
             ->join('statuses as st', 'st.id', '=', 'sp.status_id')
             ->whereNull('sp.fecha_baja')
@@ -30,15 +30,15 @@ class SupplierPaymentController extends Controller
                 'sp.enganche',
                 'sp.plazo',
                 'sp.observacion',
-                's.nombre as proveedor',
+                'c.nombre as acreedor',
                 'd.nombre as lotificacion',
                 'st.nombre as estado',
             ])
             ->orderByDesc('sp.id')
             ->get()
             ->map(function ($r) {
-                $abonos = DB::table('supplier_payment_concepts')
-                    ->where('supplier_payment_id', $r->id)
+                $abonos = DB::table('creditor_payment_concepts')
+                    ->where('creditor_payment_id', $r->id)
                     ->whereNull('fecha_baja')
                     ->sum('importe');
 
@@ -60,16 +60,16 @@ class SupplierPaymentController extends Controller
 
     public function options()
     {
-        $suppliers = DB::table('suppliers as s')
-            ->join('statuses as st', 'st.id', '=', 's.status_id')
+        $suppliers = DB::table('creditors as c')
+            ->join('statuses as st', 'st.id', '=', 'c.status_id')
             ->join('processes as p', 'p.id', '=', 'st.process_id')
             ->where('p.clave', 'GENERAL')
             ->where('st.clave', 'ACTIVE')
-            ->whereNull('s.fecha_baja')
-            ->orderBy('s.nombre')
+            ->whereNull('c.fecha_baja')
+            ->orderBy('c.nombre')
             ->get([
-                's.id as value',
-                's.nombre as text',
+                'c.id as value',
+                'c.nombre as text'
             ]);
 
         $paymentMethods = DB::table('payment_methods')
@@ -88,7 +88,7 @@ class SupplierPaymentController extends Controller
             ]);
 
         return response()->json([
-            'suppliers' => $suppliers,
+            'creditors' => $suppliers,
             'payment_methods' => $paymentMethods,
             'developments' => $developments,
         ]);
@@ -97,7 +97,7 @@ class SupplierPaymentController extends Controller
     public function store(Request $request)
     {
         $data = Validator::make($request->all(), [
-            'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
+            'creditor_id' => ['required', 'integer', 'exists:creditors,id'],
             'development_id' => ['required', 'integer', 'exists:developments,id'],
             'plazo' => ['required', 'integer', 'min:1'],
             'fecha_inicio' => ['required', 'date'],
@@ -112,9 +112,9 @@ class SupplierPaymentController extends Controller
         DB::beginTransaction();
 
         try {
-            $paymentId = DB::table('supplier_payments')->insertGetId([
+            $paymentId = DB::table('creditor_payments')->insertGetId([
                 'numero_referencia' => '',
-                'supplier_id' => $data['supplier_id'],
+                'creditor_id' => $data['creditor_id'],
                 'development_id' => $data['development_id'],
                 'plazo' => $data['plazo'],
                 'fecha_inicio' => $data['fecha_inicio'],
@@ -128,10 +128,10 @@ class SupplierPaymentController extends Controller
                 'updated_at' => now(),
             ]);
 
-            DB::table('supplier_payments')
+            DB::table('creditor_payments')
                 ->where('id', $paymentId)
                 ->update([
-                    'numero_referencia' => 'BOL-PROV-' . str_pad((string) $paymentId, 5, '0', STR_PAD_LEFT),
+                    'numero_referencia' => 'BOL-ACR-' . str_pad((string) $paymentId, 5, '0', STR_PAD_LEFT),
                     'updated_at' => now(),
                 ]);
 
@@ -149,14 +149,14 @@ class SupplierPaymentController extends Controller
 
     public function show(int $id)
     {
-        $row = DB::table('supplier_payments as sp')
-            ->join('suppliers as s', 's.id', '=', 'sp.supplier_id')
+        $row = DB::table('creditor_payments as sp')
+            ->join('creditors as c', 'c.id', '=', 'sp.creditor_id')
             ->leftJoin('developments as d', 'd.id', '=', 'sp.development_id')
             ->join('statuses as st', 'st.id', '=', 'sp.status_id')
             ->where('sp.id', $id)
             ->select([
                 'sp.*',
-                's.nombre as proveedor',
+                'c.nombre as acreedor',
                 'd.nombre as lotificacion',
                 'st.nombre as estado',
             ])
@@ -164,10 +164,11 @@ class SupplierPaymentController extends Controller
 
         abort_if(!$row, 404, 'Boleta no encontrada');
 
-        $items = DB::table('supplier_payment_concepts')
-            ->where('supplier_payment_id', $id)
+        $items = DB::table('creditor_payment_concepts')
+            ->where('creditor_payment_id', $id)
             ->orderBy('fecha')
             ->get([
+                'id',
                 'fecha',
                 'concepto',
                 'importe',
@@ -188,7 +189,7 @@ class SupplierPaymentController extends Controller
                 'abonos' => $abonos,
                 'resto' => $resto,
                 'observacion' => $row->observacion,
-                'proveedor' => $row->proveedor,
+                'acreedor' => $row->acreedor,
                 'lotificacion' => $row->lotificacion,
                 'estado' => $row->estado,
                 'items' => $items,
@@ -205,11 +206,11 @@ class SupplierPaymentController extends Controller
             'concepto' => ['required', 'string'],
         ])->validate();
 
-        $boleta = DB::table('supplier_payments')->where('id', $id)->first();
+        $boleta = DB::table('creditor_payments')->where('id', $id)->first();
         abort_if(!$boleta, 404, 'Boleta no encontrada');
 
-        DB::table('supplier_payment_concepts')->insert([
-            'supplier_payment_id' => $id,
+        DB::table('creditor_payment_concepts')->insert([
+            'creditor_payment_id' => $id,
             'fecha' => $data['fecha'],
             'importe' => $data['monto'],
             'payment_method_id' => $data['payment_method_id'],
@@ -241,40 +242,89 @@ class SupplierPaymentController extends Controller
         return (int) $id;
     }
 
-    public function receipt(int $id, PdfReceiptService $pdf)
+    public function pdfBoleta(int $id, PdfReceiptService $pdf)
     {
-        $payment = DB::table('supplier_payments as sp')
-            ->join('suppliers as s', 's.id', '=', 'sp.supplier_id')
-            ->join('payment_methods as pm', 'pm.id', '=', 'sp.payment_method_id')
-            ->join('statuses as st', 'st.id', '=', 'sp.status_id')
-            ->where('sp.id', $id)
+        $voucher = DB::table('creditor_payments as cp')
+            ->join('creditors as c', 'c.id', '=', 'cp.creditor_id')
+            ->leftJoin('payment_methods as pm', 'pm.id', '=', 'cp.payment_method_id')
+            ->join('statuses as st', 'st.id', '=', 'cp.status_id')
+            ->where('cp.id', $id)
             ->select([
-                'sp.*',
-                's.nombre as proveedor',
+                'cp.*',
+                'c.nombre as acreedor',
                 'pm.nombre as forma_pago',
-                'st.nombre as estado',
+                'st.nombre as estado_pago',
             ])
             ->first();
 
-        abort_if(!$payment, 404, 'Pago proveedor no encontrado');
+        abort_if(!$voucher, 404, 'Boleta no encontrada');
 
-        $items = DB::table('supplier_payment_concepts')
-            ->where('supplier_payment_id', $id)
+        $items = DB::table('creditor_payment_concepts')
+            ->where('creditor_payment_id', $id)
             ->orderBy('id')
-            ->get([
-                'concepto',
-                'importe',
-            ]);
+            ->get();
+
+        $totalAbonos = 0;
+        foreach ($items as $idx => $row) {
+            $totalAbonos += $row->importe;
+        }
+
+        $stats = [
+            'total_payments' => count($items),
+            'paid_payments' => count($items),
+            'pending_payments' => 0,
+        ];
 
         return $pdf->stream(
-            'pdf.receipts.supplier_payment',
+            'pdf.receipts.creditor_boleta',
             [
-                'document_type' => 'COMPROBANTE DE PAGO A PROVEEDOR',
-                'folio' => $payment->numero_referencia,
-                'payment' => $payment,
+                'document_type' => 'BOLETA DE PAGO A ACREEDOR',
+                'folio' => $voucher->numero_referencia,
+                'voucher' => $voucher,
                 'items' => $items,
+                'totalAbonos' => $totalAbonos,
+                'stats' => $stats,
             ],
-            'recibo-pago-proveedor-'.$payment->numero_referencia.'.pdf'
+            'boleta-acreedor-'.$voucher->numero_referencia.'.pdf'
+        );
+    }
+
+    public function pdfRecibo(int $id, int $abonoId, PdfReceiptService $pdf)
+    {
+        $voucher = DB::table('creditor_payments as cp')
+            ->join('creditors as c', 'c.id', '=', 'cp.creditor_id')
+            ->where('cp.id', $id)
+            ->select([
+                'cp.*',
+                'c.nombre as acreedor',
+            ])
+            ->first();
+
+        abort_if(!$voucher, 404, 'Boleta no encontrada');
+
+        $item = DB::table('creditor_payment_concepts')
+            ->where('id', $abonoId)
+            ->where('creditor_payment_id', $id)
+            ->first();
+
+        abort_if(!$item, 404, 'Abono no encontrado');
+
+        $stats = [
+            'total_payments' => DB::table('creditor_payment_concepts')->where('creditor_payment_id', $id)->count(),
+            'paid_payments' => DB::table('creditor_payment_concepts')->where('creditor_payment_id', $id)->count(),
+            'pending_payments' => 0,
+        ];
+
+        return $pdf->stream(
+            'pdf.receipts.creditor_recibo',
+            [
+                'document_type' => 'RECIBO DE ABONO A ACREEDOR',
+                'folio' => 'REC-ACR-' . str_pad((string) $item->id, 6, '0', STR_PAD_LEFT),
+                'voucher' => $voucher,
+                'item' => $item,
+                'stats' => $stats,
+            ],
+            'recibo-acreedor-'.$item->id.'.pdf'
         );
     }
 }

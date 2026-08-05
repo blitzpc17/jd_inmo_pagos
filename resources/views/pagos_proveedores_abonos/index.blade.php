@@ -4,33 +4,38 @@
 <div class="page-card mb-3">
     <div class="d-flex justify-content-between align-items-center">
         <div>
-            <h3 class="fw-bold mb-1">Abonos acreedores</h3>
+            <h3 class="fw-bold mb-1">Abonos proveedores</h3>
             <div class="text-muted">Registro de pagos sobre boletas existentes</div>
         </div>
-        <button class="btn btn-primary" id="btnNuevoAbonoAcreedor">
+        <button class="btn btn-primary" id="btnNuevoAbonoProveedor">
             <i class="fa-solid fa-plus me-1"></i> Nuevo abono
         </button>
     </div>
 </div>
 
-<div class="modal fade" id="modalAbonoAcreedor" tabindex="-1">
+<div class="modal fade" id="modalAbonoProveedor" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <form class="modal-content" id="formAbonoAcreedor">
+        <form class="modal-content" id="formAbonoProveedor">
             <div class="modal-header">
-                    <h5 class="modal-title">Registrar abono acreedor</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title">Registrar abono proveedor</h5>
+                <div class="ms-auto d-flex gap-2 align-items-center">
+                    <a id="btnImprimirBoletaProveedor" href="#" target="_blank" class="btn btn-sm btn-outline-danger">
+                        <i class="fa-solid fa-file-pdf me-1"></i> Imprimir Boleta
+                    </a>
+                    <button type="button" class="btn-close ms-0" data-bs-dismiss="modal"></button>
                 </div>
+            </div>
 
                 <div class="modal-body">
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">
-                            <label class="form-label">Acreedor</label>
-                            <select class="form-select select2-abono-acreedor" id="creditor_id"></select>
+                            <label class="form-label">Proveedor</label>
+                            <select class="form-select select2-abono-proveedor" id="supplier_id"></select>
                         </div>
 
                         <div class="col-md-4">
                             <label class="form-label">Boleta</label>
-                            <select class="form-select select2-abono-acreedor" id="creditor_voucher_id" name="creditor_voucher_id"></select>
+                            <select class="form-select select2-abono-proveedor" id="supplier_voucher_id" name="supplier_voucher_id"></select>
                         </div>
                     </div>
 
@@ -77,7 +82,7 @@
                         <h6 class="fw-bold mb-3"><i class="fa-solid fa-calendar-alt me-1"></i> Calendario de Pagos</h6>
                         <div class="table-responsive">
                             <table class="table table-bordered table-sm align-middle mb-0 text-center" style="font-size: 0.85rem;">
-                                <thead class="table-light">
+                                <thead>
                                     <tr>
                                         <th># Pago</th>
                                         <th>F. Programada</th>
@@ -87,7 +92,7 @@
                                         <th>Estado</th>
                                     </tr>
                                 </thead>
-                                <tbody id="calendarAcreedorBody">
+                                <tbody id="calendarProveedorBody">
                                     <tr><td colspan="6" class="text-muted">Seleccione una boleta para ver su calendario.</td></tr>
                                 </tbody>
                             </table>
@@ -97,7 +102,7 @@
                     <div class="page-card">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h6 class="fw-bold mb-0">Abonos a registrar</h6>
-                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddAbonoAcreedor">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddAbonoProveedor">
                                 <i class="fa-solid fa-plus me-1"></i> Agregar abono
                             </button>
                         </div>
@@ -117,7 +122,7 @@
                                         <th>Acción</th>
                                     </tr>
                                 </thead>
-                                <tbody id="abonoAcreedorItemsBody"></tbody>
+                                <tbody id="abonoProveedorItemsBody"></tbody>
                             </table>
                         </div>
                     </div>
@@ -157,17 +162,17 @@
 @push('scripts')
 <script>
 (() => {
-    const modal = new bootstrap.Modal(document.getElementById('modalAbonoAcreedor'));
-    const form = document.getElementById('formAbonoAcreedor');
+    const modal = new bootstrap.Modal(document.getElementById('modalAbonoProveedor'));
+    const form = document.getElementById('formAbonoProveedor');
     let optionsCache = null;
     let rowIndex = 0;
     let currentVoucher = null;
 
     function initSelect2() {
-        $('.select2-abono-acreedor').select2({
+        $('.select2-abono-proveedor').select2({
             theme: 'bootstrap4',
             width: '100%',
-            dropdownParent: $('#modalAbonoAcreedor')
+            dropdownParent: $('#modalAbonoProveedor')
         });
     }
 
@@ -183,12 +188,12 @@
     async function loadOptions() {
         if (optionsCache) return optionsCache;
 
-        const res = await fetch('/abonos-acreedores/options');
+        const res = await fetch('/abonos-proveedores/options');
         const json = await res.json();
         optionsCache = json;
 
-        fillSelect('creditor_id', json.creditors || []);
-        fillSelect('creditor_voucher_id', []);
+        fillSelect('supplier_id', json.suppliers || []);
+        fillSelect('supplier_voucher_id', []);
 
         return optionsCache;
     }
@@ -211,36 +216,36 @@
         const lbl = document.getElementById('s_num_socios_lbl');
         if (lbl) lbl.textContent = '';
         document.getElementById('historicoAbonosBody').innerHTML = '';
-        document.getElementById('calendarAcreedorBody').innerHTML = '<tr><td colspan="6" class="text-muted">Seleccione una boleta para ver su calendario.</td></tr>';
+        document.getElementById('calendarProveedorBody').innerHTML = '<tr><td colspan="6" class="text-muted">Seleccione una boleta para ver su calendario.</td></tr>';
     }
 
     function resetForm() {
         form.reset();
-        $('.select2-abono-acreedor').val(null).trigger('change');
-        fillSelect('creditor_voucher_id', []);
-        document.getElementById('abonoAcreedorItemsBody').innerHTML = '';
+        $('.select2-abono-proveedor').val(null).trigger('change');
+        fillSelect('supplier_voucher_id', []);
+        document.getElementById('abonoProveedorItemsBody').innerHTML = '';
         rowIndex = 0;
         currentVoucher = null;
         addItem();
         resetSummary();
     }
 
-    async function loadVouchers(creditorId) {
-        fillSelect('creditor_voucher_id', []);
+    async function loadVouchers(supplierId) {
+        fillSelect('supplier_voucher_id', []);
         resetSummary();
 
-        if (!creditorId) return;
+        if (!supplierId) return;
 
         try {
-            const res = await fetch(`/abonos-acreedores/creditor/${creditorId}/vouchers`);
+            const res = await fetch(`/abonos-proveedores/supplier/${supplierId}/vouchers`);
             const rows = await res.json();
-            fillSelect('creditor_voucher_id', rows || []);
+            fillSelect('supplier_voucher_id', rows || []);
         } catch (e) {
             console.error(e);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'No se pudieron cargar las boletas del acreedor.'
+                text: 'No se pudieron cargar las boletas del proveedor.'
             });
         }
     }
@@ -250,12 +255,14 @@
         if (!voucherId) return;
 
         try {
-            const res = await fetch(`/abonos-acreedores/voucher/${voucherId}/summary`);
+            const res = await fetch(`/abonos-proveedores/voucher/${voucherId}/summary`);
             const json = await res.json();
             if (!res.ok) return;
 
             const d = json.data;
             currentVoucher = d;
+            
+            document.getElementById('btnImprimirBoletaProveedor').href = `/abonos-proveedores/${voucherId}/pdf/boleta`;
             
             const total = parseFloat(d.total) || 0;
             const enganche = parseFloat(d.enganche) || 0;
@@ -336,7 +343,7 @@
                         <td>${item.forma_pago ?? ''}</td>
                         <td>${item.observaciones ?? ''}</td>
                         <td>
-                            <a class="btn btn-sm btn-outline-danger" target="_blank" href="/abonos-acreedores/recibo/${item.id}" title="Recibo PDF">
+                            <a class="btn btn-sm btn-outline-danger" target="_blank" href="/abonos-proveedores/${voucherId}/pdf/recibo/${item.id}" title="Recibo PDF">
                                 <i class="fa-solid fa-file-pdf"></i>
                             </a>
                         </td>
@@ -344,7 +351,7 @@
                 `;
             });
             
-            const calTbody = document.getElementById('calendarAcreedorBody');
+            const calTbody = document.getElementById('calendarProveedorBody');
             calTbody.innerHTML = '';
             if (d.schedules && d.schedules.length > 0) {
                 d.schedules.forEach(sc => {
@@ -370,7 +377,7 @@
                 calTbody.innerHTML = '<tr><td colspan="6" class="text-muted">No hay calendario de pagos generado.</td></tr>';
             }
             
-            document.getElementById('abonoAcreedorItemsBody').innerHTML = '';
+            document.getElementById('abonoProveedorItemsBody').innerHTML = '';
             rowIndex = 0;
             addItem();
             
@@ -397,7 +404,7 @@
         if (currentVoucher && currentVoucher.schedules) {
             let alreadyAllocatedCapital = 0;
             let alreadyAllocatedInterest = 0;
-            document.querySelectorAll('#abonoAcreedorItemsBody tr').forEach(row => {
+            document.querySelectorAll('#abonoProveedorItemsBody tr').forEach(row => {
                 alreadyAllocatedCapital += parseFloat(row.querySelector('.item-cantidad')?.value || 0);
                 alreadyAllocatedInterest += parseFloat(row.querySelector('.item-interes')?.value || 0);
             });
@@ -436,7 +443,7 @@
                     cantPagar = (parseFloat(currentVoucher.mensualidad) || 0).toFixed(2);
                     initialCapital = cantPagar;
                     
-                    const tableRows = document.querySelectorAll('#abonoAcreedorItemsBody tr').length;
+                    const tableRows = document.querySelectorAll('#abonoProveedorItemsBody tr').length;
                     const monthOffset = (currentVoucher.schedules.length || 0) + tableRows + 1;
                     const f = new Date((currentVoucher.fecha_inicio || today) + 'T00:00:00');
                     f.setMonth(f.getMonth() + monthOffset);
@@ -445,7 +452,7 @@
             }
         }
 
-        document.getElementById('abonoAcreedorItemsBody').insertAdjacentHTML('beforeend', `
+        document.getElementById('abonoProveedorItemsBody').insertAdjacentHTML('beforeend', `
             <tr data-row="${rowIndex}">
                 <td>${rowIndex}</td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-programada" value="${progStr}"></td>
@@ -465,7 +472,7 @@
     }
 
     function buildPayload() {
-        const rows = document.querySelectorAll('#abonoAcreedorItemsBody tr');
+        const rows = document.querySelectorAll('#abonoProveedorItemsBody tr');
         const items = [];
 
         rows.forEach(row => {
@@ -502,7 +509,7 @@
     async function saveItem(e) {
         e.preventDefault();
 
-        const voucherId = document.getElementById('creditor_voucher_id').value;
+        const voucherId = document.getElementById('supplier_voucher_id').value;
         if (!voucherId) {
             return Swal.fire({ icon: 'warning', title: 'Selecciona una boleta' });
         }
@@ -526,12 +533,12 @@
         }
 
         const payload = {
-            creditor_voucher_id: voucherId,
+            supplier_voucher_id: voucherId,
             items
         };
 
         try {
-            const res = await fetch('/abonos-acreedores', {
+            const res = await fetch('/abonos-proveedores', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -546,7 +553,7 @@
 
             await loadVoucherSummary(voucherId);
 
-            document.getElementById('abonoAcreedorItemsBody').innerHTML = '';
+            document.getElementById('abonoProveedorItemsBody').innerHTML = '';
             rowIndex = 0;
             addItem();
 
@@ -562,19 +569,19 @@
         }
     }
 
-    document.getElementById('btnNuevoAbonoAcreedor').addEventListener('click', openNew);
-    document.getElementById('btnAddAbonoAcreedor').addEventListener('click', addItem);
+    document.getElementById('btnNuevoAbonoProveedor').addEventListener('click', openNew);
+    document.getElementById('btnAddAbonoProveedor').addEventListener('click', addItem);
     form.addEventListener('submit', saveItem);
 
-    $('#creditor_id').on('change', function () {
+    $('#supplier_id').on('change', function () {
         loadVouchers(this.value);
     });
 
-    $('#creditor_voucher_id').on('change', function () {
+    $('#supplier_voucher_id').on('change', function () {
         loadVoucherSummary(this.value);
     });
 
-    document.getElementById('abonoAcreedorItemsBody').addEventListener('click', function (e) {
+    document.getElementById('abonoProveedorItemsBody').addEventListener('click', function (e) {
         const btn = e.target.closest('.btn-remove-item');
         if (!btn) return;
         btn.closest('tr').remove();

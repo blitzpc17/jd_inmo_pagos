@@ -20,16 +20,14 @@ class CreditorController extends Controller
             ->whereNull('c.fecha_baja')
             ->select([
                 'c.id',
-                'c.nombres',
-                'c.apellidos',
-                'c.telefono',
-                'c.direccion',
+                'c.nombre',
+                'c.telefonos',
+                'c.direcciones',
                 's.nombre as estado',
             ])
             ->orderByDesc('c.id')
             ->get()
             ->map(function ($r) {
-                $r->nombre_completo = trim(($r->nombres ?? '') . ' ' . ($r->apellidos ?? ''));
                 $r->acciones = '
                     <div class="d-flex gap-1">
                         <button class="btn btn-sm btn-outline-primary btn-edit" data-id="'.$r->id.'">
@@ -46,24 +44,33 @@ class CreditorController extends Controller
         return response()->json(['data' => $rows]);
     }
 
+    public function options()
+    {
+        $statuses = DB::table('statuses as s')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->orderBy('s.nombre')
+            ->get(['s.id as value', 's.nombre as text']);
+
+        return response()->json([
+            'statuses' => $statuses
+        ]);
+    }
+
     public function store(Request $request)
     {
         $data = Validator::make($request->all(), [
-            'nombres' => ['required', 'string', 'max:150'],
-            'apellidos' => ['required', 'string', 'max:150'],
-            'telefono' => ['nullable', 'string', 'max:50'],
-            'direccion' => ['nullable', 'string'],
+            'nombre' => ['required', 'string', 'max:150'],
+            'telefonos' => ['nullable', 'string'],
+            'direcciones' => ['nullable', 'string'],
+            'status_id' => ['required', 'integer', 'exists:statuses,id'],
         ])->validate();
 
-        $activeId = $this->getActiveStatusId();
-
         DB::table('creditors')->insert([
-            'nombres' => mb_strtoupper($data['nombres']),
-            'apellidos' => mb_strtoupper($data['apellidos']),
-            'telefono' => $data['telefono'] ?? null,
-            'direccion' => $data['direccion'] ?? null,
-            'status_id' => $activeId,
-            'fecha_registro' => now(),
+            'nombre' => mb_strtoupper($data['nombre']),
+            'telefonos' => $data['telefonos'] ?? null,
+            'direcciones' => $data['direcciones'] ?? null,
+            'status_id' => $data['status_id'],
             'usuario_genero_id' => session('auth_user.id'),
             'updated_at' => now(),
             'created_at' => now(),
@@ -89,19 +96,19 @@ class CreditorController extends Controller
     public function update(Request $request, int $id)
     {
         $data = Validator::make($request->all(), [
-            'nombres' => ['required', 'string', 'max:150'],
-            'apellidos' => ['required', 'string', 'max:150'],
-            'telefono' => ['nullable', 'string', 'max:50'],
-            'direccion' => ['nullable', 'string'],
+            'nombre' => ['required', 'string', 'max:150'],
+            'telefonos' => ['nullable', 'string'],
+            'direcciones' => ['nullable', 'string'],
+            'status_id' => ['required', 'integer', 'exists:statuses,id'],
         ])->validate();
 
         DB::table('creditors')
             ->where('id', $id)
             ->update([
-                'nombres' => mb_strtoupper($data['nombres']),
-                'apellidos' => mb_strtoupper($data['apellidos']),
-                'telefono' => $data['telefono'] ?? null,
-                'direccion' => $data['direccion'] ?? null,
+                'nombre' => mb_strtoupper($data['nombre']),
+                'telefonos' => $data['telefonos'] ?? null,
+                'direcciones' => $data['direcciones'] ?? null,
+                'status_id' => $data['status_id'],
                 'updated_at' => now(),
             ]);
 
@@ -113,9 +120,16 @@ class CreditorController extends Controller
 
     public function destroy(Request $request, int $id)
     {
+        $inactiveId = DB::table('statuses as s')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'INACTIVE')
+            ->value('s.id');
+
         DB::table('creditors')
             ->where('id', $id)
             ->update([
+                'status_id' => $inactiveId,
                 'fecha_baja' => now(),
                 'usuario_baja_id' => session('auth_user.id'),
                 'updated_at' => now(),
@@ -125,20 +139,5 @@ class CreditorController extends Controller
             'ok' => true,
             'message' => 'Acreedor dado de baja correctamente.'
         ]);
-    }
-
-    protected function getActiveStatusId(): int
-    {
-        $id = DB::table('statuses as s')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('p.clave', 'GENERAL')
-            ->where('s.clave', 'ACTIVE')
-            ->value('s.id');
-
-        if (!$id) {
-            abort(500, 'No existe estado ACTIVE para GENERAL.');
-        }
-
-        return (int) $id;
     }
 }

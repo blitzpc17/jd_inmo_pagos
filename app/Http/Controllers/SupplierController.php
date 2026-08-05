@@ -20,14 +20,16 @@ class SupplierController extends Controller
             ->whereNull('p.fecha_baja')
             ->select([
                 'p.id',
-                'p.nombre',
-                'p.telefonos',
-                'p.direcciones',
+                'p.nombres',
+                'p.apellidos',
+                'p.telefono',
+                'p.direccion',
                 's.nombre as estado',
             ])
             ->orderByDesc('p.id')
             ->get()
             ->map(function ($r) {
+                $r->nombre_completo = trim(($r->nombres ?? '') . ' ' . ($r->apellidos ?? ''));
                 $r->acciones = '
                     <div class="d-flex gap-1">
                         <button class="btn btn-sm btn-outline-primary btn-edit" data-id="'.$r->id.'"><i class="fa-solid fa-pen"></i></button>
@@ -66,11 +68,13 @@ class SupplierController extends Controller
         $data = $this->validateData($request);
 
         DB::table('suppliers')->insert([
-            'nombre' => $data['nombre'],
-            'telefonos' => $data['telefonos'] ?? null,
-            'direcciones' => $data['direcciones'] ?? null,
+            'nombres' => mb_strtoupper($data['nombres']),
+            'apellidos' => mb_strtoupper($data['apellidos']),
+            'telefono' => $data['telefono'] ?? null,
+            'direccion' => $data['direccion'] ?? null,
             'status_id' => $data['status_id'],
             'usuario_genero_id' => session('auth_user.id'),
+            'fecha_registro' => now(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -87,9 +91,10 @@ class SupplierController extends Controller
         DB::table('suppliers')
             ->where('id', $id)
             ->update([
-                'nombre' => $data['nombre'],
-                'telefonos' => $data['telefonos'] ?? null,
-                'direcciones' => $data['direcciones'] ?? null,
+                'nombres' => mb_strtoupper($data['nombres']),
+                'apellidos' => mb_strtoupper($data['apellidos']),
+                'telefono' => $data['telefono'] ?? null,
+                'direccion' => $data['direccion'] ?? null,
                 'status_id' => $data['status_id'],
                 'updated_at' => now(),
             ]);
@@ -120,9 +125,10 @@ class SupplierController extends Controller
     protected function validateData(Request $request): array
     {
         return Validator::make($request->all(), [
-            'nombre' => ['required', 'string', 'max:150'],
-            'telefonos' => ['nullable', 'string'],
-            'direcciones' => ['nullable', 'string'],
+            'nombres' => ['required', 'string', 'max:150'],
+            'apellidos' => ['required', 'string', 'max:150'],
+            'telefono' => ['nullable', 'string', 'max:50'],
+            'direccion' => ['nullable', 'string'],
             'status_id' => ['required', 'integer', 'exists:statuses,id'],
         ])->validate();
     }

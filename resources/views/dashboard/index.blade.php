@@ -42,8 +42,8 @@
             <div class="jd-stat-card">
                 <div class="jd-stat-icon bg-blue-soft"><i class="fa-solid fa-money-check-dollar"></i></div>
                 <div>
-                    <div class="jd-stat-label">Pagos a proveedores</div>
-                    <div class="jd-stat-value" id="cardSupplierPayments">{{ $initialStats['cards']['supplier_payments'] }}</div>
+                    <div class="jd-stat-label">Pagos a acreedores</div>
+                    <div class="jd-stat-value" id="cardCreditorPayments">{{ $initialStats['cards']['creditor_payments'] }}</div>
                 </div>
             </div>
         </div>
@@ -62,8 +62,8 @@
             <div class="jd-stat-card">
                 <div class="jd-stat-icon bg-gray-soft"><i class="fa-solid fa-hand-holding-dollar"></i></div>
                 <div>
-                    <div class="jd-stat-label">Acreedores</div>
-                    <div class="jd-stat-value" id="cardCreditors">{{ $initialStats['cards']['creditors'] }}</div>
+                    <div class="jd-stat-label">Proveedores</div>
+                    <div class="jd-stat-value" id="cardSuppliers">{{ $initialStats['cards']['suppliers'] }}</div>
                 </div>
             </div>
         </div>
@@ -272,9 +272,9 @@
 
     function renderCards(data){
         $('#cardContracts').text(data.cards.contracts);
-        $('#cardSupplierPayments').text(data.cards.supplier_payments);
+        $('#cardCreditorPayments').text(data.cards.creditor_payments);
         $('#cardClients').text(data.cards.clients);
-        $('#cardCreditors').text(data.cards.creditors);
+        $('#cardSuppliers').text(data.cards.suppliers);
         $('#cardChargesToday').text(data.cards.charges_today_count);
         $('#cardChargesTodayAmount').text(money(data.cards.charges_today_amount));
     }

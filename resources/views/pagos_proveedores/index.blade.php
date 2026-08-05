@@ -2,14 +2,13 @@
 
 @section('content')
 <div class="page-card mb-3">
-    <div class="d-flex justify-content-between align-items-center gap-2">
+    <div class="d-flex justify-content-between align-items-center">
         <div>
-            <h3 class="fw-bold mb-1">Boletas de Proveedores</h3>
-            <div class="text-muted">Gestión de proyectos, contratos y abonos por lotificación</div>
+            <h3 class="fw-bold mb-1">Boletas proveedor</h3>
+            <div class="text-muted">Alta de deuda por proveedor</div>
         </div>
-
-        <button class="btn btn-primary" id="btnNuevoPagoProveedor">
-            <i class="fa-solid fa-plus me-1"></i> Nueva Boleta
+        <button class="btn btn-primary" id="btnNuevaBoletaProveedor">
+            <i class="fa-solid fa-plus me-1"></i> Nueva boleta
         </button>
     </div>
 </div>
@@ -20,14 +19,14 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Folio</th>
+                    <th>Referencia</th>
                     <th>Proveedor</th>
-                    <th>Lotificación</th>
-                    <th>Costo</th>
-                    <th>Enganche</th>
-                    <th>Abonos</th>
-                    <th>Resto</th>
-                    <th>Plazo</th>
+                    <th>Total</th>
+                    <th>Meses</th>
+                    <th>Mensualidad</th>
+                    <th>Pagado</th>
+                    <th>Debe</th>
+                    <th>Estado pago</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -35,136 +34,137 @@
     </div>
 </div>
 
-<!-- Modal Nueva Boleta -->
-<div class="modal fade" id="modalPagoProveedor" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal fade" id="modalBoletaProveedor" tabindex="-1">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form id="formPagoProveedor">
+            <form id="formBoletaProveedor">
                 <div class="modal-header">
-                    <h5 class="modal-title">Nueva Boleta / Proyecto de Proveedor</h5>
+                    <h5 class="modal-title">Nueva boleta de proveedor</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Proveedor</label>
-                            <select class="form-select select2-pp" id="supplier_id" name="supplier_id"></select>
+                            <label class="form-label">Proveedor</label>
+                            <select class="form-select select2-proveedor" id="supplier_id" name="supplier_id"></select>
                         </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Costo (Total)</label>
+                            <input type="number" step="0.01" min="0.01" class="form-control" id="total" name="total">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Enganche</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="enganche" name="enganche">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Meses</label>
+                            <input type="number" min="1" class="form-control" id="meses" name="meses">
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <label class="form-label">Núm. Socios</label>
+                            <input type="number" min="1" value="1" class="form-control" id="num_socios" name="num_socios">
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="equal_split" checked>
+                                <label class="form-check-label" for="equal_split" style="font-size: 11px;">Dividir en partes iguales</label>
+                            </div>
+                            <div id="partner_percentages_container" class="mt-2 row g-2"></div>
+                        </div>
+
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Lotificación</label>
-                            <select class="form-select select2-pp" id="development_id" name="development_id"></select>
+                            <label class="form-label">Fecha Inicio</label>
+                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Plazo (Meses)</label>
-                            <input type="number" class="form-control" id="plazo" name="plazo" min="1" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Fecha Inicio</label>
-                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Fecha Fin</label>
-                            <input type="date" class="form-control bg-light" id="fecha_fin" readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Enganche ($)</label>
-                            <input type="number" step="0.01" class="form-control" id="enganche" name="enganche" min="0" value="0" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Total a Pagar (Costo) ($)</label>
-                            <input type="number" step="0.01" class="form-control" id="importe" name="importe" min="0" required>
-                        </div>
+
                         <div class="col-md-12">
-                            <label class="form-label fw-bold">Observaciones</label>
-                            <textarea class="form-control" id="observacion" name="observacion" rows="2"></textarea>
+                            <label class="form-label">Observación</label>
+                            <textarea class="form-control" id="observacion" name="observacion" rows="3"></textarea>
                         </div>
                     </div>
                 </div>
 
                 <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary" type="submit">Guardar Boleta</button>
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cerrar</button>
+                    <button class="btn btn-primary" type="submit">Guardar</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- Modal Detalles y Abonos -->
-<div class="modal fade" id="modalDetallePagoProveedor" tabindex="-1">
+<div class="modal fade" id="modalDetalleBoletaProveedor" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Detalle de Boleta y Abonos</h5>
+                <h5 class="modal-title">Detalle boleta proveedor</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
 
-            <div class="modal-body bg-light">
-                <!-- Dashboard Cabecera -->
-                <div class="row g-3 mb-4">
-                    <div class="col-md-8">
-                        <div class="card h-100 shadow-sm border-0">
+            <div class="modal-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-12"><label class="form-label">Referencia</label><input type="text" class="form-control fw-bold" id="dba_ref" readonly></div>
+                    <div class="col-md-12"><label class="form-label">Proveedor</label><input type="text" class="form-control" id="dba_proveedor" readonly></div>
+                </div>
+                
+                <div class="row">
+                    <!-- PANEL GENERAL -->
+                    <div class="col-md-6">
+                        <div class="card bg-transparent border-0">
                             <div class="card-body">
-                                <h5 class="fw-bold mb-3"><i class="fa-solid fa-file-contract me-2 text-primary"></i>Datos del Proyecto</h5>
-                                <div class="row g-2 text-sm">
-                                    <div class="col-md-6"><strong>Folio:</strong> <span id="dpp_ref"></span></div>
-                                    <div class="col-md-6"><strong>Estado:</strong> <span id="dpp_estado"></span></div>
-                                    <div class="col-md-6"><strong>Proveedor:</strong> <span id="dpp_proveedor"></span></div>
-                                    <div class="col-md-6"><strong>Lotificación:</strong> <span id="dpp_lotificacion"></span></div>
-                                    <div class="col-md-4"><strong>F. Inicio:</strong> <span id="dpp_fecha_inicio"></span></div>
-                                    <div class="col-md-4"><strong>F. Fin:</strong> <span id="dpp_fecha_fin"></span></div>
-                                    <div class="col-md-4"><strong>Plazo:</strong> <span id="dpp_plazo"></span> meses</div>
+                                <h6 class="fw-bold mb-3"><i class="fa-solid fa-chart-pie me-1"></i> Totales Generales</h6>
+                                <div class="row g-3">
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Total a Pagar</label><input type="text" class="form-control form-control-sm" id="dba_total" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Enganche</label><input type="text" class="form-control form-control-sm" id="dba_enganche" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Resta por Pagar</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="dba_debe" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Tiempo a Pagar (Meses)</label><input type="text" class="form-control form-control-sm" id="dba_meses" readonly></div>
+                                    <div class="col-12"><label class="form-label text-muted small mb-0">Letra Mensual</label><input type="text" class="form-control form-control-sm text-primary fw-bold" id="dba_mensualidad" readonly></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="card h-100 shadow-sm border-0 bg-transparent">
-                            <div class="card-body">
-                                <h5 class="fw-bold mb-3"><i class="fa-solid fa-calculator me-2 text-primary"></i>Finanzas</h5>
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">Costo:</span>
-                                    <strong id="dpp_importe"></strong>
-                                </div>
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">Enganche:</span>
-                                    <strong id="dpp_enganche"></strong>
-                                </div>
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="text-muted">Abonos Acum.:</span>
-                                    <strong id="dpp_abonos"></strong>
-                                </div>
-                                <hr class="my-2">
-                                <div class="d-flex justify-content-between fs-5">
-                                    <span class="fw-bold">Resto:</span>
-                                    <strong id="dpp_resto" class="text-danger"></strong>
+                    
+                    <!-- PANEL POR SOCIO -->
+                    <div class="col-md-6">
+                        <div class="card bg-transparent border-0 h-100">
+                            <div class="card-body" id="dba_partner_container">
+                                <h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Totales Por Socio (<span id="dba_num_socios_lbl"></span>)</h6>
+                                <div class="row g-3">
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Total a Pagar (Socio)</label><input type="text" class="form-control form-control-sm" id="dba_total_socio" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Enganche (Socio)</label><input type="text" class="form-control form-control-sm" id="dba_enganche_socio" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Resta por Pagar (Socio)</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="dba_debe_socio" readonly></div>
+                                    <div class="col-6"><label class="form-label text-muted small mb-0">Tiempo a Pagar (Meses)</label><input type="text" class="form-control form-control-sm" id="dba_meses_socio" readonly></div>
+                                    <div class="col-12"><label class="form-label text-muted small mb-0">Letra Mensual (Socio)</label><input type="text" class="form-control form-control-sm text-primary fw-bold" id="dba_mensualidad_socio" readonly></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tabla de Partidas -->
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
-                        <h6 class="fw-bold mb-0">Partidas (Abonos Realizados)</h6>
-                        <button class="btn btn-sm btn-success" id="btnAgregarAbono">
-                            <i class="fa-solid fa-plus me-1"></i> Agregar Abono
-                        </button>
-                    </div>
+                <div class="row mt-3">
+                    <div class="col-md-12"><label class="form-label">Observación</label><textarea class="form-control" id="dba_observacion" rows="2" readonly></textarea></div>
+                </div>
+
+                <div class="page-card">
+                    <h6 class="fw-bold mb-3">Abonos registrados</h6>
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
+                        <table class="table table-bordered align-middle mb-0">
+                            <thead>
                                 <tr>
-                                    <th>#</th>
-                                    <th>Fecha</th>
-                                    <th>Concepto</th>
-                                    <th>Monto</th>
-                                    <th>Saldo Calculado</th>
+                                    <th># Pago</th>
+                                    <th>F. Programada</th>
+                                    <th>Cant. a Pagar</th>
+                                    <th>F. de Pago (Real)</th>
+                                    <th>Monto Pagado</th>
+                                    <th>Interés</th>
+                                    <th>Forma de pago</th>
+                                    <th>Observaciones</th>
                                 </tr>
                             </thead>
-                            <tbody id="dppItemsBody"></tbody>
+                            <tbody id="detalleBoletaProveedorItemsBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -176,82 +176,22 @@
         </div>
     </div>
 </div>
-
-<!-- Modal Agregar Abono -->
-<div class="modal fade" id="modalAgregarAbono" tabindex="-1" style="z-index: 1060;">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form id="formAgregarAbono">
-                <div class="modal-header">
-                    <h5 class="modal-title">Registrar Abono</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="abono_boleta_id">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Fecha</label>
-                            <input type="date" class="form-control" id="abono_fecha" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Monto ($)</label>
-                            <input type="number" step="0.01" class="form-control" id="abono_monto" min="0.01" required>
-                        </div>
-                        <div class="col-md-12">
-                            <div class="d-flex justify-content-between p-2 bg-light border rounded">
-                                <div><span class="text-muted small fw-bold">Resto Actual:</span> <strong id="lbl_abono_resto_actual" class="text-dark">$0.00</strong></div>
-                                <div><span class="text-muted small fw-bold">Nuevo Resto:</span> <strong id="lbl_abono_nuevo_resto" class="text-danger">$0.00</strong></div>
-                            </div>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label fw-bold">Forma de Pago</label>
-                            <select class="form-select select2-abono" id="abono_payment_method_id" required></select>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label fw-bold">Concepto / Referencia</label>
-                            <input type="text" class="form-control" id="abono_concepto" required>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary" type="submit">Guardar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 @endsection
 
 @push('scripts')
 <script>
 (() => {
-    const modal = new bootstrap.Modal(document.getElementById('modalPagoProveedor'));
-    const modalDetalle = new bootstrap.Modal(document.getElementById('modalDetallePagoProveedor'));
-    const modalAbono = new bootstrap.Modal(document.getElementById('modalAgregarAbono'));
-    const form = document.getElementById('formPagoProveedor');
-    const formAbono = document.getElementById('formAgregarAbono');
-
+    const modal = new bootstrap.Modal(document.getElementById('modalBoletaProveedor'));
+    const modalDetalle = new bootstrap.Modal(document.getElementById('modalDetalleBoletaProveedor'));
+    const form = document.getElementById('formBoletaProveedor');
     let table = null;
     let optionsCache = null;
-    let currentBoletaResto = 0;
-
-    const formatter = new Intl.NumberFormat('es-MX', {
-        style: 'currency',
-        currency: 'MXN'
-    });
 
     function initSelect2() {
-        $('.select2-pp').select2({
+        $('.select2-proveedor').select2({
             theme: 'bootstrap4',
             width: '100%',
-            dropdownParent: $('#modalPagoProveedor')
-        });
-        $('.select2-abono').select2({
-            theme: 'bootstrap4',
-            width: '100%',
-            dropdownParent: $('#modalAgregarAbono')
+            dropdownParent: $('#modalBoletaProveedor')
         });
     }
 
@@ -268,38 +208,14 @@
         if (optionsCache) return optionsCache;
         const res = await fetch('/pagos-proveedores/options');
         optionsCache = await res.json();
-
-        fillSelect('supplier_id', optionsCache.suppliers);
-        fillSelect('development_id', optionsCache.developments);
-        fillSelect('abono_payment_method_id', optionsCache.payment_methods);
-
+        fillSelect('supplier_id', optionsCache.suppliers || []);
         return optionsCache;
     }
 
     function resetForm() {
         form.reset();
-        $('.select2-pp').val(null).trigger('change');
-        document.getElementById('fecha_inicio').value = new Date().toISOString().slice(0, 10);
-        document.getElementById('fecha_fin').value = '';
+        $('.select2-proveedor').val(null).trigger('change');
     }
-
-    function autoCalcFechaFin() {
-        const fechaInStr = document.getElementById('fecha_inicio').value;
-        const plazoStr = document.getElementById('plazo').value;
-        
-        if (fechaInStr && plazoStr) {
-            const date = new Date(fechaInStr);
-            const months = parseInt(plazoStr, 10);
-            if (!isNaN(months)) {
-                // Sumar meses
-                date.setMonth(date.getMonth() + months);
-                document.getElementById('fecha_fin').value = date.toISOString().slice(0, 10);
-            }
-        }
-    }
-
-    document.getElementById('fecha_inicio').addEventListener('change', autoCalcFechaFin);
-    document.getElementById('plazo').addEventListener('input', autoCalcFechaFin);
 
     function initTable() {
         table = $('#tblPagosProveedores').DataTable({
@@ -308,17 +224,28 @@
                 { data: null, render: (_, __, ___, meta) => meta.row + 1 },
                 { data: 'numero_referencia' },
                 { data: 'proveedor' },
-                { data: 'lotificacion', render: d => d || '-' },
-                { data: 'importe', render: d => formatter.format(d) },
-                { data: 'enganche', render: d => formatter.format(d) },
-                { data: 'abonos', render: d => formatter.format(d) },
-                { data: 'resto', render: d => `<span class="text-danger fw-bold">${formatter.format(d)}</span>` },
-                { data: 'plazo', render: d => d + ' meses' },
+                { data: 'total' },
+                { data: 'meses' },
+                { data: 'mensualidad' },
+                { data: 'total_pagado' },
+                { data: 'saldo_pendiente' },
+                { data: 'estado_pago_badge', orderable: false, searchable: false },
                 { data: 'acciones', orderable: false, searchable: false }
             ],
             pageLength: 10,
             order: [],
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
+            language: {
+                processing: "Procesando...",
+                lengthMenu: "Mostrar _MENU_ registros",
+                zeroRecords: "No se encontraron resultados",
+                emptyTable: "No hay datos disponibles",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                infoEmpty: "Mostrando 0 a 0 de 0 registros",
+                infoFiltered: "(filtrado de _MAX_ registros totales)",
+                search: "Buscar:",
+                loadingRecords: "Cargando...",
+                paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" }
+            }
         });
     }
 
@@ -328,18 +255,37 @@
         modal.show();
     }
 
-    async function saveBoleta(e) {
+    async function saveItem(e) {
         e.preventDefault();
 
         const payload = {
             supplier_id: document.getElementById('supplier_id').value,
-            development_id: document.getElementById('development_id').value,
-            plazo: document.getElementById('plazo').value,
-            fecha_inicio: document.getElementById('fecha_inicio').value,
+            total: document.getElementById('total').value,
             enganche: document.getElementById('enganche').value,
-            importe: document.getElementById('importe').value,
+            meses: document.getElementById('meses').value,
+            num_socios: document.getElementById('num_socios').value,
+            fecha_inicio: document.getElementById('fecha_inicio').value,
             observacion: document.getElementById('observacion').value
         };
+
+        const equalSplit = document.getElementById('equal_split').checked;
+        if (!equalSplit) {
+            const inputs = document.querySelectorAll('.partner-pct-input');
+            let sum = 0;
+            const pcts = [];
+            inputs.forEach(el => {
+                const val = parseFloat(el.value) || 0;
+                sum += val;
+                pcts.push(val);
+            });
+            if (Math.abs(sum - 100) > 0.01) {
+                Swal.fire('Error', 'La suma de los porcentajes debe ser exactamente 100.', 'error');
+                return;
+            }
+            payload.partner_percentages = pcts;
+        } else {
+            payload.partner_percentages = null;
+        }
 
         try {
             const res = await fetch('/pagos-proveedores', {
@@ -373,117 +319,127 @@
     async function viewItem(id) {
         const res = await fetch(`/pagos-proveedores/${id}`);
         const json = await res.json();
-
+        
         const d = json.data;
-        document.getElementById('abono_boleta_id').value = id; // Para el modal de abonos
-        currentBoletaResto = parseFloat(d.resto || 0);
+        const total = parseFloat(d.total) || 0;
+        const enganche = parseFloat(d.enganche) || 0;
+        const meses = parseInt(d.meses) || 1;
+        const numSocios = parseInt(d.num_socios) || 1;
+        const mensualidad = parseFloat(d.mensualidad) || 0;
+        const debe = parseFloat(d.saldo_pendiente) || 0;
 
-        document.getElementById('dpp_ref').innerText = d.numero_referencia || '-';
-        document.getElementById('dpp_estado').innerHTML = `<span class="badge bg-primary">${d.estado}</span>`;
-        document.getElementById('dpp_proveedor').innerText = d.proveedor || '-';
-        document.getElementById('dpp_lotificacion').innerText = d.lotificacion || '-';
-        document.getElementById('dpp_fecha_inicio').innerText = d.fecha_inicio || '-';
-        document.getElementById('dpp_fecha_fin').innerText = d.fecha_fin || '-';
-        document.getElementById('dpp_plazo').innerText = d.plazo || '0';
+        document.getElementById('dba_ref').value = d.numero_referencia || '';
+        document.getElementById('dba_proveedor').value = d.proveedor || '';
+        
+        const fCurrency = v => '$ ' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-        document.getElementById('dpp_importe').innerText = formatter.format(d.importe || 0);
-        document.getElementById('dpp_enganche').innerText = formatter.format(d.enganche || 0);
-        document.getElementById('dpp_abonos').innerText = formatter.format(d.abonos || 0);
-        document.getElementById('dpp_resto').innerText = formatter.format(d.resto || 0);
+        // Generales
+        document.getElementById('dba_total').value = fCurrency(total);
+        document.getElementById('dba_enganche').value = fCurrency(enganche);
+        document.getElementById('dba_debe').value = fCurrency(debe);
+        document.getElementById('dba_meses').value = meses;
+        document.getElementById('dba_mensualidad').value = fCurrency(mensualidad);
+        
+        // Por Socio Dinámico
+        const partnerContainer = document.getElementById('dba_partner_container');
+        let partnerHtml = `<h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Desglose por Socio (${numSocios})</h6>`;
+        
+        let pcts = d.partner_percentages;
+        if (typeof pcts === 'string') {
+            try { pcts = JSON.parse(pcts); } catch(e) { pcts = null; }
+        }
 
-        const tbody = document.getElementById('dppItemsBody');
+        if (!Array.isArray(pcts) || pcts.length !== numSocios) {
+            pcts = Array(numSocios).fill(100 / numSocios);
+        }
+
+        partnerHtml += `<div class="accordion" id="accordionSocios">`;
+        pcts.forEach((pct, i) => {
+            const factor = pct / 100;
+            const socioTotal = total * factor;
+            const socioEnganche = enganche * factor;
+            const socioDebe = debe * factor;
+            const socioMensualidad = mensualidad * factor;
+
+            partnerHtml += `
+                <div class="accordion-item mb-1 border-0 shadow-sm">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-2 rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSocio${i}">
+                            Socio ${i+1} <span class="badge bg-secondary ms-2">${pct.toFixed(2)}%</span>
+                        </button>
+                    </h2>
+                    <div id="collapseSocio${i}" class="accordion-collapse collapse" data-bs-parent="#accordionSocios">
+                        <div class="accordion-body p-2 bg-transparent border rounded mt-1">
+                            <div class="row g-2">
+                                <div class="col-6"><label class="form-label text-muted small mb-0">Total</label><input type="text" class="form-control form-control-sm" value="${fCurrency(socioTotal)}" readonly></div>
+                                <div class="col-6"><label class="form-label text-muted small mb-0">Enganche</label><input type="text" class="form-control form-control-sm" value="${fCurrency(socioEnganche)}" readonly></div>
+                                <div class="col-6"><label class="form-label text-muted small mb-0">Resta</label><input type="text" class="form-control form-control-sm text-danger fw-bold" value="${fCurrency(socioDebe)}" readonly></div>
+                                <div class="col-6"><label class="form-label text-muted small mb-0">Mensualidad</label><input type="text" class="form-control form-control-sm text-primary fw-bold" value="${fCurrency(socioMensualidad)}" readonly></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        partnerHtml += `</div>`;
+        partnerContainer.innerHTML = partnerHtml;
+        
+        document.getElementById('dba_observacion').value = d.observacion || '';
+
+        const tbody = document.getElementById('detalleBoletaProveedorItemsBody');
         tbody.innerHTML = '';
 
-        let saldoVariable = parseFloat(d.importe || 0) - parseFloat(d.enganche || 0);
-
-        if (!(d.items && d.items.length)) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No hay abonos registrados</td></tr>`;
-        } else {
-            d.items.forEach((item, index) => {
-                const montoAbono = parseFloat(item.importe || 0);
-                saldoVariable -= montoAbono;
-                
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td>${item.fecha ?? '-'}</td>
-                        <td>${item.concepto ?? ''}</td>
-                        <td class="fw-bold">${formatter.format(montoAbono)}</td>
-                        <td class="text-danger fw-bold">${formatter.format(Math.max(0, saldoVariable))}</td>
-                    </tr>
-                `;
-            });
-        }
+        (json.data.items || []).forEach((item, index) => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${item.fecha_pago_programada ?? ''}</td>
+                    <td>${fCurrency(item.cantidad_a_pagar ?? 0)}</td>
+                    <td>${item.fecha_recibido ?? ''}</td>
+                    <td><span class="text-success fw-bold">${fCurrency(item.cantidad ?? 0)}</span></td>
+                    <td><span class="text-danger">${fCurrency(item.interes_pagado ?? 0)}</span></td>
+                    <td>${item.forma_pago ?? ''}</td>
+                    <td>${item.observaciones ?? ''}</td>
+                </tr>
+            `;
+        });
 
         modalDetalle.show();
     }
 
-    document.getElementById('btnNuevoPagoProveedor').addEventListener('click', openNew);
-    form.addEventListener('submit', saveBoleta);
+    document.getElementById('btnNuevaBoletaProveedor').addEventListener('click', openNew);
+    form.addEventListener('submit', saveItem);
 
     $('#tblPagosProveedores').on('click', '.btn-view', function () {
         viewItem(this.dataset.id);
     });
 
-    document.getElementById('btnAgregarAbono').addEventListener('click', async () => {
-        await loadOptions();
-        formAbono.reset();
-        document.getElementById('abono_fecha').value = new Date().toISOString().slice(0, 10);
-        $('.select2-abono').val(null).trigger('change');
-        
-        // Reset labels
-        document.getElementById('lbl_abono_resto_actual').innerText = formatter.format(currentBoletaResto);
-        document.getElementById('lbl_abono_nuevo_resto').innerText = formatter.format(currentBoletaResto);
-        
-        modalAbono.show();
-    });
+    function renderPercentages() {
+        const container = document.getElementById('partner_percentages_container');
+        const num = parseInt(document.getElementById('num_socios').value) || 1;
+        const equalSplit = document.getElementById('equal_split').checked;
 
-    document.getElementById('abono_monto').addEventListener('input', function() {
-        const monto = parseFloat(this.value || 0);
-        const nuevoResto = Math.max(0, currentBoletaResto - monto);
-        document.getElementById('lbl_abono_nuevo_resto').innerText = formatter.format(nuevoResto);
-    });
-
-    formAbono.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const boletaId = document.getElementById('abono_boleta_id').value;
-        const payload = {
-            fecha: document.getElementById('abono_fecha').value,
-            monto: document.getElementById('abono_monto').value,
-            payment_method_id: document.getElementById('abono_payment_method_id').value,
-            concepto: document.getElementById('abono_concepto').value
-        };
-
-        try {
-            const res = await fetch(`/pagos-proveedores/${boletaId}/abono`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.message || 'Error al guardar abono');
-
-            modalAbono.hide();
-            Swal.fire({
-                icon: 'success',
-                title: 'Abono registrado',
-                timer: 1500,
-                showConfirmButton: false
-            });
-
-            // Refrescar vistas
-            table.ajax.reload(null, false);
-            viewItem(boletaId); // recargar detalle
-
-        } catch(err) {
-            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+        if (equalSplit || num <= 1) {
+            container.innerHTML = '';
+            container.classList.add('d-none');
+            return;
         }
-    });
+
+        container.classList.remove('d-none');
+        let html = '';
+        for (let i = 1; i <= num; i++) {
+            html += `
+                <div class="col-6">
+                    <label class="form-label mb-0" style="font-size:11px;">Socio ${i} (%)</label>
+                    <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm partner-pct-input" required>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+    }
+
+    document.getElementById('num_socios').addEventListener('input', renderPercentages);
+    document.getElementById('equal_split').addEventListener('change', renderPercentages);
 
     initSelect2();
     initTable();

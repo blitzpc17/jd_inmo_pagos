@@ -24,11 +24,11 @@ use App\Http\Controllers\ChargeController;
 
 use App\Http\Controllers\DevelopmentAssignmentController;
 
-use App\Http\Controllers\SupplierPaymentController;
+use App\Http\Controllers\CreditorPaymentController;
 
 use App\Http\Controllers\CreditorController;
-use App\Http\Controllers\CreditorVoucherController;
-use App\Http\Controllers\CreditorVoucherPaymentController;
+use App\Http\Controllers\SupplierVoucherController;
+use App\Http\Controllers\SupplierVoucherPaymentController;
 
 use App\Http\Controllers\DevelopmentSummaryController;
 
@@ -350,12 +350,12 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
 
 
     Route::prefix('pagos-proveedores')->name('pagos_proveedores.')->group(function () {
-        Route::get('/', [SupplierPaymentController::class, 'index'])->name('index');
-        Route::get('/datatable', [SupplierPaymentController::class, 'datatable'])->name('datatable');
-        Route::get('/options', [SupplierPaymentController::class, 'options'])->name('options');
-        Route::post('/', [SupplierPaymentController::class, 'store'])->name('store');
-        Route::get('/{id}', [SupplierPaymentController::class, 'show'])->name('show');
-        Route::post('/{id}/abono', [SupplierPaymentController::class, 'addAbono'])->name('add_abono');
+        Route::get('/', [SupplierVoucherController::class, 'index'])->name('index');
+        Route::get('/datatable', [SupplierVoucherController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [SupplierVoucherController::class, 'options'])->name('options');
+        Route::post('/', [SupplierVoucherController::class, 'store'])->name('store');
+        Route::get('/{id}', [SupplierVoucherController::class, 'show'])->name('show');
+        Route::post('/{id}/abono', [SupplierVoucherController::class, 'addAbono'])->name('add_abono');
     });
 
 
@@ -369,25 +369,30 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     });
 
     Route::prefix('pagos-acreedores')->name('pagos_acreedores.')->group(function () {
-        Route::get('/', [CreditorVoucherController::class, 'index'])->name('index');
-        Route::get('/datatable', [CreditorVoucherController::class, 'datatable'])->name('datatable');
-        Route::get('/options', [CreditorVoucherController::class, 'options'])->name('options');
-        Route::post('/', [CreditorVoucherController::class, 'store'])->name('store');
-        Route::get('/{id}', [CreditorVoucherController::class, 'show'])->name('show');
+        Route::get('/', [CreditorPaymentController::class, 'index'])->name('index');
+        Route::get('/datatable', [CreditorPaymentController::class, 'datatable'])->name('datatable');
+        Route::get('/options', [CreditorPaymentController::class, 'options'])->name('options');
+        Route::post('/', [CreditorPaymentController::class, 'store'])->name('store');
+        Route::get('/{id}', [CreditorPaymentController::class, 'show'])->name('show');
+        Route::post('/{id}/abono', [CreditorPaymentController::class, 'addAbono'])->name('add_abono');
+        Route::get('/{id}/pdf/boleta', [CreditorPaymentController::class, 'pdfBoleta'])->name('pdf.boleta');
+        Route::get('/{id}/pdf/recibo/{abonoId}', [CreditorPaymentController::class, 'pdfRecibo'])->name('pdf.recibo');
     });
 
-    Route::prefix('abonos-acreedores')->name('abonos_acreedores.')->group(function () {
-        Route::get('/', [CreditorVoucherPaymentController::class, 'index'])->name('index');
-        Route::get('/options', [CreditorVoucherPaymentController::class, 'options'])->name('options');
-        Route::get('/creditor/{creditorId}/vouchers', [CreditorVoucherPaymentController::class, 'creditorVouchers'])->name('creditor.vouchers');
-        Route::get('/voucher/{voucherId}/summary', [CreditorVoucherPaymentController::class, 'voucherSummary'])->name('voucher.summary');
-        Route::post('/', [CreditorVoucherPaymentController::class, 'store'])->name('store');
+    Route::prefix('abonos-proveedores')->name('abonos_proveedores.')->group(function () {
+        Route::get('/', [SupplierVoucherPaymentController::class, 'index'])->name('index');
+        Route::get('/options', [SupplierVoucherPaymentController::class, 'options'])->name('options');
+        Route::get('/supplier/{supplierId}/vouchers', [SupplierVoucherPaymentController::class, 'creditorVouchers'])->name('supplier.vouchers');
+        Route::get('/voucher/{voucherId}/summary', [SupplierVoucherPaymentController::class, 'voucherSummary'])->name('voucher.summary');
+        Route::post('/', [SupplierVoucherPaymentController::class, 'store'])->name('store');
+        Route::get('/{id}/pdf/boleta', [SupplierVoucherPaymentController::class, 'pdfBoleta'])->name('pdf.boleta');
+        Route::get('/{id}/pdf/recibo/{abonoId}', [SupplierVoucherPaymentController::class, 'pdfRecibo'])->name('pdf.recibo');
     });
 
 
     Route::get('/cobros/{id}/recibo', [ChargeController::class, 'receipt'])->name('cobros.receipt');
-    Route::get('/abonos-acreedores/recibo/{itemId}', [CreditorVoucherPaymentController::class, 'receipt'])->name('abonos_acreedores.receipt');
-    Route::get('/pagos-proveedores/{id}/recibo', [SupplierPaymentController::class, 'receipt'])->name('pagos_proveedores.receipt');
+    Route::get('/abonos-proveedores/recibo/{itemId}', [SupplierVoucherPaymentController::class, 'receipt'])->name('abonos_proveedores.receipt');
+    Route::get('/pagos-proveedores/{id}/recibo', [SupplierVoucherController::class, 'receipt'])->name('pagos_proveedores.receipt');
 
 
     Route::prefix('configuracion-cobranza')
@@ -423,7 +428,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
             
             Route::get('/suppliers', [\App\Http\Controllers\BulkModificationController::class, 'getSuppliers'])->name('suppliers');
             Route::get('/supplier/{supplierId}/boletas', [\App\Http\Controllers\BulkModificationController::class, 'getSupplierBoletas'])->whereNumber('supplierId')->name('supplier-boletas');
-            Route::get('/boleta/{boletaId}/partidas', [\App\Http\Controllers\BulkModificationController::class, 'getBoletaPartidas'])->whereNumber('boletaId')->name('boleta-partidas');
+            Route::get('/boleta/{boletaId}/partidas', [\App\Http\Controllers\BulkModificationController::class, 'getSupplierBoletaPartidas'])->whereNumber('boletaId')->name('boleta-partidas');
 
             Route::get('/creditors', [\App\Http\Controllers\BulkModificationController::class, 'getCreditors'])->name('creditors');
             Route::get('/creditor/{creditorId}/boletas', [\App\Http\Controllers\BulkModificationController::class, 'getCreditorBoletas'])->whereNumber('creditorId')->name('creditor-boletas');

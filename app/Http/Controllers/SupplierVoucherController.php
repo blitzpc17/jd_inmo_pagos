@@ -7,18 +7,18 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
-class CreditorVoucherController extends Controller
+class SupplierVoucherController extends Controller
 {
     public function index()
     {
-        return view('pagos_acreedores.index');
+        return view('pagos_proveedores.index');
     }
 
     public function datatable()
     {
-        $rows = DB::table('creditor_vouchers as cv')
-            ->join('creditors as c', 'c.id', '=', 'cv.creditor_id')
-            ->join('statuses as s', 's.id', '=', 'cv.status_id')
+        $rows = DB::table('supplier_vouchers as cv')
+            ->join('suppliers as s', 's.id', '=', 'cv.supplier_id')
+            ->join('statuses as st', 'st.id', '=', 'cv.status_id')
             ->whereNull('cv.fecha_baja')
             ->select([
                 'cv.id',
@@ -31,14 +31,14 @@ class CreditorVoucherController extends Controller
                 'cv.saldo_pendiente',
                 'cv.observacion',
                 'cv.fecha_registro',
-                'c.nombres',
-                'c.apellidos',
-                's.nombre as estado',
+                's.nombres',
+                's.apellidos',
+                'st.nombre as estado',
             ])
             ->orderByDesc('cv.id')
             ->get()
             ->map(function ($r) {
-                $r->acreedor = trim(($r->nombres ?? '') . ' ' . ($r->apellidos ?? ''));
+                $r->proveedor = trim(($r->nombres ?? '') . ' ' . ($r->apellidos ?? ''));
 
                 $progress = $this->getVoucherProgressStatus((object) [
                     'id' => $r->id,
@@ -76,27 +76,33 @@ class CreditorVoucherController extends Controller
 
     public function options()
     {
-        $creditors = DB::table('creditors as c')
-            ->join('statuses as s', 's.id', '=', 'c.status_id')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
+        $suppliers = DB::table('suppliers as s')
+            ->join('statuses as st', 'st.id', '=', 's.status_id')
+            ->join('processes as p', 'p.id', '=', 'st.process_id')
             ->where('p.clave', 'GENERAL')
-            ->where('s.clave', 'ACTIVE')
-            ->whereNull('c.fecha_baja')
-            ->orderBy('c.nombres')
+            ->where('st.clave', 'ACTIVE')
+            ->whereNull('s.fecha_baja')
+            ->orderBy('s.nombres')
             ->get([
-                'c.id as value',
-                DB::raw("c.nombres || ' ' || c.apellidos as text")
-            ]);
+                's.id as value',
+                's.nombres',
+                's.apellidos'
+            ])->map(function($r) {
+                return [
+                    'value' => $r->value,
+                    'text' => trim(($r->nombres ?? '') . ' ' . ($r->apellidos ?? ''))
+                ];
+            });
 
         return response()->json([
-            'creditors' => $creditors,
+            'suppliers' => $suppliers,
         ]);
     }
 
     public function store(Request $request)
     {
         $data = Validator::make($request->all(), [
-            'creditor_id' => ['required', 'integer', 'exists:creditors,id'],
+            'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
             'total' => ['required', 'numeric', 'min:0.01'],
             'enganche' => ['required', 'numeric', 'min:0'],
             'num_socios' => ['required', 'integer', 'min:1'],
@@ -131,9 +137,9 @@ class CreditorVoucherController extends Controller
         DB::beginTransaction();
 
         try {
-            $voucherId = DB::table('creditor_vouchers')->insertGetId([
+            $voucherId = DB::table('supplier_vouchers')->insertGetId([
                 'numero_referencia' => '',
-                'creditor_id' => $data['creditor_id'],
+                'supplier_id' => $data['supplier_id'],
                 'total' => $total,
                 'enganche' => $enganche,
                 'num_socios' => $numSocios,
@@ -152,10 +158,10 @@ class CreditorVoucherController extends Controller
                 'created_at' => now(),
             ]);
 
-            DB::table('creditor_vouchers')
+            DB::table('supplier_vouchers')
                 ->where('id', $voucherId)
                 ->update([
-                    'numero_referencia' => 'BOL-ACR-' . str_pad((string) $voucherId, 6, '0', STR_PAD_LEFT),
+                    'numero_referencia' => 'BOL-PROV-' . str_pad((string) $voucherId, 6, '0', STR_PAD_LEFT),
                     'updated_at' => now(),
                 ]);
 
@@ -172,7 +178,7 @@ class CreditorVoucherController extends Controller
                     $accumulated += $amount;
                 }
                 $schedules[] = [
-                    'creditor_voucher_id' => $voucherId,
+                    'supplier_voucher_id' => $voucherId,
                     'installment_number' => $i,
                     'due_date' => $dueDate->toDateString(),
                     'amount' => $amount,
@@ -183,7 +189,7 @@ class CreditorVoucherController extends Controller
                 ];
             }
             if (!empty($schedules)) {
-                DB::table('creditor_payment_schedules')->insert($schedules);
+                DB::table('supplier_payment_schedules')->insert($schedules);
             }
 
             DB::commit();
@@ -202,24 +208,24 @@ class CreditorVoucherController extends Controller
     {
         $this->recalculateVoucherTotals($id);
 
-        $row = DB::table('creditor_vouchers as cv')
-            ->join('creditors as c', 'c.id', '=', 'cv.creditor_id')
-            ->join('statuses as s', 's.id', '=', 'cv.status_id')
+        $row = DB::table('supplier_vouchers as cv')
+            ->join('suppliers as s', 's.id', '=', 'cv.supplier_id')
+            ->join('statuses as st', 'st.id', '=', 'cv.status_id')
             ->where('cv.id', $id)
             ->select([
                 'cv.*',
-                'c.nombres',
-                'c.apellidos',
-                's.nombre as estado',
+                's.nombres',
+                's.apellidos',
+                'st.nombre as estado',
             ])
             ->first();
 
         abort_if(!$row, 404, 'Boleta no encontrada');
 
-        $items = DB::table('creditor_voucher_items as cvi')
+        $items = DB::table('supplier_voucher_items as cvi')
             ->join('payment_methods as pm', 'pm.id', '=', 'cvi.payment_method_id')
             ->leftJoin('users as u', 'u.id', '=', 'cvi.usuario_genero_id')
-            ->where('cvi.creditor_voucher_id', $id)
+            ->where('cvi.supplier_voucher_id', $id)
             ->whereNull('cvi.fecha_baja')
             ->orderBy('cvi.id')
             ->get([
@@ -236,7 +242,7 @@ class CreditorVoucherController extends Controller
             'data' => [
                 'id' => $row->id,
                 'numero_referencia' => $row->numero_referencia,
-                'acreedor' => trim(($row->nombres ?? '') . ' ' . ($row->apellidos ?? '')),
+                'proveedor' => trim(($row->nombres ?? '') . ' ' . ($row->apellidos ?? '')),
                 'total' => $row->total,
                 'enganche' => $row->enganche,
                 'num_socios' => $row->num_socios,
@@ -260,19 +266,19 @@ class CreditorVoucherController extends Controller
 
     protected function recalculateVoucherTotals(int $voucherId): void
     {
-        $voucher = DB::table('creditor_vouchers')->where('id', $voucherId)->first();
+        $voucher = DB::table('supplier_vouchers')->where('id', $voucherId)->first();
         if (!$voucher) {
             return;
         }
 
-        $totalPagado = (float) DB::table('creditor_voucher_items')
-            ->where('creditor_voucher_id', $voucherId)
+        $totalPagado = (float) DB::table('supplier_voucher_items')
+            ->where('supplier_voucher_id', $voucherId)
             ->whereNull('fecha_baja')
             ->sum('cantidad');
 
         $saldoPendiente = max(0, (float) $voucher->total - (float) $voucher->enganche - $totalPagado);
 
-        DB::table('creditor_vouchers')
+        DB::table('supplier_vouchers')
             ->where('id', $voucherId)
             ->update([
                 'total_pagado' => $totalPagado,
@@ -291,13 +297,13 @@ class CreditorVoucherController extends Controller
 
         $deberiaLlevar = round($mesesExigibles * (float) $voucher->mensualidad, 2);
         
-        $totalAbonado = (float) DB::table('creditor_voucher_items')
-            ->where('creditor_voucher_id', $voucher->id)
+        $totalAbonado = (float) DB::table('supplier_voucher_items')
+            ->where('supplier_voucher_id', $voucher->id)
             ->whereNull('fecha_baja')
             ->sum('cantidad');
             
-        $interesGenerado = (float) DB::table('creditor_voucher_items')
-            ->where('creditor_voucher_id', $voucher->id)
+        $interesGenerado = (float) DB::table('supplier_voucher_items')
+            ->where('supplier_voucher_id', $voucher->id)
             ->whereNull('fecha_baja')
             ->sum('interes_pagado');
             

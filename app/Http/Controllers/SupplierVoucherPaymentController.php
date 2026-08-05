@@ -8,26 +8,32 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Services\PdfReceiptService;
 
-class CreditorVoucherPaymentController extends Controller
+class SupplierVoucherPaymentController extends Controller
 {
     public function index()
     {
-        return view('pagos_acreedores_abonos.index');
+        return view('pagos_proveedores_abonos.index');
     }
 
     public function options()
     {
-        $creditors = DB::table('creditors as c')
-            ->join('statuses as s', 's.id', '=', 'c.status_id')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
+        $suppliers = DB::table('suppliers as s')
+            ->join('statuses as st', 'st.id', '=', 's.status_id')
+            ->join('processes as p', 'p.id', '=', 'st.process_id')
             ->where('p.clave', 'GENERAL')
-            ->where('s.clave', 'ACTIVE')
-            ->whereNull('c.fecha_baja')
-            ->orderBy('c.nombres')
+            ->where('st.clave', 'ACTIVE')
+            ->whereNull('s.fecha_baja')
+            ->orderBy('s.nombres')
             ->get([
-                'c.id as value',
-                DB::raw("c.nombres || ' ' || c.apellidos as text")
-            ]);
+                's.id as value',
+                's.nombres',
+                's.apellidos'
+            ])->map(function($r) {
+                return [
+                    'value' => $r->value,
+                    'text' => trim(($r->nombres ?? '') . ' ' . ($r->apellidos ?? ''))
+                ];
+            });
 
         $paymentMethods = DB::table('payment_methods')
             ->orderBy('nombre')
@@ -37,15 +43,15 @@ class CreditorVoucherPaymentController extends Controller
             ]);
 
         return response()->json([
-            'creditors' => $creditors,
+            'suppliers' => $suppliers,
             'payment_methods' => $paymentMethods,
         ]);
     }
 
-    public function creditorVouchers(int $creditorId)
+    public function creditorVouchers(int $supplierId)
     {
-        $rows = DB::table('creditor_vouchers as cv')
-            ->where('cv.creditor_id', $creditorId)
+        $rows = DB::table('supplier_vouchers as cv')
+            ->where('cv.supplier_id', $supplierId)
             ->whereNull('cv.fecha_baja')
             ->orderByDesc('cv.id')
             ->get([
@@ -89,24 +95,28 @@ class CreditorVoucherPaymentController extends Controller
     {
         $this->recalculateVoucherTotals($voucherId);
 
-        $row = DB::table('creditor_vouchers as cv')
-            ->join('creditors as c', 'c.id', '=', 'cv.creditor_id')
-            ->join('statuses as s', 's.id', '=', 'cv.status_id')
+        $row = DB::table('supplier_vouchers as cv')
+            ->join('suppliers as s', 's.id', '=', 'cv.supplier_id')
+            ->join('statuses as st', 'st.id', '=', 'cv.status_id')
             ->where('cv.id', $voucherId)
             ->select([
                 'cv.*',
-                'c.nombres',
-                'c.apellidos',
-                's.nombre as estado',
+                's.nombres',
+                's.apellidos',
+                'st.nombre as estado',
             ])
             ->first();
 
+        if ($row) {
+            $row->proveedor = trim(($row->nombres ?? '') . ' ' . ($row->apellidos ?? ''));
+        }
+
         abort_if(!$row, 404, 'Boleta no encontrada');
 
-        $items = DB::table('creditor_voucher_items as cvi')
+        $items = DB::table('supplier_voucher_items as cvi')
             ->join('payment_methods as pm', 'pm.id', '=', 'cvi.payment_method_id')
             ->leftJoin('users as u', 'u.id', '=', 'cvi.usuario_genero_id')
-            ->where('cvi.creditor_voucher_id', $voucherId)
+            ->where('cvi.supplier_voucher_id', $voucherId)
             ->whereNull('cvi.fecha_baja')
             ->orderBy('cvi.id')
             ->get([
@@ -121,8 +131,8 @@ class CreditorVoucherPaymentController extends Controller
                 'u.alias as usuario_registro',
             ]);
 
-        $schedules = DB::table('creditor_payment_schedules')
-            ->where('creditor_voucher_id', $voucherId)
+        $schedules = DB::table('supplier_payment_schedules')
+            ->where('supplier_voucher_id', $voucherId)
             ->orderBy('installment_number')
             ->get();
 
@@ -133,7 +143,7 @@ class CreditorVoucherPaymentController extends Controller
             'data' => [
                 'id' => $row->id,
                 'numero_referencia' => $row->numero_referencia,
-                'acreedor' => trim(($row->nombres ?? '') . ' ' . ($row->apellidos ?? '')),
+                'proveedor' => $row->proveedor,
                 'total' => $row->total,
                 'enganche' => $row->enganche,
                 'num_socios' => $row->num_socios,
@@ -162,7 +172,7 @@ class CreditorVoucherPaymentController extends Controller
     public function store(Request $request)
     {
         $data = Validator::make($request->all(), [
-            'creditor_voucher_id' => ['required', 'integer', 'exists:creditor_vouchers,id'],
+            'supplier_voucher_id' => ['required', 'integer', 'exists:supplier_vouchers,id'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.fecha_pago_programada' => ['nullable', 'date'],
             'items.*.cantidad_a_pagar' => ['nullable', 'numeric', 'min:0'],
@@ -175,7 +185,7 @@ class CreditorVoucherPaymentController extends Controller
 
         $statusId = $this->getActiveStatusId();
 
-        $voucher = DB::table('creditor_vouchers')->where('id', $data['creditor_voucher_id'])->first();
+        $voucher = DB::table('supplier_vouchers')->where('id', $data['supplier_voucher_id'])->first();
         if (!$voucher) {
             return response()->json(['message' => 'Boleta no encontrada.'], 404);
         }
@@ -195,7 +205,7 @@ class CreditorVoucherPaymentController extends Controller
             $rows = [];
             foreach ($data['items'] as $item) {
                 $rows[] = [
-                    'creditor_voucher_id' => $data['creditor_voucher_id'],
+                    'supplier_voucher_id' => $data['supplier_voucher_id'],
                     'fecha_pago_programada' => $item['fecha_pago_programada'] ?? null,
                     'cantidad_a_pagar' => $item['cantidad_a_pagar'] ?? 0,
                     'fecha_recibido' => $item['fecha_recibido'],
@@ -210,9 +220,9 @@ class CreditorVoucherPaymentController extends Controller
                 ];
             }
 
-            DB::table('creditor_voucher_items')->insert($rows);
+            DB::table('supplier_voucher_items')->insert($rows);
 
-            $this->recalculateVoucherTotals($data['creditor_voucher_id']);
+            $this->recalculateVoucherTotals($data['supplier_voucher_id']);
 
             DB::commit();
 
@@ -228,18 +238,18 @@ class CreditorVoucherPaymentController extends Controller
 
     public function recalculateVoucherTotals(int $voucherId): void
     {
-        $voucher = DB::table('creditor_vouchers')->where('id', $voucherId)->first();
+        $voucher = DB::table('supplier_vouchers')->where('id', $voucherId)->first();
         if (!$voucher) {
             return;
         }
 
-        $totalPagado = (float) DB::table('creditor_voucher_items')
-            ->where('creditor_voucher_id', $voucherId)
+        $totalPagado = (float) DB::table('supplier_voucher_items')
+            ->where('supplier_voucher_id', $voucherId)
             ->whereNull('fecha_baja')
             ->sum('cantidad');
             
-        $interesGenerado = (float) DB::table('creditor_voucher_items')
-            ->where('creditor_voucher_id', $voucherId)
+        $interesGenerado = (float) DB::table('supplier_voucher_items')
+            ->where('supplier_voucher_id', $voucherId)
             ->whereNull('fecha_baja')
             ->sum('interes_pagado'); // interes_pagado in DB represents interes_generado from UI
 
@@ -251,7 +261,7 @@ class CreditorVoucherPaymentController extends Controller
         
         $saldoPendienteCapital = $capitalTotal - $capitalPagado;
 
-        DB::table('creditor_vouchers')
+        DB::table('supplier_vouchers')
             ->where('id', $voucherId)
             ->update([
                 'total_pagado' => $totalPagado,
@@ -259,8 +269,8 @@ class CreditorVoucherPaymentController extends Controller
                 'updated_at' => now(),
             ]);
 
-        $schedules = DB::table('creditor_payment_schedules')
-            ->where('creditor_voucher_id', $voucherId)
+        $schedules = DB::table('supplier_payment_schedules')
+            ->where('supplier_voucher_id', $voucherId)
             ->orderBy('installment_number')
             ->get();
 
@@ -281,7 +291,7 @@ class CreditorVoucherPaymentController extends Controller
                 $status = ($saldoPendienteCapital <= 0.01) ? 'PAID' : 'PENDING';
             }
 
-            DB::table('creditor_payment_schedules')
+            DB::table('supplier_payment_schedules')
                 ->where('id', $schedule->id)
                 ->update([
                     'amount_paid' => $paid,
@@ -301,13 +311,13 @@ class CreditorVoucherPaymentController extends Controller
 
         $deberiaLlevar = round($mesesExigibles * (float) $voucher->mensualidad, 2);
         
-        $totalAbonado = (float) DB::table('creditor_voucher_items')
-            ->where('creditor_voucher_id', $voucher->id)
+        $totalAbonado = (float) DB::table('supplier_voucher_items')
+            ->where('supplier_voucher_id', $voucher->id)
             ->whereNull('fecha_baja')
             ->sum('cantidad');
             
-        $interesGenerado = (float) DB::table('creditor_voucher_items')
-            ->where('creditor_voucher_id', $voucher->id)
+        $interesGenerado = (float) DB::table('supplier_voucher_items')
+            ->where('supplier_voucher_id', $voucher->id)
             ->whereNull('fecha_baja')
             ->sum('interes_pagado');
             
@@ -356,12 +366,69 @@ class CreditorVoucherPaymentController extends Controller
         return (int) $id;
     }
 
-    public function receipt(int $itemId, PdfReceiptService $pdf)
+    public function pdfBoleta(int $id, PdfReceiptService $pdf)
     {
-        $item = DB::table('creditor_voucher_items as i')
+        $this->recalculateVoucherTotals((int) $id);
+
+        $voucher = DB::table('supplier_vouchers as cv')
+            ->join('suppliers as s', 's.id', '=', 'cv.supplier_id')
+            ->join('statuses as st', 'st.id', '=', 'cv.status_id')
+            ->where('cv.id', $id)
+            ->select([
+                'cv.*',
+                's.nombres',
+                's.apellidos',
+                'st.nombre as estado_pago',
+            ])
+            ->first();
+
+        abort_if(!$voucher, 404, 'Boleta no encontrada');
+        
+        $voucher->proveedor = trim(($voucher->nombres ?? '') . ' ' . ($voucher->apellidos ?? ''));
+
+        $items = DB::table('supplier_voucher_items as i')
+            ->leftJoin('payment_methods as pm', 'pm.id', '=', 'i.payment_method_id')
+            ->where('i.supplier_voucher_id', $voucher->id)
+            ->whereNull('i.fecha_baja')
+            ->orderBy('i.id')
+            ->select([
+                'i.*',
+                'pm.nombre as forma_pago'
+            ])
+            ->get();
+            
+        $totalAbonos = 0;
+        foreach ($items as $idx => $row) {
+            $totalAbonos += $row->cantidad;
+        }
+
+        $stats = [
+            'total_payments' => count($items),
+            'paid_payments' => count($items),
+            'pending_payments' => 0,
+        ];
+
+        return $pdf->stream(
+            'pdf.receipts.supplier_boleta',
+            [
+                'document_type' => 'BOLETA DE PAGO A PROVEEDOR',
+                'folio' => $voucher->numero_referencia,
+                'voucher' => $voucher,
+                'items' => $items,
+                'totalAbonos' => $totalAbonos,
+                'stats' => $stats,
+            ],
+            'boleta-proveedor-'.$voucher->numero_referencia.'.pdf'
+        );
+    }
+
+    public function pdfRecibo(int $id, int $abonoId, PdfReceiptService $pdf)
+    {
+        $item = DB::table('supplier_voucher_items as i')
             ->join('payment_methods as pm', 'pm.id', '=', 'i.payment_method_id')
             ->leftJoin('users as u', 'u.id', '=', 'i.usuario_genero_id')
-            ->where('i.id', $itemId)
+            ->where('i.id', $abonoId)
+            ->where('i.supplier_voucher_id', $id)
             ->select([
                 'i.*',
                 'pm.nombre as forma_pago',
@@ -371,56 +438,38 @@ class CreditorVoucherPaymentController extends Controller
 
         abort_if(!$item, 404, 'Abono no encontrado');
 
-        $this->recalculateVoucherTotals((int) $item->creditor_voucher_id);
+        $this->recalculateVoucherTotals((int) $id);
 
-        $voucher = DB::table('creditor_vouchers as cv')
-            ->join('creditors as c', 'c.id', '=', 'cv.creditor_id')
-            ->where('cv.id', $item->creditor_voucher_id)
+        $voucher = DB::table('supplier_vouchers as cv')
+            ->join('suppliers as s', 's.id', '=', 'cv.supplier_id')
+            ->where('cv.id', $id)
             ->select([
                 'cv.*',
-                DB::raw("c.nombres || ' ' || c.apellidos as acreedor"),
+                's.nombres',
+                's.apellidos',
             ])
             ->first();
 
         abort_if(!$voucher, 404, 'Boleta no encontrada');
 
-        $progress = $this->getVoucherProgressStatus($voucher);
-        $voucher->estado_pago = $progress['estado_pago'];
+        $voucher->proveedor = trim(($voucher->nombres ?? '') . ' ' . ($voucher->apellidos ?? ''));
 
         $stats = [
-            'total_payments' => $voucher->meses,
-            'paid_payments' => $progress['meses_pagados'] ?? 0,
-            'pending_payments' => max(0, $voucher->meses - ($progress['meses_pagados'] ?? 0)),
+            'total_payments' => DB::table('supplier_voucher_items')->where('supplier_voucher_id', $id)->whereNull('fecha_baja')->count(),
+            'paid_payments' => DB::table('supplier_voucher_items')->where('supplier_voucher_id', $id)->whereNull('fecha_baja')->count(),
+            'pending_payments' => 0,
         ];
 
-        $items = DB::table('creditor_voucher_items')
-            ->where('creditor_voucher_id', $voucher->id)
-            ->whereNull('fecha_baja')
-            ->orderBy('id')
-            ->get();
-            
-        $scheduleGrid = [];
-        foreach ($items as $idx => $row) {
-            $scheduleGrid[] = (object) [
-                'installment_number' => $idx + 1,
-                'due_date' => $row->fecha_pago_programada ?: $row->fecha_recibido,
-                'amount' => $row->cantidad_a_pagar > 0 ? $row->cantidad_a_pagar : $voucher->mensualidad,
-                'amount_paid' => $row->cantidad,
-                'status' => 'PAGADO',
-            ];
-        }
-
         return $pdf->stream(
-            'pdf.receipts.creditor_payment',
+            'pdf.receipts.supplier_recibo',
             [
-                'document_type' => 'RECIBO DE ABONO A ACREEDOR',
-                'folio' => 'REC-ACR-' . str_pad((string) $item->id, 6, '0', STR_PAD_LEFT),
+                'document_type' => 'RECIBO DE ABONO A PROVEEDOR',
+                'folio' => 'REC-PRO-' . str_pad((string) $item->id, 6, '0', STR_PAD_LEFT),
                 'item' => $item,
                 'voucher' => $voucher,
                 'stats' => $stats,
-                'scheduleGrid' => $scheduleGrid,
             ],
-            'recibo-abono-acreedor-'.$item->id.'.pdf'
+            'recibo-abono-proveedor-'.$item->id.'.pdf'
         );
     }
 }

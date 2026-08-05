@@ -45,7 +45,7 @@ class DashboardController extends Controller
             ->whereBetween('created_at', [$from, $to])
             ->count();
 
-        $supplierPaymentsCount = DB::table('supplier_payments')
+        $creditorPaymentsCount = DB::table('creditor_payments')
             ->whereNull('fecha_baja')
             ->whereBetween('created_at', [$from, $to])
             ->count();
@@ -55,7 +55,7 @@ class DashboardController extends Controller
             ->whereBetween('created_at', [$from, $to])
             ->count();
 
-        $creditorsCount = DB::table('creditors')
+        $suppliersCount = DB::table('suppliers')
             ->whereNull('fecha_baja')
             ->whereBetween('created_at', [$from, $to])
             ->count();
@@ -129,9 +129,9 @@ class DashboardController extends Controller
         return [
             'cards' => [
                 'contracts' => $contractsCount,
-                'supplier_payments' => $supplierPaymentsCount,
+                'creditor_payments' => $creditorPaymentsCount,
                 'clients' => $clientsCount,
-                'creditors' => $creditorsCount,
+                'suppliers' => $suppliersCount,
                 'charges_today_count' => $chargesRangeCount,
                 'charges_today_amount' => $chargesRangeAmount,
             ],
