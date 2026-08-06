@@ -59,9 +59,13 @@
                             <label class="form-label">Dirección</label>
                             <textarea class="form-control" id="direccion" name="direccion" rows="3"></textarea>
                         </div>
-                        <div class="col-md-6" style="display:none;">
-                            <label class="form-label">Estado</label>
-                            <select class="form-select select2-prov" id="status_id" name="status_id"></select>
+                        <div class="col-md-6" id="divEstado">
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" id="chkActivo" checked>
+                                <label class="form-check-label" for="chkActivo">Activo</label>
+                            </div>
+                            <!-- Hidden input to send status_id -->
+                            <input type="hidden" id="status_id" name="status_id">
                         </div>
                     </div>
                 </div>
@@ -111,7 +115,7 @@
     function resetForm() {
         form.reset();
         proveedorId.value = '';
-        $('.select2-prov').val(null).trigger('change');
+        $('#chkActivo').prop('checked', true);
         document.getElementById('proveedorModalTitle').textContent = 'Nuevo proveedor';
     }
 
@@ -137,11 +141,13 @@
         resetForm();
         
         // Find ACTIVE status
-        const activeStatus = optionsCache.statuses.find(s => s.text === 'ACTIVE');
+        const activeStatus = optionsCache.statuses.find(s => s.clave === 'ACTIVE');
         if (activeStatus) {
-            $('#status_id').val(activeStatus.value).trigger('change');
+            $('#status_id').val(activeStatus.value);
+            $('#chkActivo').prop('checked', true);
         }
 
+        document.getElementById('divEstado').style.display = 'none';
         modal.show();
     }
 
@@ -157,14 +163,27 @@
         document.getElementById('apellidos').value = json.data.apellidos || '';
         document.getElementById('telefono').value = json.data.telefono || '';
         document.getElementById('direccion').value = json.data.direccion || '';
-        $('#status_id').val(json.data.status_id).trigger('change');
+        
+        const activeStatus = optionsCache.statuses.find(s => s.clave === 'ACTIVE');
+        const isActive = json.data.status_id == activeStatus.value;
+        $('#chkActivo').prop('checked', isActive);
+        $('#status_id').val(json.data.status_id);
 
+        document.getElementById('divEstado').style.display = 'block';
         document.getElementById('proveedorModalTitle').textContent = 'Editar proveedor';
         modal.show();
     }
 
     async function saveItem(e) {
         e.preventDefault();
+
+        // Compute status_id based on chkActivo
+        if (optionsCache) {
+            const activeStatus = optionsCache.statuses.find(s => s.clave === 'ACTIVE');
+            const inactiveStatus = optionsCache.statuses.find(s => s.clave === 'INACTIVE');
+            const chkActivo = document.getElementById('chkActivo').checked;
+            document.getElementById('status_id').value = chkActivo ? activeStatus.value : inactiveStatus.value;
+        }
 
         const id = proveedorId.value;
         const formData = new FormData(form);
@@ -193,56 +212,11 @@
         }
     }
 
-    async function deleteItem(id) {
-        const ask = await Swal.fire({
-            icon: 'warning',
-            title: '¿Dar de baja proveedor?',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, dar de baja',
-            cancelButtonText: 'Cancelar'
-        });
-
-        if (!ask.isConfirmed) return;
-
-        try {
-            const res = await fetch(`/proveedores/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json'
-                }
-            });
-
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.message || 'No se pudo dar de baja');
-
-            table.ajax.reload(null, false);
-
-            Swal.fire({
-                icon: 'success',
-                title: 'Correcto',
-                text: json.message,
-                timer: 1600,
-                showConfirmButton: false
-            });
-        } catch (err) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: err.message
-            });
-        }
-    }
-
     document.getElementById('btnNuevoProveedor').addEventListener('click', openNew);
     form.addEventListener('submit', saveItem);
 
     $('#tblProveedores').on('click', '.btn-edit', function () {
         editItem(this.dataset.id);
-    });
-
-    $('#tblProveedores').on('click', '.btn-delete', function () {
-        deleteItem(this.dataset.id);
     });
 
     initSelect2();

@@ -17,7 +17,6 @@ class SupplierController extends Controller
     {
         $rows = DB::table('suppliers as p')
             ->join('statuses as s', 's.id', '=', 'p.status_id')
-            ->whereNull('p.fecha_baja')
             ->select([
                 'p.id',
                 'p.nombres',
@@ -33,7 +32,6 @@ class SupplierController extends Controller
                 $r->acciones = '
                     <div class="d-flex gap-1">
                         <button class="btn btn-sm btn-outline-primary btn-edit" data-id="'.$r->id.'"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn btn-sm btn-outline-danger btn-delete" data-id="'.$r->id.'"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 ';
                 return $r;
@@ -48,7 +46,7 @@ class SupplierController extends Controller
             ->join('processes as p', 'p.id', '=', 's.process_id')
             ->where('p.clave', 'GENERAL')
             ->orderBy('s.nombre')
-            ->get(['s.id as value', 's.nombre as text']);
+            ->get(['s.id as value', 's.nombre as text', 's.clave as clave']);
 
         return response()->json([
             'statuses' => $statuses
@@ -88,16 +86,32 @@ class SupplierController extends Controller
 
         $data = $this->validateData($request);
 
+        $inactiveId = DB::table('statuses as s')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'INACTIVE')
+            ->value('s.id');
+
+        $updateData = [
+            'nombres' => mb_strtoupper($data['nombres']),
+            'apellidos' => mb_strtoupper($data['apellidos']),
+            'telefono' => $data['telefono'] ?? null,
+            'direccion' => $data['direccion'] ?? null,
+            'status_id' => $data['status_id'],
+            'updated_at' => now(),
+        ];
+
+        if ($data['status_id'] == $inactiveId) {
+            $updateData['fecha_baja'] = now();
+            $updateData['usuario_baja_id'] = session('auth_user.id');
+        } else {
+            $updateData['fecha_baja'] = null;
+            $updateData['usuario_baja_id'] = null;
+        }
+
         DB::table('suppliers')
             ->where('id', $id)
-            ->update([
-                'nombres' => mb_strtoupper($data['nombres']),
-                'apellidos' => mb_strtoupper($data['apellidos']),
-                'telefono' => $data['telefono'] ?? null,
-                'direccion' => $data['direccion'] ?? null,
-                'status_id' => $data['status_id'],
-                'updated_at' => now(),
-            ]);
+            ->update($updateData);
 
         return response()->json(['ok' => true, 'message' => 'Proveedor actualizado correctamente']);
     }
