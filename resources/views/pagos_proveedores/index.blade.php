@@ -187,6 +187,11 @@
     let table = null;
     let optionsCache = null;
 
+    const fCurrency = v => {
+        if (!v || isNaN(v)) return '$ 0.00';
+        return '$ ' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    };
+
     function initSelect2() {
         $('.select2-proveedor').select2({
             theme: 'bootstrap4',
@@ -224,11 +229,11 @@
                 { data: null, render: (_, __, ___, meta) => meta.row + 1 },
                 { data: 'numero_referencia' },
                 { data: 'proveedor' },
-                { data: 'total' },
-                { data: 'meses' },
-                { data: 'mensualidad' },
-                { data: 'total_pagado' },
-                { data: 'saldo_pendiente' },
+                { data: 'total', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
+                { data: 'meses', className: 'text-end' },
+                { data: 'mensualidad', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
+                { data: 'total_pagado', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
+                { data: 'saldo_pendiente', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
                 { data: 'estado_pago_badge', orderable: false, searchable: false },
                 { data: 'acciones', orderable: false, searchable: false }
             ],
@@ -330,8 +335,6 @@
 
         document.getElementById('dba_ref').value = d.numero_referencia || '';
         document.getElementById('dba_proveedor').value = d.proveedor || '';
-        
-        const fCurrency = v => '$ ' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         // Generales
         document.getElementById('dba_total').value = fCurrency(total);
