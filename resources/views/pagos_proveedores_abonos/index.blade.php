@@ -13,7 +13,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalAbonoProveedor" tabindex="-1">
+<div class="modal fade" id="modalAbonoProveedor">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <form class="modal-content" id="formAbonoProveedor">
             <div class="modal-header">
@@ -523,7 +523,7 @@
                 </div>
                 <div class="mb-3 text-start">
                     <label class="form-label">Cantidad (Interés)</label>
-                    <input type="number" step="0.01" min="0.01" id="swal-int-cant" class="form-control" placeholder="0.00">
+                    <input type="text" id="swal-int-cant" class="form-control" placeholder="0.00">
                 </div>
                 <div class="text-start">
                     <label class="form-label">Observaciones</label>
@@ -535,12 +535,17 @@
             confirmButtonText: 'Generar Cargo',
             cancelButtonText: 'Cancelar',
             preConfirm: () => {
+                let cantidad = document.getElementById('swal-int-cant').value;
+                if(cantidad) {
+                    cantidad = cantidad.replace(/,/g, '');
+                }
                 return {
                     fecha_cargo: document.getElementById('swal-int-fecha').value,
-                    cantidad: document.getElementById('swal-int-cant').value,
+                    cantidad: cantidad,
                     observaciones: document.getElementById('swal-int-obs').value
                 }
-            }
+            },
+            target: document.getElementById('modalAbonoProveedor')
         });
         
         if (formValues) {
@@ -559,9 +564,9 @@
                     body: JSON.stringify({
                         supplier_voucher_id: voucherId,
                         supplier_voucher_partner_id: partnerId,
-                        fecha_cargo: formValues.fecha_cargo,
+                        fecha_registro: formValues.fecha_cargo,
                         cantidad: formValues.cantidad,
-                        observaciones: formValues.observaciones
+                        observacion: formValues.observaciones
                     })
                 });
 
