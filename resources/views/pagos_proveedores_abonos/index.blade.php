@@ -41,112 +41,26 @@
 
                     <div class="row">
                         <!-- PANEL GENERAL -->
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <div class="card bg-transparent border-0 mb-3">
                                 <div class="card-body">
-                                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-chart-pie me-1"></i> Totales Generales</h6>
+                                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-chart-pie me-1"></i> Totales Generales Boleta</h6>
                                     <div class="row g-3">
-                                        <div class="col-4"><label class="form-label text-muted small mb-0">Total a Pagar (Capital)</label><input type="text" class="form-control form-control-sm" id="s_total" readonly></div>
-                                        <div class="col-4"><label class="form-label text-muted small mb-0">Enganche</label><input type="text" class="form-control form-control-sm" id="s_enganche" readonly></div>
-                                        <div class="col-4"><label class="form-label text-muted small mb-0">Meses</label><input type="text" class="form-control form-control-sm" id="s_meses" readonly></div>
-                                        
-                                        <div class="col-6"><label class="form-label text-muted small mb-0">Capital Pendiente</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="s_debe" readonly></div>
-                                        <div class="col-6"><label class="form-label text-muted small mb-0">Letra Mensual</label><input type="text" class="form-control form-control-sm text-primary fw-bold" id="s_mensualidad" readonly></div>
-                                        
-                                        <div class="col-4 mt-4"><label class="form-label text-muted small mb-0">Interés Generado</label><input type="text" class="form-control form-control-sm text-warning fw-bold" id="s_interes_acumulado" readonly></div>
-                                        <div class="col-4 mt-4"><label class="form-label text-muted small mb-0">Interés Pagado</label><input type="text" class="form-control form-control-sm text-success fw-bold" id="s_interes_pagado" readonly></div>
-                                        <div class="col-4 mt-4"><label class="form-label text-muted small mb-0">Interés Pendiente</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="s_interes_pendiente" readonly></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- PANEL POR SOCIO -->
-                        <div class="col-md-6">
-                            <div class="card bg-transparent border-0 mb-3 h-100">
-                                <div class="card-body" id="s_partner_container">
-                                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Totales Por Socio (<span id="s_num_socios_lbl"></span>)</h6>
-                                    <div class="row g-3">
-                                        <div class="col-6"><label class="form-label text-muted small mb-0">Total a Pagar (Socio)</label><input type="text" class="form-control form-control-sm" id="s_total_socio" readonly></div>
-                                        <div class="col-6"><label class="form-label text-muted small mb-0">Enganche (Socio)</label><input type="text" class="form-control form-control-sm" id="s_enganche_socio" readonly></div>
-                                        <div class="col-6"><label class="form-label text-muted small mb-0">Resta por Pagar (Socio)</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="s_debe_socio" readonly></div>
-                                        <div class="col-6"><label class="form-label text-muted small mb-0">Tiempo a Pagar (Meses)</label><input type="text" class="form-control form-control-sm" id="s_meses_socio" readonly></div>
-                                        <div class="col-12"><label class="form-label text-muted small mb-0">Letra Mensual (Socio)</label><input type="text" class="form-control form-control-sm text-primary fw-bold" id="s_mensualidad_socio" readonly></div>
+                                        <div class="col-md-2 col-6"><label class="form-label text-muted small mb-0">Total Boleta</label><input type="text" class="form-control form-control-sm" id="s_total" readonly></div>
+                                        <div class="col-md-2 col-6"><label class="form-label text-muted small mb-0">Enganche Total</label><input type="text" class="form-control form-control-sm" id="s_enganche" readonly></div>
+                                        <div class="col-md-2 col-6"><label class="form-label text-muted small mb-0">Meses</label><input type="text" class="form-control form-control-sm" id="s_meses" readonly></div>
+                                        <div class="col-md-3 col-6"><label class="form-label text-muted small mb-0">Capital Pendiente</label><input type="text" class="form-control form-control-sm text-danger fw-bold" id="s_debe" readonly></div>
+                                        <div class="col-md-3 col-6"><label class="form-label text-muted small mb-0">Letra Mensual</label><input type="text" class="form-control form-control-sm text-primary fw-bold" id="s_mensualidad" readonly></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="page-card mb-3">
-                        <h6 class="fw-bold mb-3"><i class="fa-solid fa-calendar-alt me-1"></i> Calendario de Pagos</h6>
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-sm align-middle mb-0 text-center" style="font-size: 0.85rem;">
-                                <thead>
-                                    <tr>
-                                        <th># Pago</th>
-                                        <th>F. Programada</th>
-                                        <th>Cantidad</th>
-                                        <th>Abonado</th>
-                                        <th>Pendiente</th>
-                                        <th>Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="calendarProveedorBody">
-                                    <tr><td colspan="6" class="text-muted">Seleccione una boleta para ver su calendario.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="page-card">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="fw-bold mb-0">Abonos a registrar</h6>
-                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddAbonoProveedor">
-                                <i class="fa-solid fa-plus me-1"></i> Agregar abono
-                            </button>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-bordered align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th># Pago</th>
-                                        <th>F. Programada</th>
-                                        <th>Cant. a Pagar</th>
-                                        <th>F. de Pago (Real)</th>
-                                        <th>Monto Pagado (Abono)</th>
-                                        <th>Interés Generado (Cargo)</th>
-                                        <th>Forma de pago</th>
-                                        <th>Observaciones</th>
-                                        <th>Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="abonoProveedorItemsBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="page-card mt-3">
-                        <h6 class="fw-bold mb-3">Pagos registrados</h6>
-                        <div class="table-responsive">
-                            <table class="table table-bordered align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th># Pago</th>
-                                        <th>F. Programada</th>
-                                        <th>Cant. a Pagar</th>
-                                        <th>F. de Pago (Real)</th>
-                                        <th>Monto Pagado (Abono)</th>
-                                        <th>Interés Generado (Cargo)</th>
-                                        <th>Forma de pago</th>
-                                        <th>Observaciones</th>
-                                        <th>Recibo</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="historicoAbonosBody"></tbody>
-                            </table>
-                        </div>
+                    <!-- PESTAÑAS POR SOCIO -->
+                    <ul class="nav nav-tabs mb-3" id="partnerTabs" role="tablist"></ul>
+                    <div class="tab-content" id="partnerTabsContent">
+                        <div class="text-muted text-center p-4">Seleccione una boleta para ver los detalles de los socios.</div>
                     </div>
                 </div>
 
@@ -160,13 +74,14 @@
 @endsection
 
 @push('scripts')
-<script>
-(() => {
+<script>(() => {
     const modal = new bootstrap.Modal(document.getElementById('modalAbonoProveedor'));
     const form = document.getElementById('formAbonoProveedor');
     let optionsCache = null;
-    let rowIndex = 0;
     let currentVoucher = null;
+    
+    // Track row indices per partner
+    let rowIndices = {}; 
 
     function initSelect2() {
         $('.select2-abono-proveedor').select2({
@@ -187,14 +102,10 @@
 
     async function loadOptions() {
         if (optionsCache) return optionsCache;
-
         const res = await fetch('/abonos-proveedores/options');
-        const json = await res.json();
-        optionsCache = json;
-
-        fillSelect('supplier_id', json.suppliers || []);
+        optionsCache = await res.json();
+        fillSelect('supplier_id', optionsCache.suppliers || []);
         fillSelect('supplier_voucher_id', []);
-
         return optionsCache;
     }
 
@@ -208,47 +119,37 @@
     }
 
     function resetSummary() {
-        ['s_total','s_mensualidad','s_meses','s_debe','s_total_socio','s_enganche','s_enganche_socio','s_debe_socio','s_meses_socio','s_mensualidad_socio', 's_interes_acumulado', 's_interes_pagado', 's_interes_pendiente']
-            .forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-        const lbl = document.getElementById('s_num_socios_lbl');
-        if (lbl) lbl.textContent = '';
-        document.getElementById('historicoAbonosBody').innerHTML = '';
-        document.getElementById('calendarProveedorBody').innerHTML = '<tr><td colspan="6" class="text-muted">Seleccione una boleta para ver su calendario.</td></tr>';
+        ['s_total','s_mensualidad','s_meses','s_debe','s_enganche'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        document.getElementById('partnerTabs').innerHTML = '';
+        document.getElementById('partnerTabsContent').innerHTML = '<div class="text-muted text-center p-4">Seleccione una boleta para ver los detalles de los socios.</div>';
+        rowIndices = {};
     }
 
     function resetForm() {
         form.reset();
         $('.select2-abono-proveedor').val(null).trigger('change');
         fillSelect('supplier_voucher_id', []);
-        document.getElementById('abonoProveedorItemsBody').innerHTML = '';
-        rowIndex = 0;
         currentVoucher = null;
-        addItem();
         resetSummary();
     }
 
     async function loadVouchers(supplierId) {
         fillSelect('supplier_voucher_id', []);
         resetSummary();
-
         if (!supplierId) return;
-
         try {
             const res = await fetch(`/abonos-proveedores/supplier/${supplierId}/vouchers`);
             const rows = await res.json();
             fillSelect('supplier_voucher_id', rows || []);
         } catch (e) {
-            console.error(e);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'No se pudieron cargar las boletas del proveedor.'
-            });
+            Swal.fire('Error', 'No se pudieron cargar las boletas.', 'error');
         }
     }
+
+    const fCurrency = v => '$ ' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
     async function loadVoucherSummary(voucherId) {
         resetSummary();
@@ -264,77 +165,42 @@
             
             document.getElementById('btnImprimirBoletaProveedor').href = `/abonos-proveedores/${voucherId}/pdf/boleta`;
             
-            const total = parseFloat(d.total) || 0;
-            const enganche = parseFloat(d.enganche) || 0;
-            const meses = parseInt(d.meses) || 1;
-            const numSocios = parseInt(d.num_socios) || 1;
-            const mensualidad = parseFloat(d.mensualidad) || 0;
-            const debe = parseFloat(d.saldo_pendiente) || 0;
-            
-            const fCurrency = v => '$ ' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-
             // Generales
-            document.getElementById('s_total').value = fCurrency(total);
-            document.getElementById('s_enganche').value = fCurrency(enganche);
-            document.getElementById('s_debe').value = fCurrency(debe);
-            document.getElementById('s_meses').value = meses;
-            document.getElementById('s_mensualidad').value = fCurrency(mensualidad);
+            document.getElementById('s_total').value = fCurrency(d.total || 0);
+            document.getElementById('s_enganche').value = fCurrency(d.enganche || 0);
+            document.getElementById('s_debe').value = fCurrency(d.saldo_pendiente || 0);
+            document.getElementById('s_meses').value = d.meses || 1;
+            document.getElementById('s_mensualidad').value = fCurrency(d.mensualidad || 0);
             
-            document.getElementById('s_interes_acumulado').value = fCurrency(d.interes_acumulado || 0);
-            document.getElementById('s_interes_pagado').value = fCurrency(d.interes_pagado || 0);
-            document.getElementById('s_interes_pendiente').value = fCurrency(d.interes_pendiente || 0);
+            // Tabs Generacion
+            const tabsUl = document.getElementById('partnerTabs');
+            const tabsContent = document.getElementById('partnerTabsContent');
+            tabsUl.innerHTML = '';
+            tabsContent.innerHTML = '';
+            rowIndices = {};
             
-            // Por Socio Dinámico
-            const partnerContainer = document.getElementById('s_partner_container');
-            let partnerHtml = `<h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Desglose por Socio (${numSocios})</h6>`;
+            const partners = d.partners || [];
             
-            let pcts = d.partner_percentages;
-            if (typeof pcts === 'string') {
-                try { pcts = JSON.parse(pcts); } catch(e) { pcts = null; }
-            }
-
-            if (!Array.isArray(pcts) || pcts.length !== numSocios) {
-                pcts = Array(numSocios).fill(100 / numSocios);
-            }
-
-            partnerHtml += `<div class="accordion" id="accordionSociosAbono">`;
-            pcts.forEach((pct, i) => {
-                const factor = pct / 100;
-                const socioTotal = total * factor;
-                const socioEnganche = enganche * factor;
-                const socioDebe = debe * factor;
-                const socioMensualidad = mensualidad * factor;
-
-                partnerHtml += `
-                    <div class="accordion-item mb-1 border-0 shadow-sm">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed py-2 rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSocioAbono${i}">
-                                Socio ${i+1} <span class="badge bg-secondary ms-2">${pct.toFixed(2)}%</span>
-                            </button>
-                        </h2>
-                        <div id="collapseSocioAbono${i}" class="accordion-collapse collapse" data-bs-parent="#accordionSociosAbono">
-                            <div class="accordion-body p-2 bg-transparent border rounded mt-1">
-                                <div class="row g-2">
-                                    <div class="col-6"><label class="form-label text-muted small mb-0">Total</label><input type="text" class="form-control form-control-sm" value="${fCurrency(socioTotal)}" readonly></div>
-                                    <div class="col-6"><label class="form-label text-muted small mb-0">Enganche</label><input type="text" class="form-control form-control-sm" value="${fCurrency(socioEnganche)}" readonly></div>
-                                    <div class="col-6"><label class="form-label text-muted small mb-0">Resta</label><input type="text" class="form-control form-control-sm text-danger fw-bold" value="${fCurrency(socioDebe)}" readonly></div>
-                                    <div class="col-6"><label class="form-label text-muted small mb-0">Mensualidad</label><input type="text" class="form-control form-control-sm text-primary fw-bold" value="${fCurrency(socioMensualidad)}" readonly></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            partners.forEach((p, index) => {
+                const isActive = index === 0 ? 'active' : '';
+                const tabId = `tab-partner-${p.id}`;
+                
+                rowIndices[p.id] = 0; // Initialize row index for this partner
+                
+                const badgeTitular = p.es_titular ? '<span class="badge bg-primary ms-1" style="font-size:0.6rem;">TITULAR</span>' : '';
+                
+                tabsUl.innerHTML += `
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link ${isActive}" id="${tabId}-tab" data-bs-toggle="tab" data-bs-target="#${tabId}" type="button" role="tab">
+                            ${p.nombre} (${parseFloat(p.porcentaje).toFixed(2)}%) ${badgeTitular}
+                        </button>
+                    </li>
                 `;
-            });
-            partnerHtml += `</div>`;
-            partnerContainer.innerHTML = partnerHtml;
-
-            const tbody = document.getElementById('historicoAbonosBody');
-            tbody.innerHTML = '';
-
-            (d.items || []).forEach((item, index) => {
-                tbody.innerHTML += `
+                
+                const prog = p.progress || {};
+                const historicoHtml = (p.items || []).map((item, idx) => `
                     <tr>
-                        <td>${index + 1}</td>
+                        <td>${idx + 1}</td>
                         <td>${item.fecha_pago_programada ?? ''}</td>
                         <td>${fCurrency(item.cantidad_a_pagar ?? 0)}</td>
                         <td>${item.fecha_recibido ?? ''}</td>
@@ -348,63 +214,160 @@
                             </a>
                         </td>
                     </tr>
+                `).join('');
+                
+                let schedulesHtml = '<tr><td colspan="6" class="text-muted">No hay calendario de pagos generado.</td></tr>';
+                if (p.schedules && p.schedules.length > 0) {
+                    schedulesHtml = p.schedules.map(sc => {
+                        let badge = sc.status === 'PAID' ? '<span class="badge bg-success">PAGADO</span>' : (sc.status === 'PARTIAL' ? '<span class="badge bg-warning text-dark">PARCIAL</span>' : '<span class="badge bg-secondary">PENDIENTE</span>');
+                        const pend = Math.max(0, parseFloat(sc.amount) - parseFloat(sc.amount_paid));
+                        return `
+                            <tr>
+                                <td>${sc.installment_number}</td>
+                                <td>${sc.due_date}</td>
+                                <td>${fCurrency(sc.amount)}</td>
+                                <td><span class="text-success">${fCurrency(sc.amount_paid)}</span></td>
+                                <td><span class="text-danger">${fCurrency(pend)}</span></td>
+                                <td>${badge}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+                
+                tabsContent.innerHTML += `
+                    <div class="tab-pane fade ${isActive ? 'show active' : ''}" id="${tabId}" role="tabpanel" tabindex="0">
+                        <!-- Panel de Totales del Socio -->
+                        <div class="card bg-transparent border-0 mb-3">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3"><i class="fa-solid fa-user me-1"></i> Totales del Socio</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-2 col-6"><label class="form-label text-muted small mb-0">Total Asignado</label><input type="text" class="form-control form-control-sm" value="${fCurrency(prog.capital_total || 0)}" readonly></div>
+                                    <div class="col-md-2 col-6"><label class="form-label text-muted small mb-0">Enganche Asignado</label><input type="text" class="form-control form-control-sm" value="${fCurrency(prog.enganche || 0)}" readonly></div>
+                                    <div class="col-md-2 col-6"><label class="form-label text-muted small mb-0">Meses</label><input type="text" class="form-control form-control-sm" value="${prog.meses_exigibles || 1}" readonly></div>
+                                    <div class="col-md-3 col-6"><label class="form-label text-muted small mb-0">Capital Pendiente</label><input type="text" class="form-control form-control-sm text-danger fw-bold" value="${fCurrency(prog.saldo_pendiente || 0)}" readonly></div>
+                                    <div class="col-md-3 col-6"><label class="form-label text-muted small mb-0">Estado de Pago</label><input type="text" class="form-control form-control-sm fw-bold" value="${prog.estado_pago || ''}" readonly></div>
+                                    
+                                    <div class="col-md-4 col-12 mt-4"><label class="form-label text-muted small mb-0">Interés Generado (Total)</label><input type="text" class="form-control form-control-sm text-warning fw-bold" value="${fCurrency(prog.interes_acumulado || 0)}" readonly></div>
+                                    <div class="col-md-4 col-12 mt-4"><label class="form-label text-muted small mb-0">Interés Pagado</label><input type="text" class="form-control form-control-sm text-success fw-bold" value="${fCurrency(prog.interes_pagado || 0)}" readonly></div>
+                                    <div class="col-md-4 col-12 mt-4"><label class="form-label text-muted small mb-0">Interés Pendiente</label><input type="text" class="form-control form-control-sm text-danger fw-bold" value="${fCurrency(prog.interes_pendiente || 0)}" readonly></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Calendario -->
+                        <div class="page-card mb-3">
+                            <h6 class="fw-bold mb-3"><i class="fa-solid fa-calendar-alt me-1"></i> Calendario de Pagos del Socio</h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm align-middle mb-0 text-center" style="font-size: 0.85rem;">
+                                    <thead>
+                                        <tr>
+                                            <th># Pago</th>
+                                            <th>F. Programada</th>
+                                            <th>Cantidad</th>
+                                            <th>Abonado</th>
+                                            <th>Pendiente</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${schedulesHtml}</tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Abonos a registrar -->
+                        <div class="page-card mb-3">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                                <h6 class="fw-bold mb-0">Abonos a registrar - ${p.nombre}</h6>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-warning btn-sm btn-add-interes" data-partner="${p.id}">
+                                        <i class="fa-solid fa-file-invoice-dollar me-1"></i> Cargo por Interés
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm btn-add-abono" data-partner="${p.id}">
+                                        <i class="fa-solid fa-plus me-1"></i> Agregar abono
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered align-middle mb-0 table-abonos-registrar" data-partner="${p.id}">
+                                    <thead>
+                                        <tr>
+                                            <th># Pago</th>
+                                            <th>F. Programada</th>
+                                            <th>Cant. a Pagar</th>
+                                            <th>F. de Pago (Real)</th>
+                                            <th>Monto Pagado (Abono)</th>
+                                            <th>Interés Pagado</th>
+                                            <th>Forma de pago</th>
+                                            <th>Observaciones</th>
+                                            <th>Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                            <div class="text-end mt-3">
+                                <button type="button" class="btn btn-success btn-sm btn-guardar-abonos" data-partner="${p.id}">
+                                    Guardar abonos de ${p.nombre}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Historial -->
+                        <div class="page-card mt-3">
+                            <h6 class="fw-bold mb-3">Pagos registrados - ${p.nombre}</h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th># Pago</th>
+                                            <th>F. Programada</th>
+                                            <th>Cant. a Pagar</th>
+                                            <th>F. de Pago (Real)</th>
+                                            <th>Monto Pagado (Abono)</th>
+                                            <th>Interés Pagado</th>
+                                            <th>Forma de pago</th>
+                                            <th>Observaciones</th>
+                                            <th>Recibo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${historicoHtml}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 `;
             });
             
-            const calTbody = document.getElementById('calendarProveedorBody');
-            calTbody.innerHTML = '';
-            if (d.schedules && d.schedules.length > 0) {
-                d.schedules.forEach(sc => {
-                    let badge = '';
-                    if (sc.status === 'PAID') badge = '<span class="badge bg-success">PAGADO</span>';
-                    else if (sc.status === 'PARTIAL') badge = '<span class="badge bg-warning text-dark">PARCIAL</span>';
-                    else badge = '<span class="badge bg-secondary">PENDIENTE</span>';
-                    
-                    const p = Math.max(0, parseFloat(sc.amount) - parseFloat(sc.amount_paid));
-                    
-                    calTbody.innerHTML += `
-                        <tr>
-                            <td>${sc.installment_number}</td>
-                            <td>${sc.due_date}</td>
-                            <td>${fCurrency(sc.amount)}</td>
-                            <td><span class="text-success">${fCurrency(sc.amount_paid)}</span></td>
-                            <td><span class="text-danger">${fCurrency(p)}</span></td>
-                            <td>${badge}</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                calTbody.innerHTML = '<tr><td colspan="6" class="text-muted">No hay calendario de pagos generado.</td></tr>';
-            }
-            
-            document.getElementById('abonoProveedorItemsBody').innerHTML = '';
-            rowIndex = 0;
-            addItem();
+            // Auto add one row for each partner
+            partners.forEach(p => {
+                addItemToPartner(p.id);
+            });
             
         } catch (e) {
             console.error(e);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'No se pudo cargar el resumen de la boleta.'
-            });
+            Swal.fire('Error', 'No se pudo cargar el resumen de la boleta.', 'error');
         }
     }
 
-    function addItem() {
-        rowIndex++;
+    function addItemToPartner(partnerId) {
+        const tableBody = document.querySelector(`.table-abonos-registrar[data-partner="${partnerId}"] tbody`);
+        if (!tableBody) return;
+        
+        rowIndices[partnerId]++;
+        const rowIdx = rowIndices[partnerId];
         const today = new Date().toISOString().slice(0, 10);
-
-        let progStr = '';
+        
+        let progStr = today;
         let cantPagar = '';
         let initialCapital = '';
         let initialInterest = '';
         let observacionStr = '';
-
-        if (currentVoucher && currentVoucher.schedules) {
+        
+        const p = currentVoucher?.partners?.find(x => x.id == partnerId);
+        if (p && p.schedules) {
             let alreadyAllocatedCapital = 0;
             let alreadyAllocatedInterest = 0;
-            document.querySelectorAll('#abonoProveedorItemsBody tr').forEach(row => {
+            tableBody.querySelectorAll('tr').forEach(row => {
                 alreadyAllocatedCapital += parseFloat(row.querySelector('.item-cantidad')?.value || 0);
                 alreadyAllocatedInterest += parseFloat(row.querySelector('.item-interes')?.value || 0);
             });
@@ -412,7 +375,7 @@
             let pendingAmount = 0;
             let targetSchedule = null;
 
-            for (const sc of currentVoucher.schedules) {
+            for (const sc of p.schedules) {
                 if (sc.status !== 'PAID' && sc.status !== 'PAGADO') {
                     let schedulePending = parseFloat(sc.amount) - parseFloat(sc.amount_paid);
                     if (alreadyAllocatedCapital >= schedulePending) {
@@ -426,35 +389,25 @@
                     }
                 }
             }
-
             if (targetSchedule) {
                 progStr = targetSchedule.due_date;
                 cantPagar = pendingAmount.toFixed(2);
                 initialCapital = cantPagar;
             } else {
-                let interesPendiente = parseFloat(currentVoucher.interes_pendiente) || 0;
+                let interesPendiente = parseFloat(p.progress?.interes_pendiente) || 0;
                 if (interesPendiente > alreadyAllocatedInterest) {
                     cantPagar = (interesPendiente - alreadyAllocatedInterest).toFixed(2);
                     initialCapital = '0.00';
                     initialInterest = (interesPendiente - alreadyAllocatedInterest).toFixed(2);
                     observacionStr = 'Pago de interés';
                     progStr = today;
-                } else {
-                    cantPagar = (parseFloat(currentVoucher.mensualidad) || 0).toFixed(2);
-                    initialCapital = cantPagar;
-                    
-                    const tableRows = document.querySelectorAll('#abonoProveedorItemsBody tr').length;
-                    const monthOffset = (currentVoucher.schedules.length || 0) + tableRows + 1;
-                    const f = new Date((currentVoucher.fecha_inicio || today) + 'T00:00:00');
-                    f.setMonth(f.getMonth() + monthOffset);
-                    progStr = f.toISOString().slice(0, 10);
                 }
             }
         }
 
-        document.getElementById('abonoProveedorItemsBody').insertAdjacentHTML('beforeend', `
-            <tr data-row="${rowIndex}">
-                <td>${rowIndex}</td>
+        tableBody.insertAdjacentHTML('beforeend', `
+            <tr data-row="${rowIdx}">
+                <td>${rowIdx}</td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-programada" value="${progStr}"></td>
                 <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm item-cant-pagar" value="${cantPagar}" readonly></td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-fecha" value="${today}"></td>
@@ -471,9 +424,16 @@
         `);
     }
 
-    function buildPayload() {
-        const rows = document.querySelectorAll('#abonoProveedorItemsBody tr');
+    async function saveItemsForPartner(partnerId) {
+        const voucherId = document.getElementById('supplier_voucher_id').value;
+        if (!voucherId) return Swal.fire({ icon: 'warning', title: 'Selecciona una boleta' });
+        
+        const tableBody = document.querySelector(`.table-abonos-registrar[data-partner="${partnerId}"] tbody`);
+        if (!tableBody) return;
+        
+        const rows = tableBody.querySelectorAll('tr');
         const items = [];
+        let totalCapitalToPay = 0;
 
         rows.forEach(row => {
             const fecha_pago_programada = row.querySelector('.item-programada')?.value || null;
@@ -486,56 +446,29 @@
 
             if (fecha_recibido && payment_method_id && (cantidad > 0 || interes_pagado > 0)) {
                 items.push({
-                    fecha_pago_programada,
-                    cantidad_a_pagar,
-                    fecha_recibido,
-                    cantidad,
-                    interes_pagado,
-                    payment_method_id: parseInt(payment_method_id, 10),
+                    fecha_pago_programada, cantidad_a_pagar, fecha_recibido,
+                    cantidad, interes_pagado, payment_method_id: parseInt(payment_method_id, 10),
                     observaciones
                 });
+                totalCapitalToPay += cantidad;
             }
         });
 
-        return items;
-    }
-
-    async function openNew() {
-        await loadOptions();
-        resetForm();
-        modal.show();
-    }
-
-    async function saveItem(e) {
-        e.preventDefault();
-
-        const voucherId = document.getElementById('supplier_voucher_id').value;
-        if (!voucherId) {
-            return Swal.fire({ icon: 'warning', title: 'Selecciona una boleta' });
-        }
-
-        const items = buildPayload();
         if (!items.length) {
-            return Swal.fire({ icon: 'warning', title: 'Debes capturar al menos un abono válido' });
+            return Swal.fire({ icon: 'warning', title: 'Debes capturar al menos un abono válido para este socio' });
         }
 
-        if (currentVoucher) {
-            const totalCapitalToPay = items.reduce((sum, item) => sum + parseFloat(item.cantidad || 0), 0);
-            const remainingCapital = parseFloat(currentVoucher.saldo_pendiente || 0);
-            
+        const p = currentVoucher?.partners?.find(x => x.id == partnerId);
+        if (p) {
+            const remainingCapital = parseFloat(p.progress?.saldo_pendiente || 0);
             if (parseFloat(totalCapitalToPay.toFixed(2)) > parseFloat(remainingCapital.toFixed(2))) {
                 return Swal.fire({ 
                     icon: 'warning', 
                     title: 'Monto Excedido', 
-                    text: `El total a abonar a capital ($${totalCapitalToPay.toLocaleString('en-US', {minimumFractionDigits: 2})}) no puede ser mayor al saldo pendiente de capital ($${remainingCapital.toLocaleString('en-US', {minimumFractionDigits: 2})}).`
+                    text: `El abono a capital ($${totalCapitalToPay.toLocaleString()}) no puede ser mayor al saldo pendiente de capital del socio ($${remainingCapital.toLocaleString()}).`
                 });
             }
         }
-
-        const payload = {
-            supplier_voucher_id: voucherId,
-            items
-        };
 
         try {
             const res = await fetch('/abonos-proveedores', {
@@ -545,33 +478,126 @@
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    supplier_voucher_id: voucherId,
+                    supplier_voucher_partner_id: partnerId,
+                    items
+                })
             });
 
             const json = await res.json();
             if (!res.ok) throw new Error(json.message || 'No se pudo guardar');
 
-            await loadVoucherSummary(voucherId);
-
-            document.getElementById('abonoProveedorItemsBody').innerHTML = '';
-            rowIndex = 0;
-            addItem();
-
             Swal.fire({
-                icon: 'success',
-                title: 'Correcto',
-                text: json.message,
-                timer: 1600,
-                showConfirmButton: false
+                icon: 'success', title: 'Correcto', text: json.message, timer: 1600, showConfirmButton: false
             });
+            await loadVoucherSummary(voucherId);
+            
+            // Restore active tab
+            setTimeout(() => {
+                const tabBtn = document.getElementById(`tab-partner-${partnerId}-tab`);
+                if(tabBtn) {
+                    const tab = new bootstrap.Tab(tabBtn);
+                    tab.show();
+                }
+            }, 100);
+
         } catch (err) {
             Swal.fire({ icon: 'error', title: 'Error', text: err.message });
         }
     }
+    
+    async function showInterestModal(partnerId) {
+        const voucherId = document.getElementById('supplier_voucher_id').value;
+        if (!voucherId) return;
+        
+        const p = currentVoucher?.partners?.find(x => x.id == partnerId);
+        if (!p) return;
+        
+        const { value: formValues } = await Swal.fire({
+            title: `Generar Cargo por Interés para ${p.nombre}`,
+            html: `
+                <div class="mb-3 text-start">
+                    <label class="form-label">Fecha del cargo</label>
+                    <input type="date" id="swal-int-fecha" class="form-control" value="${new Date().toISOString().slice(0, 10)}">
+                </div>
+                <div class="mb-3 text-start">
+                    <label class="form-label">Cantidad (Interés)</label>
+                    <input type="number" step="0.01" min="0.01" id="swal-int-cant" class="form-control" placeholder="0.00">
+                </div>
+                <div class="text-start">
+                    <label class="form-label">Observaciones</label>
+                    <input type="text" id="swal-int-obs" class="form-control" placeholder="Ej. Interés moratorio">
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Generar Cargo',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                return {
+                    fecha_cargo: document.getElementById('swal-int-fecha').value,
+                    cantidad: document.getElementById('swal-int-cant').value,
+                    observaciones: document.getElementById('swal-int-obs').value
+                }
+            }
+        });
+        
+        if (formValues) {
+            if (!formValues.cantidad || formValues.cantidad <= 0) {
+                return Swal.fire('Error', 'Debe ingresar una cantidad válida', 'error');
+            }
+            
+            try {
+                const res = await fetch('/abonos-proveedores/interest', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        supplier_voucher_id: voucherId,
+                        supplier_voucher_partner_id: partnerId,
+                        fecha_cargo: formValues.fecha_cargo,
+                        cantidad: formValues.cantidad,
+                        observaciones: formValues.observaciones
+                    })
+                });
+
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.message || 'Error al guardar cargo por interés');
+
+                Swal.fire({
+                    icon: 'success', title: 'Correcto', text: 'Cargo por interés generado.', timer: 1500, showConfirmButton: false
+                });
+                
+                await loadVoucherSummary(voucherId);
+                
+                // Restore active tab
+                setTimeout(() => {
+                    const tabBtn = document.getElementById(`tab-partner-${partnerId}-tab`);
+                    if(tabBtn) {
+                        const tab = new bootstrap.Tab(tabBtn);
+                        tab.show();
+                    }
+                }, 100);
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            }
+        }
+    }
+
+    async function openNew() {
+        await loadOptions();
+        resetForm();
+        modal.show();
+    }
 
     document.getElementById('btnNuevoAbonoProveedor').addEventListener('click', openNew);
-    document.getElementById('btnAddAbonoProveedor').addEventListener('click', addItem);
-    form.addEventListener('submit', saveItem);
+    
+    // Prevent default form submit as we handle it per-tab now
+    form.addEventListener('submit', e => e.preventDefault());
 
     $('#supplier_id').on('change', function () {
         loadVouchers(this.value);
@@ -581,10 +607,31 @@
         loadVoucherSummary(this.value);
     });
 
-    document.getElementById('abonoProveedorItemsBody').addEventListener('click', function (e) {
-        const btn = e.target.closest('.btn-remove-item');
-        if (!btn) return;
-        btn.closest('tr').remove();
+    // Delegated events for dynamic tab content
+    document.getElementById('partnerTabsContent').addEventListener('click', function (e) {
+        const btnRemove = e.target.closest('.btn-remove-item');
+        if (btnRemove) {
+            btnRemove.closest('tr').remove();
+            return;
+        }
+        
+        const btnAddAbono = e.target.closest('.btn-add-abono');
+        if (btnAddAbono) {
+            addItemToPartner(btnAddAbono.dataset.partner);
+            return;
+        }
+        
+        const btnGuardar = e.target.closest('.btn-guardar-abonos');
+        if (btnGuardar) {
+            saveItemsForPartner(btnGuardar.dataset.partner);
+            return;
+        }
+        
+        const btnAddInteres = e.target.closest('.btn-add-interes');
+        if (btnAddInteres) {
+            showInterestModal(btnAddInteres.dataset.partner);
+            return;
+        }
     });
 
     initSelect2();

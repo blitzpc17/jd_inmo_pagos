@@ -379,6 +379,37 @@
         </div>
     </div>
 </div>
+
+<!-- Modal para editar socios de Boleta Proveedor -->
+<div class="modal fade" id="modalMasivaSociosProveedor" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-users me-2 text-primary"></i>Editar Socios de Boleta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editPartnersRecordIndex">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nombre del Socio</th>
+                                <th style="width: 150px;">Porcentaje (%)</th>
+                                <th style="width: 150px;">Enganche ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="editPartnersBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSavePartners">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('styles')
@@ -545,7 +576,7 @@
             ]
         },
         BOLETA_PROVEEDOR: {
-            headers: ['Folio', 'Acción', 'Proveedor', 'F. Inicio', 'Total', 'Enganche', 'Plazo (Meses)', 'Mensualidad', 'Quitar'],
+            headers: ['Folio', 'Acción', 'Proveedor', 'F. Inicio', 'Total', 'Enganche', 'Plazo (Meses)', 'Mensualidad', 'Socios', 'Quitar'],
             fields: [
                 {name: 'supplier_id', label: 'Proveedor', type: 'select', optionKey: 'suppliers'},
                 {name: 'fecha_inicio', label: 'Fecha Inicio', type: 'date'},
@@ -556,13 +587,14 @@
             ]
         },
         PARTIDA_PROVEEDOR: {
-            headers: ['Partida', 'Acción', 'F. Recibido', 'F. Programada', 'Cantidad', 'Interés', 'Forma Pago', 'Quitar'],
+            headers: ['Partida', 'Acción', 'F. Recibido', 'F. Programada', 'Cantidad', 'Interés', 'Forma Pago', 'Socio (Abonar a)', 'Quitar'],
             fields: [
                 {name: 'fecha_recibido', label: 'Fecha Recibido', type: 'date'},
                 {name: 'fecha_pago_programada', label: 'Fecha Programada', type: 'date'},
                 {name: 'cantidad', label: 'Cantidad', type: 'number'},
                 {name: 'interes_pagado', label: 'Interés', type: 'number'},
-                {name: 'payment_method_id', label: 'Forma Pago', type: 'select', optionKey: 'payment_methods'}
+                {name: 'payment_method_id', label: 'Forma Pago', type: 'select', optionKey: 'payment_methods'},
+                {name: 'supplier_voucher_partner_id', label: 'Socio', type: 'select', optionKey: 'boleta_partners'}
             ]
         }
     };
@@ -755,30 +787,40 @@
 
             if (!boletaId) return;
 
-            if (currentType === 'BOLETA_PROVEEDOR') {
+            if (currentType === 'BOLETA_PROVEEDOR' || currentType === 'PARTIDA_PROVEEDOR') {
                 Swal.showLoading();
-                const res = await fetch(`{{ route('bulk-modifications.record-details') }}?type=BOLETA_PROVEEDOR&id=${boletaId}`);
-                const data = await res.json();
-                Swal.close();
-
-                if (data.ok) {
-                    loadedContractDetails = data.data; // Reusing variable to store details temporarily
-                    $('#lblBoletaRef').text(data.data.numero_referencia);
-                    $('#lblBoletaLot').text(data.data.lotificacion_nombre || 'N/A');
-                    $('#lblBoletaCosto').text('$' + parseFloat(data.data.importe).toFixed(2));
-                    $('#lblBoletaEnganche').text('$' + parseFloat(data.data.enganche).toFixed(2));
-                    $('#lblBoletaInicio').text(data.data.fecha_inicio);
-                    $('#lblBoletaPlazo').text(data.data.plazo);
-
-                    $('#detailsBoletaCard').removeClass('d-none');
+                // We always fetch record details to get the partners list
+                const resDetail = await fetch(`{{ route('bulk-modifications.record-details') }}?type=BOLETA_PROVEEDOR&id=${boletaId}`);
+                const dataDetail = await resDetail.json();
+                
+                if (dataDetail.ok) {
+                    catalogsOptions['boleta_partners'] = (dataDetail.data.partners || []).map(p => ({
+                        value: p.id,
+                        text: p.nombre + ' (' + p.porcentaje + '%)'
+                    }));
                 }
-            } else if (currentType === 'PARTIDA_PROVEEDOR') {
-                Swal.showLoading();
-                const res = await fetch(`/modificaciones-masivas/boleta/${boletaId}/partidas`);
-                loadedCharges = await res.json(); // Reuse variable
-                Swal.close();
 
-                renderPartidasTable();
+                if (currentType === 'BOLETA_PROVEEDOR') {
+                    Swal.close();
+                    if (dataDetail.ok) {
+                        loadedContractDetails = dataDetail.data; 
+                        $('#lblBoletaRef').text(dataDetail.data.numero_referencia);
+                        $('#lblBoletaLot').text(dataDetail.data.lotificacion_nombre || 'N/A');
+                        $('#lblBoletaCosto').text('$' + parseFloat(dataDetail.data.total).toFixed(2));
+                        $('#lblBoletaEnganche').text('$' + parseFloat(dataDetail.data.enganche).toFixed(2));
+                        $('#lblBoletaInicio').text(dataDetail.data.fecha_inicio);
+                        $('#lblBoletaPlazo').text(dataDetail.data.meses);
+
+                        $('#detailsBoletaCard').removeClass('d-none');
+                    }
+                } else {
+                    // PARTIDA_PROVEEDOR
+                    const res = await fetch(`/modificaciones-masivas/boleta/${boletaId}/partidas`);
+                    loadedCharges = await res.json(); 
+                    Swal.close();
+
+                    renderPartidasTable();
+                }
             }
         });
 
@@ -1087,6 +1129,16 @@
 
                     tr.append($('<td>').html(inputHtml));
                 });
+
+                if (currentType === 'BOLETA_PROVEEDOR') {
+                    tr.append(`
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-info btn-edit-partners" data-index="${index}">
+                                <i class="fa-solid fa-users"></i> Editar Socios
+                            </button>
+                        </td>
+                    `);
+                }
             }
 
             // Quit button
@@ -1266,6 +1318,38 @@
                             });
                         }
                     });
+
+                    // Add partners diff if present
+                    if (item.new_data.partners) {
+                        const origPartners = item.original_data.partners || [];
+                        const newPartners = item.new_data.partners;
+                        let isDifferent = false;
+                        
+                        if (origPartners.length !== newPartners.length) {
+                            isDifferent = true;
+                        } else {
+                            for (let i = 0; i < origPartners.length; i++) {
+                                if (String(origPartners[i].nombre) !== String(newPartners[i].nombre) ||
+                                    String(origPartners[i].porcentaje) !== String(newPartners[i].porcentaje) ||
+                                    String(origPartners[i].enganche) !== String(newPartners[i].enganche)) {
+                                    isDifferent = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (isDifferent) {
+                            let origStr = origPartners.map(p => `${p.nombre} (${p.porcentaje}%, $${p.enganche})`).join('<br>');
+                            let modStr = newPartners.map(p => `${p.nombre} (${p.porcentaje}%, $${p.enganche})`).join('<br>');
+                            
+                            fieldDiffs.push({
+                                fieldLabel: 'Socios (Nombre, Porcentaje, Enganche)',
+                                optionKey: null,
+                                original: origStr || 'N/A',
+                                modified: modStr
+                            });
+                        }
+                    }
 
                     if (fieldDiffs.length === 0) {
                         tbody.append(`
@@ -1671,6 +1755,84 @@
     $(document).on('click', '.btn-view-request', function () {
         const id = $(this).data('id');
         showRequestDetail(id);
+    });
+
+    // Partners edit modal
+    $(document).on('click', '.btn-edit-partners', function() {
+        const index = $(this).data('index');
+        const record = selectedRecords[index];
+        if (!record) return;
+
+        $('#editPartnersRecordIndex').val(index);
+        const tbody = $('#editPartnersBody');
+        tbody.empty();
+
+        // use new_data if previously edited, else original_data
+        const partners = record.new_data.partners || record.original_data.partners || [];
+        partners.forEach((p, pIndex) => {
+            tbody.append(`
+                <tr>
+                    <td>
+                        <input type="text" class="form-control form-control-sm partner-nombre" data-id="${p.id}" value="${p.nombre}" required>
+                    </td>
+                    <td>
+                        <input type="number" step="0.01" class="form-control form-control-sm text-end partner-porcentaje" value="${p.porcentaje}" required>
+                    </td>
+                    <td>
+                        <input type="number" step="0.01" class="form-control form-control-sm text-end partner-enganche" value="${p.enganche}" required>
+                    </td>
+                </tr>
+            `);
+        });
+
+        const modal = new bootstrap.Modal(document.getElementById('modalMasivaSociosProveedor'));
+        modal.show();
+    });
+
+    $('#btnSavePartners').on('click', function() {
+        const index = $('#editPartnersRecordIndex').val();
+        const record = selectedRecords[index];
+        if (!record) return;
+
+        let totalPorcentaje = 0;
+        let newPartners = [];
+        let valid = true;
+
+        $('#editPartnersBody tr').each(function() {
+            const id = $(this).find('.partner-nombre').data('id');
+            const nombre = $(this).find('.partner-nombre').val().trim();
+            const porcentaje = parseFloat($(this).find('.partner-porcentaje').val()) || 0;
+            const enganche = parseFloat($(this).find('.partner-enganche').val()) || 0;
+
+            if (!nombre) valid = false;
+
+            totalPorcentaje += porcentaje;
+            newPartners.push({
+                id: id,
+                nombre: nombre,
+                porcentaje: porcentaje,
+                enganche: enganche
+            });
+        });
+
+        if (!valid) {
+            Swal.fire('Error', 'Todos los socios deben tener un nombre.', 'error');
+            return;
+        }
+
+        if (Math.abs(totalPorcentaje - 100) > 0.01) {
+            Swal.fire('Error', 'La suma de los porcentajes debe ser 100%. Actualmente suma: ' + totalPorcentaje + '%', 'error');
+            return;
+        }
+
+        record.new_data.partners = newPartners;
+        
+        // Cierra modal
+        bootstrap.Modal.getInstance(document.getElementById('modalMasivaSociosProveedor')).hide();
+        
+        // Re-render table just to be safe
+        renderSelectedRecordsTable();
+        Swal.fire('Éxito', 'Cambios en socios guardados en la lista.', 'success');
     });
 
     // Submit request

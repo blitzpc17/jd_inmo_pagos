@@ -41,25 +41,112 @@
         <tr>
             <td>
                 <div class="summary-box">
-                    <div class="small">Total Boleta</div>
+                    <div class="small">Costo Total</div>
                     <div class="big">${{ number_format($voucher->total ?? 0, 2) }}</div>
                 </div>
             </td>
             <td>
+                <div class="summary-box">
+                    <div class="small">Enganche</div>
+                    <div class="big">${{ number_format($voucher->enganche ?? 0, 2) }}</div>
+                </div>
+            </td>
+            <td>
                 <div class="summary-box success">
-                    <div class="small">Total Abonos</div>
+                    <div class="small">Abonado (Capital)</div>
                     <div class="big">${{ number_format($totalAbonos ?? 0, 2) }}</div>
                 </div>
             </td>
             <td>
                 <div class="summary-box warning">
-                    <div class="small">Resto</div>
-                    <div class="big">${{ number_format(($voucher->total ?? 0) - ($totalAbonos ?? 0), 2) }}</div>
+                    <div class="small">Resto (Capital)</div>
+                    <div class="big">${{ number_format(max(0, ($voucher->total ?? 0) - ($voucher->enganche ?? 0) - ($totalAbonos ?? 0)), 2) }}</div>
                 </div>
             </td>
         </tr>
     </table>
+    
+    @if(($totalInteres ?? 0) > 0)
+    <table class="summary-table mb-12" style="width: 25%;">
+        <tr>
+            <td>
+                <div class="summary-box" style="background-color: #f8d7da; border-color: #f5c6cb;">
+                    <div class="small" style="color: #721c24;">Interés Pagado</div>
+                    <div class="big" style="color: #721c24;">${{ number_format($totalInteres, 2) }}</div>
+                </div>
+            </td>
+        </tr>
+    </table>
+    @endif
 </div>
+
+@if(isset($partners) && count($partners) > 0)
+    <div class="keep-together">
+        <div class="section-title">Desglose por Socio</div>
+        <table class="detail-table mb-12">
+            <thead>
+                <tr>
+                    <th>Socio</th>
+                    <th>%</th>
+                    <th class="text-right">Capital Asignado</th>
+                    <th class="text-right">Abonado (Capital)</th>
+                    <th class="text-right">Pendiente (Capital)</th>
+                    <th class="text-right">Interés Generado</th>
+                    <th class="text-right">Interés Pagado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($partners as $p)
+                <tr>
+                    <td>{{ mb_strtoupper($p->nombre) }} {!! $p->es_titular ? '<strong>(TITULAR)</strong>' : '' !!}</td>
+                    <td>{{ number_format($p->porcentaje, 2) }}%</td>
+                    <td class="text-right">${{ number_format($p->progress['capital_total'] ?? 0, 2) }}</td>
+                    <td class="text-right text-success fw-bold">${{ number_format($p->progress['ha_pagado'] ?? 0, 2) }}</td>
+                    <td class="text-right text-danger fw-bold">${{ number_format($p->progress['saldo_pendiente'] ?? 0, 2) }}</td>
+                    <td class="text-right">${{ number_format($p->progress['interes_acumulado'] ?? 0, 2) }}</td>
+                    <td class="text-right">${{ number_format($p->progress['interes_pagado'] ?? 0, 2) }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    <div class="keep-together" style="margin-top: 15px;">
+        <div class="section-title">Calendario de Pagos por Socio</div>
+        @foreach($partners as $p)
+            <div style="font-weight: bold; font-size: 11px; margin-bottom: 5px; margin-top: 10px;">
+                {{ mb_strtoupper($p->nombre) }} ({{ number_format($p->porcentaje, 2) }}%)
+            </div>
+            <table class="detail-table mb-12" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="width: 25px;">#</th>
+                        <th>F. Programada</th>
+                        <th class="text-right">Monto</th>
+                        <th class="text-right">Abonado</th>
+                        <th class="text-right">Pendiente</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($p->schedules as $sc)
+                        <tr>
+                            <td>{{ $sc['installment_number'] }}</td>
+                            <td>{{ $sc['due_date'] }}</td>
+                            <td class="text-right">${{ number_format($sc['amount'], 2) }}</td>
+                            <td class="text-right text-success">${{ number_format($sc['amount_paid'], 2) }}</td>
+                            <td class="text-right text-danger">${{ number_format(max(0, $sc['amount'] - $sc['amount_paid']), 2) }}</td>
+                            <td>
+                                @if($sc['status'] === 'PAID') PAGADO
+                                @elseif($sc['status'] === 'PARTIAL') PARCIAL
+                                @else PENDIENTE @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endforeach
+    </div>
+@endif
 
 <div class="section-title">Partidas (Abonos)</div>
 
@@ -69,8 +156,10 @@
             <th style="width: 25px;">#</th>
             <th>Folio Abono</th>
             <th>Fecha Recibido</th>
+            <th>Socio</th>
             <th>Forma Pago</th>
-            <th class="text-right">Monto</th>
+            <th class="text-right">Capital</th>
+            <th class="text-right">Interés</th>
         </tr>
     </thead>
     <tbody>
@@ -79,12 +168,14 @@
                 <td>{{ $i + 1 }}</td>
                 <td>{{ $row->id }}</td>
                 <td>{{ $row->fecha_recibido ?? '' }}</td>
+                <td>{{ mb_strtoupper($row->socio_nombre ?? 'N/A') }}</td>
                 <td>{{ mb_strtoupper($row->forma_pago ?? 'N/A') }}</td>
                 <td class="text-right">${{ number_format($row->cantidad, 2) }}</td>
+                <td class="text-right">${{ number_format($row->interes_pagado ?? 0, 2) }}</td>
             </tr>
         @empty
             <tr>
-                <td colspan="5" class="text-center">Sin abonos registrados</td>
+                <td colspan="7" class="text-center">Sin abonos registrados</td>
             </tr>
         @endforelse
     </tbody>

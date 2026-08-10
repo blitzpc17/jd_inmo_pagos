@@ -57,7 +57,7 @@
 
                         <div class="col-md-3">
                             <label class="form-label">Enganche</label>
-                            <input type="number" step="0.01" min="0" class="form-control" id="enganche" name="enganche">
+                            <input type="number" step="0.01" min="0" class="form-control" id="enganche" name="enganche" readonly>
                         </div>
 
                         <div class="col-md-3">
@@ -65,14 +65,32 @@
                             <input type="number" min="1" class="form-control" id="meses" name="meses">
                         </div>
                         
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label">Núm. Socios</label>
                             <input type="number" min="1" value="1" class="form-control" id="num_socios" name="num_socios">
                             <div class="form-check mt-2">
                                 <input class="form-check-input" type="checkbox" id="equal_split" checked>
-                                <label class="form-check-label" for="equal_split" style="font-size: 11px;">Dividir en partes iguales</label>
+                                <label class="form-check-label" for="equal_split" style="font-size: 11px;">Dividir % igual</label>
                             </div>
-                            <div id="partner_percentages_container" class="mt-2 row g-2"></div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label mb-1">Detalle de Socios</label>
+                            <div id="partner_container" class="table-responsive border rounded">
+                                <table class="table table-sm table-borderless mb-0 align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nombre del Socio</th>
+                                            <th style="width: 100px;">Porcentaje</th>
+                                            <th style="width: 120px;">Enganche</th>
+                                            <th style="width: 80px;" class="text-center">Titular</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="partner_tbody">
+                                        <!-- Dynamic inputs -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                         <div class="col-md-6">
@@ -257,6 +275,7 @@
     async function openNew() {
         await loadOptions();
         resetForm();
+        renderPercentages();
         modal.show();
     }
 
@@ -273,24 +292,35 @@
             observacion: document.getElementById('observacion').value
         };
 
-        const equalSplit = document.getElementById('equal_split').checked;
-        if (!equalSplit) {
-            const inputs = document.querySelectorAll('.partner-pct-input');
-            let sum = 0;
-            const pcts = [];
-            inputs.forEach(el => {
-                const val = parseFloat(el.value) || 0;
-                sum += val;
-                pcts.push(val);
-            });
-            if (Math.abs(sum - 100) > 0.01) {
-                Swal.fire('Error', 'La suma de los porcentajes debe ser exactamente 100.', 'error');
-                return;
-            }
-            payload.partner_percentages = pcts;
-        } else {
-            payload.partner_percentages = null;
+        const inputsPct = document.querySelectorAll('.partner-pct-input');
+        const inputsName = document.querySelectorAll('.partner-name-input');
+        const inputsEnganche = document.querySelectorAll('.partner-enganche-input');
+        const radioTitular = document.querySelector('.partner-titular-radio:checked');
+        
+        let sum = 0;
+        const pcts = [];
+        const names = [];
+        const enganches = [];
+        const titularIndex = radioTitular ? parseInt(radioTitular.value) : 0;
+        const equalSplit = document.getElementById('equal_split') ? document.getElementById('equal_split').checked : false;
+
+        inputsPct.forEach((el, idx) => {
+            const val = equalSplit ? (100 / inputsPct.length) : (parseFloat(el.value) || 0);
+            sum += val;
+            pcts.push(val);
+            names.push(inputsName[idx].value || `Socio ${idx + 1}`);
+            enganches.push(parseFloat(inputsEnganche[idx].value) || 0);
+        });
+
+        if (Math.abs(sum - 100) > 0.01) {
+            Swal.fire('Error', 'La suma de los porcentajes debe ser exactamente 100.', 'error');
+            return;
         }
+
+        payload.partner_percentages = pcts;
+        payload.partner_names = names;
+        payload.partner_enganches = enganches;
+        payload.titular_index = titularIndex;
 
         try {
             const res = await fetch('/pagos-proveedores', {
@@ -347,28 +377,24 @@
         const partnerContainer = document.getElementById('dba_partner_container');
         let partnerHtml = `<h6 class="fw-bold mb-3"><i class="fa-solid fa-users me-1"></i> Desglose por Socio (${numSocios})</h6>`;
         
-        let pcts = d.partner_percentages;
-        if (typeof pcts === 'string') {
-            try { pcts = JSON.parse(pcts); } catch(e) { pcts = null; }
-        }
-
-        if (!Array.isArray(pcts) || pcts.length !== numSocios) {
-            pcts = Array(numSocios).fill(100 / numSocios);
-        }
-
+        let partners = d.partners || [];
+        
         partnerHtml += `<div class="accordion" id="accordionSocios">`;
-        pcts.forEach((pct, i) => {
+        partners.forEach((p, i) => {
+            const pct = parseFloat(p.porcentaje) || 0;
             const factor = pct / 100;
             const socioTotal = total * factor;
-            const socioEnganche = enganche * factor;
-            const socioDebe = debe * factor;
+            const socioEnganche = parseFloat(p.enganche) || 0;
+            const socioDebe = parseFloat(p.progress?.saldo_pendiente || 0);
             const socioMensualidad = mensualidad * factor;
+            
+            const titularBadge = p.es_titular ? `<span class="badge bg-primary ms-1">TITULAR</span>` : '';
 
             partnerHtml += `
                 <div class="accordion-item mb-1 border-0 shadow-sm">
                     <h2 class="accordion-header">
                         <button class="accordion-button collapsed py-2 rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSocio${i}">
-                            Socio ${i+1} <span class="badge bg-secondary ms-2">${pct.toFixed(2)}%</span>
+                            ${p.nombre} <span class="badge bg-secondary ms-2">${pct.toFixed(2)}%</span> ${titularBadge}
                         </button>
                     </h2>
                     <div id="collapseSocio${i}" class="accordion-collapse collapse" data-bs-parent="#accordionSocios">
@@ -418,28 +444,44 @@
     });
 
     function renderPercentages() {
-        const container = document.getElementById('partner_percentages_container');
+        const tbody = document.getElementById('partner_tbody');
         const num = parseInt(document.getElementById('num_socios').value) || 1;
         const equalSplit = document.getElementById('equal_split').checked;
 
-        if (equalSplit || num <= 1) {
-            container.innerHTML = '';
-            container.classList.add('d-none');
-            return;
-        }
-
-        container.classList.remove('d-none');
         let html = '';
-        for (let i = 1; i <= num; i++) {
+        for (let i = 0; i < num; i++) {
+            const val = equalSplit ? (100 / num).toFixed(2) : 0;
+            const isReadonly = equalSplit ? 'readonly' : '';
+            const isChecked = (i === 0) ? 'checked' : '';
             html += `
-                <div class="col-6">
-                    <label class="form-label mb-0" style="font-size:11px;">Socio ${i} (%)</label>
-                    <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm partner-pct-input" required>
-                </div>
+                <tr>
+                    <td>
+                        <input type="text" class="form-control form-control-sm partner-name-input" placeholder="Nombre Socio ${i+1}" value="Socio ${i+1}" required>
+                    </td>
+                    <td>
+                        <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm partner-pct-input text-end" value="${val}" ${isReadonly} required>
+                    </td>
+                    <td>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm partner-enganche-input text-end" value="0" required oninput="calcGlobalEnganche()">
+                    </td>
+                    <td class="text-center align-middle">
+                        <input type="radio" class="form-check-input partner-titular-radio" name="titular_radio" value="${i}" ${isChecked}>
+                    </td>
+                </tr>
             `;
         }
-        container.innerHTML = html;
+        tbody.innerHTML = html;
+        calcGlobalEnganche();
     }
+
+    window.calcGlobalEnganche = function() {
+        const inputs = document.querySelectorAll('.partner-enganche-input');
+        let total = 0;
+        inputs.forEach(el => {
+            total += parseFloat(el.value) || 0;
+        });
+        document.getElementById('enganche').value = total.toFixed(2);
+    };
 
     document.getElementById('num_socios').addEventListener('input', renderPercentages);
     document.getElementById('equal_split').addEventListener('change', renderPercentages);

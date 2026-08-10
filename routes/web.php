@@ -386,6 +386,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::get('/supplier/{supplierId}/vouchers', [SupplierVoucherPaymentController::class, 'creditorVouchers'])->name('supplier.vouchers');
         Route::get('/voucher/{voucherId}/summary', [SupplierVoucherPaymentController::class, 'voucherSummary'])->name('voucher.summary');
         Route::post('/', [SupplierVoucherPaymentController::class, 'store'])->name('store');
+        Route::post('/interest', [SupplierVoucherPaymentController::class, 'storeInterest'])->name('store_interest');
         Route::get('/{id}/pdf/boleta', [SupplierVoucherPaymentController::class, 'pdfBoleta'])->name('pdf.boleta');
         Route::get('/{id}/pdf/recibo/{abonoId}', [SupplierVoucherPaymentController::class, 'pdfRecibo'])->name('pdf.recibo');
     });
