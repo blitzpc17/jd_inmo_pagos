@@ -113,28 +113,82 @@ class SupplierVoucherPaymentController extends Controller
 
         abort_if(!$row, 404, 'Boleta no encontrada');
 
-        $items = DB::table('supplier_voucher_items as cvi')
-            ->join('payment_methods as pm', 'pm.id', '=', 'cvi.payment_method_id')
-            ->leftJoin('users as u', 'u.id', '=', 'cvi.usuario_genero_id')
-            ->where('cvi.supplier_voucher_id', $voucherId)
-            ->whereNull('cvi.fecha_baja')
-            ->orderBy('cvi.id')
-            ->get([
-                'cvi.id',
-                'cvi.fecha_recibido',
-                'cvi.fecha_pago_programada',
-                'cvi.cantidad_a_pagar',
-                'cvi.interes_pagado',
-                'cvi.observaciones',
-                'pm.nombre as forma_pago',
-                'cvi.cantidad',
-                'u.alias as usuario_registro',
-            ]);
-
         $schedules = DB::table('supplier_payment_schedules')
             ->where('supplier_voucher_id', $voucherId)
             ->orderBy('installment_number')
             ->get();
+
+        $partners = DB::table('supplier_voucher_partners')->where('supplier_voucher_id', $voucherId)->orderBy('id')->get();
+        foreach ($partners as $partner) {
+            $partnerItems = DB::table('supplier_voucher_items as cvi')
+                ->join('payment_methods as pm', 'pm.id', '=', 'cvi.payment_method_id')
+                ->leftJoin('users as u', 'u.id', '=', 'cvi.usuario_genero_id')
+                ->where('cvi.supplier_voucher_id', $voucherId)
+                ->where('cvi.supplier_voucher_partner_id', $partner->id)
+                ->whereNull('cvi.fecha_baja')
+                ->orderBy('cvi.id')
+                ->get([
+                    'cvi.id',
+                    'cvi.fecha_recibido',
+                    'cvi.fecha_pago_programada',
+                    'cvi.cantidad_a_pagar',
+                    'cvi.interes_pagado',
+                    'cvi.observaciones',
+                    'pm.nombre as forma_pago',
+                    'cvi.cantidad',
+                    'u.alias as usuario_registro',
+                ]);
+            
+            $partnerInterests = DB::table('supplier_voucher_interests as i')
+                ->leftJoin('users as u', 'u.id', '=', 'i.usuario_genero_id')
+                ->where('i.supplier_voucher_partner_id', $partner->id)
+                ->whereNull('i.fecha_baja')
+                ->orderBy('i.id')
+                ->get([
+                    'i.id',
+                    'i.cantidad',
+                    'i.fecha_registro',
+                    'i.observacion',
+                    'u.alias as usuario_registro'
+                ]);
+
+            $partnerProgress = $this->getPartnerProgressStatus($row, $partner);
+            
+            $partnerSchedules = [];
+            $factor = (float) $partner->porcentaje / 100;
+            $partnerPaid = $partnerProgress['ha_pagado'];
+            
+            foreach ($schedules as $globalSchedule) {
+                $pAmount = round((float) $globalSchedule->amount * $factor, 2);
+                $pPaid = 0;
+                $pStatus = 'PENDING';
+                
+                if ($partnerPaid >= $pAmount) {
+                    $pPaid = $pAmount;
+                    $pStatus = 'PAID';
+                    $partnerPaid -= $pAmount;
+                } elseif ($partnerPaid > 0) {
+                    $pPaid = $partnerPaid;
+                    $pStatus = ($partnerProgress['saldo_pendiente'] <= 0.01) ? 'PAID' : 'PARTIAL';
+                    $partnerPaid = 0;
+                } else {
+                    $pStatus = ($partnerProgress['saldo_pendiente'] <= 0.01) ? 'PAID' : 'PENDING';
+                }
+                
+                $partnerSchedules[] = [
+                    'installment_number' => $globalSchedule->installment_number,
+                    'due_date'           => $globalSchedule->due_date,
+                    'amount'             => $pAmount,
+                    'amount_paid'        => $pPaid,
+                    'status'             => $pStatus,
+                ];
+            }
+            
+            $partner->items = $partnerItems;
+            $partner->interests = $partnerInterests;
+            $partner->progress = $partnerProgress;
+            $partner->schedules = $partnerSchedules;
+        }
 
         $progress = $this->getVoucherProgressStatus($row);
 
@@ -147,7 +201,7 @@ class SupplierVoucherPaymentController extends Controller
                 'total' => $row->total,
                 'enganche' => $row->enganche,
                 'num_socios' => $row->num_socios,
-                'partner_percentages' => $row->partner_percentages,
+                'partners' => $partners,
                 'fecha_inicio' => $row->fecha_inicio,
                 'fecha_fin' => $row->fecha_fin,
                 'meses' => $row->meses,
@@ -163,7 +217,6 @@ class SupplierVoucherPaymentController extends Controller
                 'interes_acumulado' => $progress['interes_acumulado'],
                 'interes_pagado' => $progress['interes_pagado'],
                 'interes_pendiente' => $progress['interes_pendiente'],
-                'items' => $items,
                 'schedules' => $schedules,
             ]
         ]);
@@ -173,6 +226,7 @@ class SupplierVoucherPaymentController extends Controller
     {
         $data = Validator::make($request->all(), [
             'supplier_voucher_id' => ['required', 'integer', 'exists:supplier_vouchers,id'],
+            'supplier_voucher_partner_id' => ['required', 'integer', 'exists:supplier_voucher_partners,id'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.fecha_pago_programada' => ['nullable', 'date'],
             'items.*.cantidad_a_pagar' => ['nullable', 'numeric', 'min:0'],
@@ -190,12 +244,15 @@ class SupplierVoucherPaymentController extends Controller
             return response()->json(['message' => 'Boleta no encontrada.'], 404);
         }
 
+        $partner = DB::table('supplier_voucher_partners')->where('id', $data['supplier_voucher_partner_id'])->first();
+        $progress = $this->getPartnerProgressStatus($voucher, $partner);
+
         $totalCapitalPagadoNuevo = collect($data['items'])->sum('cantidad');
-        $saldoPendiente = (float) $voucher->saldo_pendiente;
+        $saldoPendiente = (float) $progress['saldo_pendiente'];
 
         if (round($totalCapitalPagadoNuevo, 2) > round($saldoPendiente, 2)) {
             return response()->json([
-                'message' => 'El total abonado a capital ($' . number_format($totalCapitalPagadoNuevo, 2) . ') excede el saldo pendiente de capital ($' . number_format($saldoPendiente, 2) . ').'
+                'message' => 'El total abonado a capital ($' . number_format($totalCapitalPagadoNuevo, 2) . ') excede el saldo pendiente de capital del socio ($' . number_format($saldoPendiente, 2) . ').'
             ], 422);
         }
 
@@ -206,6 +263,7 @@ class SupplierVoucherPaymentController extends Controller
             foreach ($data['items'] as $item) {
                 $rows[] = [
                     'supplier_voucher_id' => $data['supplier_voucher_id'],
+                    'supplier_voucher_partner_id' => $data['supplier_voucher_partner_id'],
                     'fecha_pago_programada' => $item['fecha_pago_programada'] ?? null,
                     'cantidad_a_pagar' => $item['cantidad_a_pagar'] ?? 0,
                     'fecha_recibido' => $item['fecha_recibido'],
@@ -236,6 +294,44 @@ class SupplierVoucherPaymentController extends Controller
         }
     }
 
+    public function storeInterest(Request $request)
+    {
+        $data = Validator::make($request->all(), [
+            'supplier_voucher_id' => ['required', 'integer', 'exists:supplier_vouchers,id'],
+            'supplier_voucher_partner_id' => ['required', 'integer', 'exists:supplier_voucher_partners,id'],
+            'cantidad' => ['required', 'numeric', 'min:0.01'],
+            'fecha_registro' => ['required', 'date'],
+            'observacion' => ['nullable', 'string'],
+        ])->validate();
+
+        DB::beginTransaction();
+
+        try {
+            DB::table('supplier_voucher_interests')->insert([
+                'supplier_voucher_id' => $data['supplier_voucher_id'],
+                'supplier_voucher_partner_id' => $data['supplier_voucher_partner_id'],
+                'cantidad' => $data['cantidad'],
+                'fecha_registro' => $data['fecha_registro'],
+                'observacion' => $data['observacion'] ?? null,
+                'usuario_genero_id' => session('auth_user.id'),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $this->recalculateVoucherTotals($data['supplier_voucher_id']);
+
+            DB::commit();
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Cargo por interés registrado correctamente.'
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
     public function recalculateVoucherTotals(int $voucherId): void
     {
         $voucher = DB::table('supplier_vouchers')->where('id', $voucherId)->first();
@@ -248,16 +344,13 @@ class SupplierVoucherPaymentController extends Controller
             ->whereNull('fecha_baja')
             ->sum('cantidad');
             
-        $interesGenerado = (float) DB::table('supplier_voucher_items')
+        $interesGenerado = (float) DB::table('supplier_voucher_interests')
             ->where('supplier_voucher_id', $voucherId)
             ->whereNull('fecha_baja')
-            ->sum('interes_pagado'); // interes_pagado in DB represents interes_generado from UI
+            ->sum('cantidad');
 
         $capitalTotal = max(0, (float) $voucher->total - (float) $voucher->enganche);
         $capitalPagado = min($totalPagado, $capitalTotal);
-        $excesoParaInteres = max(0, $totalPagado - $capitalTotal);
-
-        $interesPagado = min($excesoParaInteres, $interesGenerado);
         
         $saldoPendienteCapital = $capitalTotal - $capitalPagado;
 
@@ -301,6 +394,62 @@ class SupplierVoucherPaymentController extends Controller
         }
     }
 
+    protected function getPartnerProgressStatus(object $voucher, object $partner): array
+    {
+        $factor = (float) $partner->porcentaje / 100;
+        $fechaInicio = Carbon::parse($voucher->fecha_inicio ?? $voucher->fecha_registro)->startOfDay();
+        $hoy = now()->startOfDay();
+
+        $mesesTranscurridos = max(1, $fechaInicio->diffInMonths($hoy) + 1);
+        $mesesExigibles = min((int) $voucher->meses, $mesesTranscurridos);
+
+        $deberiaLlevar = round($mesesExigibles * (float) $voucher->mensualidad * $factor, 2);
+        
+        $totalAbonado = (float) DB::table('supplier_voucher_items')
+            ->where('supplier_voucher_partner_id', $partner->id)
+            ->whereNull('fecha_baja')
+            ->sum('cantidad');
+            
+        $interesGenerado = (float) DB::table('supplier_voucher_interests')
+            ->where('supplier_voucher_partner_id', $partner->id)
+            ->whereNull('fecha_baja')
+            ->sum('cantidad');
+
+        $interesPagado = (float) DB::table('supplier_voucher_items')
+            ->where('supplier_voucher_partner_id', $partner->id)
+            ->whereNull('fecha_baja')
+            ->sum('interes_pagado');
+            
+        $capitalTotal = max(0, ((float) $voucher->total * $factor) - (float) $partner->enganche);
+        $capitalPagado = min($totalAbonado, $capitalTotal);
+        
+        $saldoPendienteCapital = $capitalTotal - $capitalPagado;
+        $saldoInteresPendiente = $interesGenerado - $interesPagado;
+        
+        $diferencia = round($deberiaLlevar - $capitalPagado, 2);
+
+        $estadoPago = 'AL CORRIENTE';
+        if ($saldoPendienteCapital <= 0.009 && $saldoInteresPendiente <= 0.009) {
+            $estadoPago = 'LIQUIDADO';
+        } elseif ($diferencia > 0.009) {
+            $estadoPago = 'ATRASADO';
+        }
+
+        return [
+            'enganche' => (float) $partner->enganche,
+            'capital_total' => $capitalTotal,
+            'meses_exigibles' => $mesesExigibles,
+            'deberia_llevar' => $deberiaLlevar,
+            'ha_pagado' => $capitalPagado,
+            'saldo_pendiente' => $saldoPendienteCapital,
+            'diferencia' => max(0, $diferencia),
+            'estado_pago' => $estadoPago,
+            'interes_acumulado' => $interesGenerado,
+            'interes_pagado' => $interesPagado,
+            'interes_pendiente' => $saldoInteresPendiente,
+        ];
+    }
+
     protected function getVoucherProgressStatus(object $voucher): array
     {
         $fechaInicio = Carbon::parse($voucher->fecha_inicio ?? $voucher->fecha_registro)->startOfDay();
@@ -316,16 +465,18 @@ class SupplierVoucherPaymentController extends Controller
             ->whereNull('fecha_baja')
             ->sum('cantidad');
             
-        $interesGenerado = (float) DB::table('supplier_voucher_items')
+        $interesGenerado = (float) DB::table('supplier_voucher_interests')
+            ->where('supplier_voucher_id', $voucher->id)
+            ->whereNull('fecha_baja')
+            ->sum('cantidad');
+            
+        $interesPagado = (float) DB::table('supplier_voucher_items')
             ->where('supplier_voucher_id', $voucher->id)
             ->whereNull('fecha_baja')
             ->sum('interes_pagado');
             
         $capitalTotal = max(0, (float) $voucher->total - (float) $voucher->enganche);
         $capitalPagado = min($totalAbonado, $capitalTotal);
-        $excesoParaInteres = max(0, $totalAbonado - $capitalTotal);
-
-        $interesPagado = min($excesoParaInteres, $interesGenerado);
         
         $saldoPendienteCapital = $capitalTotal - $capitalPagado;
         $saldoInteresPendiente = $interesGenerado - $interesPagado;
@@ -388,18 +539,67 @@ class SupplierVoucherPaymentController extends Controller
 
         $items = DB::table('supplier_voucher_items as i')
             ->leftJoin('payment_methods as pm', 'pm.id', '=', 'i.payment_method_id')
+            ->leftJoin('supplier_voucher_partners as svp', 'svp.id', '=', 'i.supplier_voucher_partner_id')
             ->where('i.supplier_voucher_id', $voucher->id)
             ->whereNull('i.fecha_baja')
             ->orderBy('i.id')
             ->select([
                 'i.*',
-                'pm.nombre as forma_pago'
+                'pm.nombre as forma_pago',
+                'svp.nombre as socio_nombre'
             ])
             ->get();
             
         $totalAbonos = 0;
+        $totalInteres = 0;
         foreach ($items as $idx => $row) {
             $totalAbonos += $row->cantidad;
+            $totalInteres += ($row->interes_pagado ?? 0);
+        }
+        
+        $partners = DB::table('supplier_voucher_partners')
+            ->where('supplier_voucher_id', $voucher->id)
+            ->get();
+            
+        $schedules = DB::table('supplier_payment_schedules')
+            ->where('supplier_voucher_id', $voucher->id)
+            ->orderBy('installment_number')
+            ->get();
+            
+        foreach ($partners as $p) {
+            $prog = $this->getPartnerProgressStatus($voucher, $p);
+            $p->progress = $prog;
+            
+            $partnerSchedules = [];
+            $factor = (float) $p->porcentaje / 100;
+            $partnerPaid = $prog['ha_pagado'];
+            
+            foreach ($schedules as $globalSchedule) {
+                $pAmount = round((float) $globalSchedule->amount * $factor, 2);
+                $pPaid = 0;
+                $pStatus = 'PENDING';
+                
+                if ($partnerPaid >= $pAmount) {
+                    $pPaid = $pAmount;
+                    $pStatus = 'PAID';
+                    $partnerPaid -= $pAmount;
+                } elseif ($partnerPaid > 0) {
+                    $pPaid = $partnerPaid;
+                    $pStatus = ($prog['saldo_pendiente'] <= 0.01) ? 'PAID' : 'PARTIAL';
+                    $partnerPaid = 0;
+                } else {
+                    $pStatus = ($prog['saldo_pendiente'] <= 0.01) ? 'PAID' : 'PENDING';
+                }
+                
+                $partnerSchedules[] = [
+                    'installment_number' => $globalSchedule->installment_number,
+                    'due_date'           => $globalSchedule->due_date,
+                    'amount'             => $pAmount,
+                    'amount_paid'        => $pPaid,
+                    'status'             => $pStatus,
+                ];
+            }
+            $p->schedules = $partnerSchedules;
         }
 
         $stats = [
@@ -415,7 +615,9 @@ class SupplierVoucherPaymentController extends Controller
                 'folio' => $voucher->numero_referencia,
                 'voucher' => $voucher,
                 'items' => $items,
+                'partners' => $partners,
                 'totalAbonos' => $totalAbonos,
+                'totalInteres' => $totalInteres,
                 'stats' => $stats,
             ],
             'boleta-proveedor-'.$voucher->numero_referencia.'.pdf'
@@ -427,12 +629,14 @@ class SupplierVoucherPaymentController extends Controller
         $item = DB::table('supplier_voucher_items as i')
             ->join('payment_methods as pm', 'pm.id', '=', 'i.payment_method_id')
             ->leftJoin('users as u', 'u.id', '=', 'i.usuario_genero_id')
+            ->leftJoin('supplier_voucher_partners as svp', 'svp.id', '=', 'i.supplier_voucher_partner_id')
             ->where('i.id', $abonoId)
             ->where('i.supplier_voucher_id', $id)
             ->select([
                 'i.*',
                 'pm.nombre as forma_pago',
                 'u.alias as usuario_registro',
+                'svp.nombre as socio_nombre'
             ])
             ->first();
 

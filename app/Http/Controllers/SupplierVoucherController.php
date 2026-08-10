@@ -109,8 +109,13 @@ class SupplierVoucherController extends Controller
             'fecha_inicio' => ['required', 'date'],
             'meses' => ['required', 'integer', 'min:1'],
             'observacion' => ['nullable', 'string'],
+            'partner_names' => ['nullable', 'array'],
+            'partner_names.*' => ['string', 'max:255'],
             'partner_percentages' => ['nullable', 'array'],
             'partner_percentages.*' => ['numeric', 'min:0', 'max:100'],
+            'partner_enganches' => ['nullable', 'array'],
+            'partner_enganches.*' => ['numeric', 'min:0'],
+            'titular_index' => ['nullable', 'integer', 'min:0'],
         ])->validate();
 
         $statusId = $this->getActiveStatusId();
@@ -119,13 +124,32 @@ class SupplierVoucherController extends Controller
         $enganche = round((float) $data['enganche'], 2);
         $numSocios = (int) $data['num_socios'];
         
-        $partnerPercentages = null;
+        $partnerData = [];
         if (!empty($data['partner_percentages'])) {
             $sum = array_sum($data['partner_percentages']);
             if (abs($sum - 100) > 0.01 || count($data['partner_percentages']) !== $numSocios) {
                 abort(422, 'Los porcentajes de los socios son inválidos o no suman 100.');
             }
-            $partnerPercentages = json_encode(array_map(fn($v) => (float)$v, $data['partner_percentages']));
+            $titularIndex = $data['titular_index'] ?? 0;
+            $enganchesTotal = 0;
+            foreach ($data['partner_percentages'] as $idx => $pct) {
+                $pEnganche = (float)($data['partner_enganches'][$idx] ?? 0);
+                $enganchesTotal += $pEnganche;
+                $partnerData[] = [
+                    'nombre' => $data['partner_names'][$idx] ?? 'Socio ' . ($idx + 1),
+                    'porcentaje' => (float)$pct,
+                    'es_titular' => ((int)$titularIndex === $idx),
+                    'enganche' => $pEnganche,
+                ];
+            }
+            $enganche = round($enganchesTotal, 2);
+        } else {
+            $partnerData[] = [
+                'nombre' => 'Socio Titular',
+                'porcentaje' => 100.00,
+                'es_titular' => true,
+                'enganche' => $enganche,
+            ];
         }
 
         $meses = (int) $data['meses'];
@@ -143,7 +167,6 @@ class SupplierVoucherController extends Controller
                 'total' => $total,
                 'enganche' => $enganche,
                 'num_socios' => $numSocios,
-                'partner_percentages' => $partnerPercentages,
                 'fecha_inicio' => $fechaInicio->toDateString(),
                 'fecha_fin' => $fechaFin->toDateString(),
                 'meses' => $meses,
@@ -164,6 +187,18 @@ class SupplierVoucherController extends Controller
                     'numero_referencia' => 'BOL-PROV-' . str_pad((string) $voucherId, 6, '0', STR_PAD_LEFT),
                     'updated_at' => now(),
                 ]);
+
+            foreach ($partnerData as $pData) {
+                DB::table('supplier_voucher_partners')->insert([
+                    'supplier_voucher_id' => $voucherId,
+                    'nombre' => $pData['nombre'],
+                    'porcentaje' => $pData['porcentaje'],
+                    'enganche' => $pData['enganche'],
+                    'es_titular' => $pData['es_titular'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
 
             $schedules = [];
             $totalCapital = (float) $total - (float) $enganche;
@@ -246,7 +281,7 @@ class SupplierVoucherController extends Controller
                 'total' => $row->total,
                 'enganche' => $row->enganche,
                 'num_socios' => $row->num_socios,
-                'partner_percentages' => $row->partner_percentages,
+                'partners' => DB::table('supplier_voucher_partners')->where('supplier_voucher_id', $id)->orderBy('id')->get(),
                 'fecha_inicio' => $row->fecha_inicio,
                 'fecha_fin' => $row->fecha_fin,
                 'meses' => $row->meses,
@@ -302,10 +337,10 @@ class SupplierVoucherController extends Controller
             ->whereNull('fecha_baja')
             ->sum('cantidad');
             
-        $interesGenerado = (float) DB::table('supplier_voucher_items')
+        $interesGenerado = (float) DB::table('supplier_voucher_interests')
             ->where('supplier_voucher_id', $voucher->id)
             ->whereNull('fecha_baja')
-            ->sum('interes_pagado');
+            ->sum('cantidad');
             
         $capitalTotal = max(0, (float) $voucher->total - (float) $voucher->enganche);
         $capitalPagado = min($totalAbonado, $capitalTotal);

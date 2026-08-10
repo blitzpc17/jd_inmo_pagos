@@ -435,6 +435,22 @@ class BulkModificationController extends Controller
                     } elseif ($type === 'BOLETA_PROVEEDOR') {
                         $boleta = DB::table('supplier_vouchers')->where('id', $recordId)->first();
                         
+                        if (isset($newData['partners'])) {
+                            $partners = $newData['partners'];
+                            unset($newData['partners']);
+
+                            foreach ($partners as $partner) {
+                                DB::table('supplier_voucher_partners')
+                                    ->where('id', $partner['id'])
+                                    ->where('supplier_voucher_id', $recordId)
+                                    ->update([
+                                        'nombre' => $partner['nombre'],
+                                        'porcentaje' => $partner['porcentaje'],
+                                        'enganche' => $partner['enganche'],
+                                    ]);
+                            }
+                        }
+                        
                         // Recalculate mensualidad if total, enganche, or meses is modified
                         if (isset($newData['enganche']) || isset($newData['meses']) || isset($newData['total'])) {
                             $newEnganche = isset($newData['enganche']) ? (float)$newData['enganche'] : (float)$boleta->enganche;
@@ -449,7 +465,7 @@ class BulkModificationController extends Controller
                         if (!empty($newData)) {
                             DB::table($tableName)->where('id', $recordId)->update($newData);
                         }
-                        
+
                         // Re-fetch to get updated values
                         $boleta = DB::table('supplier_vouchers')->where('id', $recordId)->first();
                         
@@ -488,6 +504,10 @@ class BulkModificationController extends Controller
                                 app(\App\Http\Controllers\SupplierVoucherPaymentController::class)->recalculateVoucherTotals((int)$recordId);
                             }
                         }
+                        
+                        // We recalculate in case the partners' enganche changed or anything affecting totals
+                        app(\App\Http\Controllers\SupplierVoucherPaymentController::class)->recalculateVoucherTotals((int)$recordId);
+                        
                         continue;
                     }
 
@@ -771,6 +791,13 @@ class BulkModificationController extends Controller
         }
 
         $record = $query->first();
+
+        if ($record && $type === 'BOLETA_PROVEEDOR') {
+            $partners = DB::table('supplier_voucher_partners')
+                ->where('supplier_voucher_id', $record->id)
+                ->get();
+            $record->partners = $partners;
+        }
 
         if (!$record) {
             return response()->json(['ok' => false, 'message' => 'Registro no encontrado.'], 404);
