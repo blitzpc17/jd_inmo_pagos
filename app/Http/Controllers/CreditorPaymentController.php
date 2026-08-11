@@ -26,8 +26,10 @@ class CreditorPaymentController extends Controller
                 'sp.numero_referencia',
                 'sp.fecha_inicio',
                 'sp.fecha_fin',
+                'sp.capital',
+                'sp.porcentaje_interes',
+                'sp.monto_interes',
                 'sp.importe',
-                'sp.enganche',
                 'sp.plazo',
                 'sp.observacion',
                 'c.nombre as acreedor',
@@ -37,13 +39,18 @@ class CreditorPaymentController extends Controller
             ->orderByDesc('sp.id')
             ->get()
             ->map(function ($r) {
-                $abonos = DB::table('creditor_payment_concepts')
+                $items = DB::table('creditor_payment_concepts')
                     ->where('creditor_payment_id', $r->id)
                     ->whereNull('fecha_baja')
-                    ->sum('importe');
+                    ->get();
+                    
+                $abonos = collect($items)->sum('importe');
+                $abonosCapital = collect($items)->filter(function($i) {
+                    return !preg_match('/recargo|inter[eé]s/i', $i->concepto);
+                })->sum('importe');
 
                 $r->abonos = $abonos;
-                $r->resto = max(0, ($r->importe - $r->enganche) - $abonos);
+                $r->resto = max(0, $r->importe - $abonosCapital);
 
                 $r->acciones = '
                     <div class="d-flex gap-1">
@@ -101,13 +108,16 @@ class CreditorPaymentController extends Controller
             'development_id' => ['required', 'integer', 'exists:developments,id'],
             'plazo' => ['required', 'integer', 'min:1'],
             'fecha_inicio' => ['required', 'date'],
-            'enganche' => ['required', 'numeric', 'min:0'],
-            'importe' => ['required', 'numeric', 'min:0'],
+            'capital' => ['required', 'numeric', 'min:0'],
+            'porcentaje_interes' => ['required', 'numeric', 'min:0'],
             'observacion' => ['nullable', 'string'],
         ])->validate();
 
         $statusId = $this->getActiveStatusId();
         $fechaFin = \Carbon\Carbon::parse($data['fecha_inicio'])->addMonths($data['plazo'])->toDateString();
+        
+        $montoInteres = $data['capital'] * ($data['porcentaje_interes'] / 100);
+        $importe = $data['capital'] + $montoInteres;
 
         DB::beginTransaction();
 
@@ -119,8 +129,10 @@ class CreditorPaymentController extends Controller
                 'plazo' => $data['plazo'],
                 'fecha_inicio' => $data['fecha_inicio'],
                 'fecha_fin' => $fechaFin,
-                'enganche' => $data['enganche'],
-                'importe' => $data['importe'],
+                'capital' => $data['capital'],
+                'porcentaje_interes' => $data['porcentaje_interes'],
+                'monto_interes' => $montoInteres,
+                'importe' => $importe,
                 'status_id' => $statusId,
                 'observacion' => $data['observacion'] ?? null,
                 'usuario_genero_id' => session('auth_user.id'),
@@ -175,7 +187,10 @@ class CreditorPaymentController extends Controller
             ]);
 
         $abonos = collect($items)->sum('importe');
-        $resto = max(0, ($row->importe - $row->enganche) - $abonos);
+        $abonosCapital = collect($items)->filter(function($i) {
+            return !preg_match('/recargo|inter[eé]s/i', $i->concepto);
+        })->sum('importe');
+        $resto = max(0, $row->importe - $abonosCapital);
 
         return response()->json([
             'ok' => true,
@@ -184,7 +199,9 @@ class CreditorPaymentController extends Controller
                 'fecha_inicio' => $row->fecha_inicio,
                 'fecha_fin' => $row->fecha_fin,
                 'plazo' => $row->plazo,
-                'enganche' => $row->enganche,
+                'capital' => $row->capital,
+                'porcentaje_interes' => $row->porcentaje_interes,
+                'monto_interes' => $row->monto_interes,
                 'importe' => $row->importe,
                 'abonos' => $abonos,
                 'resto' => $resto,

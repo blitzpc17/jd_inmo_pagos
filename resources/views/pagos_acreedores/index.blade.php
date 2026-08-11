@@ -23,8 +23,8 @@
                     <th>Folio</th>
                     <th>Acreedor</th>
                     <th>Lotificación</th>
-                    <th>Costo</th>
-                    <th>Enganche</th>
+                    <th>Capital</th>
+                    <th>Total</th>
                     <th>Abonos</th>
                     <th>Resto</th>
                     <th>Plazo</th>
@@ -68,12 +68,20 @@
                             <input type="date" class="form-control" id="fecha_fin" readonly>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Enganche ($)</label>
-                            <input type="number" step="0.01" class="form-control" id="enganche" name="enganche" min="0" value="0" required>
+                            <label class="form-label fw-bold">Capital ($)</label>
+                            <input type="number" step="0.01" class="form-control" id="capital" name="capital" min="0" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Total a Pagar (Costo) ($)</label>
-                            <input type="number" step="0.01" class="form-control" id="importe" name="importe" min="0" required>
+                            <label class="form-label fw-bold">Porcentaje Interés (%)</label>
+                            <input type="number" step="0.01" class="form-control" id="porcentaje_interes" name="porcentaje_interes" min="0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Monto Interés ($)</label>
+                            <input type="number" step="0.01" class="form-control bg-light" id="monto_interes" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Total a Pagar ($)</label>
+                            <input type="number" step="0.01" class="form-control bg-light" id="importe" readonly>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label fw-bold">Observaciones</label>
@@ -129,18 +137,31 @@
                             <div class="card-body">
                                 <h5 class="fw-bold mb-3"><i class="fa-solid fa-calculator me-2 text-primary"></i>Finanzas</h5>
                                 <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">Costo:</span>
+                                    <span class="text-muted">Capital:</span>
+                                    <strong id="dpp_capital"></strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted">% Interés:</span>
+                                    <strong id="dpp_porcentaje_interes"></strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted">Monto Interés:</span>
+                                    <strong id="dpp_monto_interes"></strong>
+                                </div>
+                                <hr class="my-1">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted">Total a Pagar:</span>
                                     <strong id="dpp_importe"></strong>
                                 </div>
                                 <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">Enganche:</span>
-                                    <strong id="dpp_enganche"></strong>
+                                    <span class="text-muted">Pago Mensual:</span>
+                                    <strong id="dpp_pago_mensual"></strong>
                                 </div>
+                                <hr class="my-1">
                                 <div class="d-flex justify-content-between mb-2">
-                                    <span class="text-muted">Abonos Acum.:</span>
+                                    <span class="text-muted">Abono Capital:</span>
                                     <strong id="dpp_abonos"></strong>
                                 </div>
-                                <hr class="my-2">
                                 <div class="d-flex justify-content-between fs-5">
                                     <span class="fw-bold">Resto:</span>
                                     <strong id="dpp_resto" class="text-danger"></strong>
@@ -164,9 +185,11 @@
                                 <tr>
                                     <th style="width: 40px;">#</th>
                                     <th>Fecha</th>
-                                    <th>Concepto</th>
                                     <th>Monto</th>
-                                    <th>Resto</th>
+                                    <th>Saldo</th>
+                                    <th>Recargo</th>
+                                    <th>Firma</th>
+                                    <th>Nota</th>
                                     <th style="width: 50px;"></th>
                                 </tr>
                             </thead>
@@ -315,8 +338,8 @@
                 { data: 'numero_referencia' },
                 { data: 'acreedor' },
                 { data: 'lotificacion', render: d => d || '-' },
+                { data: 'capital', render: d => formatter.format(d) },
                 { data: 'importe', render: d => formatter.format(d) },
-                { data: 'enganche', render: d => formatter.format(d) },
                 { data: 'abonos', render: d => formatter.format(d) },
                 { data: 'resto', render: d => `<span class="text-danger fw-bold">${formatter.format(d)}</span>` },
                 { data: 'plazo', render: d => d + ' meses' },
@@ -327,6 +350,23 @@
             language: { url: '//cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
         });
     }
+
+    function autoCalcInteres() {
+        const capitalStr = document.getElementById('capital').value;
+        const porcentajeStr = document.getElementById('porcentaje_interes').value;
+        
+        let capital = parseFloat(capitalStr) || 0;
+        let porcentaje = parseFloat(porcentajeStr) || 0;
+        
+        let montoInteres = capital * (porcentaje / 100);
+        let importe = capital + montoInteres;
+        
+        document.getElementById('monto_interes').value = montoInteres.toFixed(2);
+        document.getElementById('importe').value = importe.toFixed(2);
+    }
+    
+    document.getElementById('capital').addEventListener('input', autoCalcInteres);
+    document.getElementById('porcentaje_interes').addEventListener('input', autoCalcInteres);
 
     async function openNew() {
         await loadOptions();
@@ -342,8 +382,8 @@
             development_id: document.getElementById('development_id').value,
             plazo: document.getElementById('plazo').value,
             fecha_inicio: document.getElementById('fecha_inicio').value,
-            enganche: document.getElementById('enganche').value,
-            importe: document.getElementById('importe').value,
+            capital: document.getElementById('capital').value,
+            porcentaje_interes: document.getElementById('porcentaje_interes').value,
             observacion: document.getElementById('observacion').value
         };
 
@@ -393,30 +433,48 @@
         document.getElementById('dpp_fecha_fin').innerText = d.fecha_fin || '-';
         document.getElementById('dpp_plazo').innerText = d.plazo || '0';
 
+        document.getElementById('dpp_capital').innerText = formatter.format(d.capital || 0);
+        document.getElementById('dpp_porcentaje_interes').innerText = (d.porcentaje_interes || 0) + '%';
+        document.getElementById('dpp_monto_interes').innerText = formatter.format(d.monto_interes || 0);
         document.getElementById('dpp_importe').innerText = formatter.format(d.importe || 0);
-        document.getElementById('dpp_enganche').innerText = formatter.format(d.enganche || 0);
+        
+        let pagoMensual = parseFloat(d.importe || 0) / parseInt(d.plazo || 1);
+        document.getElementById('dpp_pago_mensual').innerText = formatter.format(pagoMensual);
+        
         document.getElementById('dpp_abonos').innerText = formatter.format(d.abonos || 0);
         document.getElementById('dpp_resto').innerText = formatter.format(d.resto || 0);
 
         const tbody = document.getElementById('dppItemsBody');
         tbody.innerHTML = '';
 
-        let saldoVariable = parseFloat(d.importe || 0) - parseFloat(d.enganche || 0);
+        let saldoVariable = parseFloat(d.importe || 0);
 
         if (!(d.items && d.items.length)) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No hay abonos registrados</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No hay abonos registrados</td></tr>`;
         } else {
             d.items.forEach((item, index) => {
                 const montoAbono = parseFloat(item.importe || 0);
-                saldoVariable -= montoAbono;
+                const isRecargo = /recargo|inter[eé]s/i.test(item.concepto || '');
+                
+                let textMonto = '';
+                let textRecargo = '';
+                
+                if (isRecargo) {
+                    textRecargo = formatter.format(montoAbono);
+                } else {
+                    textMonto = formatter.format(montoAbono);
+                    saldoVariable -= montoAbono;
+                }
                 
                 tbody.innerHTML += `
                     <tr>
                         <td>${index + 1}</td>
                         <td>${item.fecha ?? '-'}</td>
+                        <td class="fw-bold">${textMonto}</td>
+                        <td class="text-primary fw-bold">${formatter.format(Math.max(0, saldoVariable))}</td>
+                        <td class="text-danger fw-bold">${textRecargo}</td>
+                        <td></td>
                         <td>${item.concepto ?? ''}</td>
-                        <td class="fw-bold">${formatter.format(montoAbono)}</td>
-                        <td class="text-danger fw-bold">${formatter.format(Math.max(0, saldoVariable))}</td>
                         <td>
                             <a href="/pagos-acreedores/${id}/pdf/recibo/${item.id}" target="_blank" class="btn btn-sm btn-outline-danger" title="Imprimir Recibo">
                                 <i class="fa-solid fa-file-pdf"></i>
