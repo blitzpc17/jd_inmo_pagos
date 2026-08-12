@@ -21,6 +21,7 @@
                     <th>#</th>
                     <th>Referencia</th>
                     <th>Proveedor</th>
+                    <th>Lotificación</th>
                     <th>Total</th>
                     <th>Meses</th>
                     <th>Mensualidad</th>
@@ -48,6 +49,11 @@
                         <div class="col-md-6">
                             <label class="form-label">Proveedor</label>
                             <select class="form-select select2-proveedor" id="supplier_id" name="supplier_id"></select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Lotificación</label>
+                            <select class="form-select select2-proveedor" id="development_id" name="development_id"></select>
                         </div>
 
                         <div class="col-md-3">
@@ -124,7 +130,8 @@
 
             <div class="modal-body">
                 <div class="row g-3 mb-3">
-                    <div class="col-md-12"><label class="form-label">Referencia</label><input type="text" class="form-control fw-bold" id="dba_ref" readonly></div>
+                    <div class="col-md-6"><label class="form-label">Referencia</label><input type="text" class="form-control fw-bold" id="dba_ref" readonly></div>
+                    <div class="col-md-6"><label class="form-label">Lotificación</label><input type="text" class="form-control fw-bold" id="dba_lotificacion" readonly></div>
                     <div class="col-md-12"><label class="form-label">Proveedor</label><input type="text" class="form-control" id="dba_proveedor" readonly></div>
                 </div>
                 
@@ -231,7 +238,8 @@
         if (optionsCache) return optionsCache;
         const res = await fetch('/pagos-proveedores/options');
         optionsCache = await res.json();
-        fillSelect('supplier_id', optionsCache.suppliers || []);
+        fillSelect('supplier_id', optionsCache.suppliers);
+        fillSelect('development_id', optionsCache.developments);
         return optionsCache;
     }
 
@@ -247,6 +255,7 @@
                 { data: null, render: (_, __, ___, meta) => meta.row + 1 },
                 { data: 'numero_referencia' },
                 { data: 'proveedor' },
+                { data: 'lotificacion', render: d => d || '-' },
                 { data: 'total', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
                 { data: 'meses', className: 'text-end' },
                 { data: 'mensualidad', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
@@ -284,6 +293,7 @@
 
         const payload = {
             supplier_id: document.getElementById('supplier_id').value,
+            development_id: document.getElementById('development_id').value,
             total: document.getElementById('total').value,
             enganche: document.getElementById('enganche').value,
             meses: document.getElementById('meses').value,
@@ -364,6 +374,7 @@
         const debe = parseFloat(d.saldo_pendiente) || 0;
 
         document.getElementById('dba_ref').value = d.numero_referencia || '';
+        document.getElementById('dba_lotificacion').value = d.lotificacion || '-';
         document.getElementById('dba_proveedor').value = d.proveedor || '';
 
         // Generales

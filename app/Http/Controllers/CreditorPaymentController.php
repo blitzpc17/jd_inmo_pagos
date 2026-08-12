@@ -18,7 +18,6 @@ class CreditorPaymentController extends Controller
     {
         $rows = DB::table('creditor_payments as sp')
             ->join('creditors as c', 'c.id', '=', 'sp.creditor_id')
-            ->leftJoin('developments as d', 'd.id', '=', 'sp.development_id')
             ->join('statuses as st', 'st.id', '=', 'sp.status_id')
             ->whereNull('sp.fecha_baja')
             ->select([
@@ -32,8 +31,8 @@ class CreditorPaymentController extends Controller
                 'sp.importe',
                 'sp.plazo',
                 'sp.observacion',
+                'sp.concepto',
                 'c.nombre as acreedor',
-                'd.nombre as lotificacion',
                 'st.nombre as estado',
             ])
             ->orderByDesc('sp.id')
@@ -45,9 +44,7 @@ class CreditorPaymentController extends Controller
                     ->get();
                     
                 $abonos = collect($items)->sum('importe');
-                $abonosCapital = collect($items)->filter(function($i) {
-                    return !preg_match('/recargo|inter[eé]s/i', $i->concepto);
-                })->sum('importe');
+                $abonosCapital = $abonos;
 
                 $r->abonos = $abonos;
                 $r->resto = max(0, $r->importe - $abonosCapital);
@@ -86,18 +83,9 @@ class CreditorPaymentController extends Controller
                 'nombre as text',
             ]);
 
-        $developments = DB::table('developments')
-            ->whereNull('fecha_baja')
-            ->orderBy('nombre')
-            ->get([
-                'id as value',
-                'nombre as text',
-            ]);
-
         return response()->json([
             'creditors' => $suppliers,
             'payment_methods' => $paymentMethods,
-            'developments' => $developments,
         ]);
     }
 
@@ -105,12 +93,12 @@ class CreditorPaymentController extends Controller
     {
         $data = Validator::make($request->all(), [
             'creditor_id' => ['required', 'integer', 'exists:creditors,id'],
-            'development_id' => ['required', 'integer', 'exists:developments,id'],
             'plazo' => ['required', 'integer', 'min:1'],
             'fecha_inicio' => ['required', 'date'],
             'capital' => ['required', 'numeric', 'min:0'],
             'porcentaje_interes' => ['required', 'numeric', 'min:0'],
             'observacion' => ['nullable', 'string'],
+            'concepto' => ['nullable', 'string', 'max:350'],
         ])->validate();
 
         $statusId = $this->getActiveStatusId();
@@ -125,7 +113,7 @@ class CreditorPaymentController extends Controller
             $paymentId = DB::table('creditor_payments')->insertGetId([
                 'numero_referencia' => '',
                 'creditor_id' => $data['creditor_id'],
-                'development_id' => $data['development_id'],
+                'concepto' => $data['concepto'] ?? null,
                 'plazo' => $data['plazo'],
                 'fecha_inicio' => $data['fecha_inicio'],
                 'fecha_fin' => $fechaFin,
@@ -163,13 +151,11 @@ class CreditorPaymentController extends Controller
     {
         $row = DB::table('creditor_payments as sp')
             ->join('creditors as c', 'c.id', '=', 'sp.creditor_id')
-            ->leftJoin('developments as d', 'd.id', '=', 'sp.development_id')
             ->join('statuses as st', 'st.id', '=', 'sp.status_id')
             ->where('sp.id', $id)
             ->select([
                 'sp.*',
                 'c.nombre as acreedor',
-                'd.nombre as lotificacion',
                 'st.nombre as estado',
             ])
             ->first();
@@ -184,12 +170,12 @@ class CreditorPaymentController extends Controller
                 'fecha',
                 'concepto',
                 'importe',
+                'porcentaje_interes',
+                'recargo',
             ]);
 
         $abonos = collect($items)->sum('importe');
-        $abonosCapital = collect($items)->filter(function($i) {
-            return !preg_match('/recargo|inter[eé]s/i', $i->concepto);
-        })->sum('importe');
+        $abonosCapital = $abonos; // The 'importe' column now cleanly represents capital ONLY
         $resto = max(0, $row->importe - $abonosCapital);
 
         return response()->json([
@@ -207,7 +193,7 @@ class CreditorPaymentController extends Controller
                 'resto' => $resto,
                 'observacion' => $row->observacion,
                 'acreedor' => $row->acreedor,
-                'lotificacion' => $row->lotificacion,
+                'concepto' => $row->concepto,
                 'estado' => $row->estado,
                 'items' => $items,
             ]
@@ -218,7 +204,9 @@ class CreditorPaymentController extends Controller
     {
         $data = Validator::make($request->all(), [
             'fecha' => ['required', 'date'],
-            'monto' => ['required', 'numeric', 'min:0.01'],
+            'monto' => ['required', 'numeric', 'min:0'],
+            'porcentaje_interes' => ['nullable', 'numeric', 'min:0'],
+            'recargo' => ['nullable', 'numeric', 'min:0'],
             'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'concepto' => ['required', 'string'],
         ])->validate();
@@ -230,6 +218,8 @@ class CreditorPaymentController extends Controller
             'creditor_payment_id' => $id,
             'fecha' => $data['fecha'],
             'importe' => $data['monto'],
+            'porcentaje_interes' => $data['porcentaje_interes'] ?? 0,
+            'recargo' => $data['recargo'] ?? 0,
             'payment_method_id' => $data['payment_method_id'],
             'concepto' => $data['concepto'],
             'status_id' => $this->getActiveStatusId(),

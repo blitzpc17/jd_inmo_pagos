@@ -22,7 +22,7 @@
                     <th>#</th>
                     <th>Folio</th>
                     <th>Acreedor</th>
-                    <th>Lotificación</th>
+                    <th>Concepto</th>
                     <th>Capital</th>
                     <th>Total</th>
                     <th>Abonos</th>
@@ -52,8 +52,8 @@
                             <select class="form-select select2-pp" id="creditor_id" name="creditor_id"></select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Lotificación</label>
-                            <select class="form-select select2-pp" id="development_id" name="development_id"></select>
+                            <label class="form-label fw-bold">Concepto / Lotificación (Opcional)</label>
+                            <textarea class="form-control" id="concepto" name="concepto" rows="3" maxlength="350"></textarea>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Plazo (Meses)</label>
@@ -124,7 +124,7 @@
                                     <div class="col-md-6"><strong>Folio:</strong> <span id="dpp_ref"></span></div>
                                     <div class="col-md-6"><strong>Estado:</strong> <span id="dpp_estado"></span></div>
                                     <div class="col-md-6"><strong>Acreedor:</strong> <span id="dpp_acreedor"></span></div>
-                                    <div class="col-md-6"><strong>Lotificación:</strong> <span id="dpp_lotificacion"></span></div>
+                                    <div class="col-md-6"><strong>Concepto:</strong> <span id="dpp_concepto"></span></div>
                                     <div class="col-md-4"><strong>F. Inicio:</strong> <span id="dpp_fecha_inicio"></span></div>
                                     <div class="col-md-4"><strong>F. Fin:</strong> <span id="dpp_fecha_fin"></span></div>
                                     <div class="col-md-4"><strong>Plazo:</strong> <span id="dpp_plazo"></span> meses</div>
@@ -223,8 +223,20 @@
                             <input type="date" class="form-control" id="abono_fecha" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Monto ($)</label>
-                            <input type="number" step="0.01" class="form-control" id="abono_monto" min="0.01" required>
+                            <label class="form-label fw-bold">Abono Capital ($)</label>
+                            <input type="number" step="0.01" class="form-control" id="abono_monto" min="0" value="0" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">% Interés</label>
+                            <input type="number" step="0.01" class="form-control" id="abono_porcentaje_interes" min="0" value="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Recargo Calculado ($)</label>
+                            <input type="number" step="0.01" class="form-control bg-light" id="abono_recargo_calculado" readonly>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Monto Recargo ($)</label>
+                            <input type="number" step="0.01" class="form-control" id="abono_recargo" min="0" value="0">
                         </div>
                         <div class="col-md-12">
                             <div class="d-flex justify-content-between p-2 border rounded bg-body-tertiary">
@@ -299,7 +311,6 @@
         optionsCache = await res.json();
 
         fillSelect('creditor_id', optionsCache.creditors);
-        fillSelect('development_id', optionsCache.developments);
         fillSelect('abono_payment_method_id', optionsCache.payment_methods);
 
         return optionsCache;
@@ -337,7 +348,7 @@
                 { data: null, render: (_, __, ___, meta) => meta.row + 1 },
                 { data: 'numero_referencia' },
                 { data: 'acreedor' },
-                { data: 'lotificacion', render: d => d || '-' },
+                { data: 'concepto', render: d => d || '-' },
                 { data: 'capital', render: d => formatter.format(d) },
                 { data: 'importe', render: d => formatter.format(d) },
                 { data: 'abonos', render: d => formatter.format(d) },
@@ -379,7 +390,7 @@
 
         const payload = {
             creditor_id: document.getElementById('creditor_id').value,
-            development_id: document.getElementById('development_id').value,
+            concepto: document.getElementById('concepto').value,
             plazo: document.getElementById('plazo').value,
             fecha_inicio: document.getElementById('fecha_inicio').value,
             capital: document.getElementById('capital').value,
@@ -428,7 +439,7 @@
         document.getElementById('dpp_ref').innerText = d.numero_referencia || '-';
         document.getElementById('dpp_estado').innerHTML = `<span class="badge bg-primary">${d.estado}</span>`;
         document.getElementById('dpp_acreedor').innerText = d.acreedor || '-';
-        document.getElementById('dpp_lotificacion').innerText = d.lotificacion || '-';
+        document.getElementById('dpp_concepto').innerText = d.concepto || '-';
         document.getElementById('dpp_fecha_inicio').innerText = d.fecha_inicio || '-';
         document.getElementById('dpp_fecha_fin').innerText = d.fecha_fin || '-';
         document.getElementById('dpp_plazo').innerText = d.plazo || '0';
@@ -454,17 +465,12 @@
         } else {
             d.items.forEach((item, index) => {
                 const montoAbono = parseFloat(item.importe || 0);
-                const isRecargo = /recargo|inter[eé]s/i.test(item.concepto || '');
+                const recargoReal = parseFloat(item.recargo || 0);
                 
-                let textMonto = '';
-                let textRecargo = '';
+                let textMonto = formatter.format(montoAbono);
+                let textRecargo = recargoReal > 0 ? formatter.format(recargoReal) : '';
                 
-                if (isRecargo) {
-                    textRecargo = formatter.format(montoAbono);
-                } else {
-                    textMonto = formatter.format(montoAbono);
-                    saldoVariable -= montoAbono;
-                }
+                saldoVariable -= montoAbono;
                 
                 tbody.innerHTML += `
                     <tr>
@@ -514,12 +520,21 @@
         document.getElementById('lbl_abono_nuevo_resto').innerText = formatter.format(nuevoResto);
     });
 
+    document.getElementById('abono_porcentaje_interes').addEventListener('input', function() {
+        const porcentaje = parseFloat(this.value || 0);
+        const calculado = currentBoletaResto * (porcentaje / 100);
+        document.getElementById('abono_recargo_calculado').value = calculado.toFixed(2);
+        document.getElementById('abono_recargo').value = calculado.toFixed(2);
+    });
+
     formAbono.addEventListener('submit', async function(e) {
         e.preventDefault();
         const boletaId = document.getElementById('abono_boleta_id').value;
         const payload = {
             fecha: document.getElementById('abono_fecha').value,
             monto: document.getElementById('abono_monto').value,
+            porcentaje_interes: document.getElementById('abono_porcentaje_interes').value,
+            recargo: document.getElementById('abono_recargo').value,
             payment_method_id: document.getElementById('abono_payment_method_id').value,
             concepto: document.getElementById('abono_concepto').value
         };

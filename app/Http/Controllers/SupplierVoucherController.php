@@ -18,6 +18,7 @@ class SupplierVoucherController extends Controller
     {
         $rows = DB::table('supplier_vouchers as cv')
             ->join('suppliers as s', 's.id', '=', 'cv.supplier_id')
+            ->leftJoin('developments as d', 'd.id', '=', 'cv.development_id')
             ->join('statuses as st', 'st.id', '=', 'cv.status_id')
             ->whereNull('cv.fecha_baja')
             ->select([
@@ -33,6 +34,7 @@ class SupplierVoucherController extends Controller
                 'cv.fecha_registro',
                 's.nombres',
                 's.apellidos',
+                'd.nombre as lotificacion',
                 'st.nombre as estado',
             ])
             ->orderByDesc('cv.id')
@@ -94,8 +96,17 @@ class SupplierVoucherController extends Controller
                 ];
             });
 
+        $developments = DB::table('developments')
+            ->whereNull('fecha_baja')
+            ->orderBy('nombre')
+            ->get([
+                'id as value',
+                'nombre as text',
+            ]);
+
         return response()->json([
             'suppliers' => $suppliers,
+            'developments' => $developments,
         ]);
     }
 
@@ -103,6 +114,7 @@ class SupplierVoucherController extends Controller
     {
         $data = Validator::make($request->all(), [
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
+            'development_id' => ['required', 'integer', 'exists:developments,id'],
             'total' => ['required', 'numeric', 'min:0.01'],
             'enganche' => ['required', 'numeric', 'min:0'],
             'num_socios' => ['required', 'integer', 'min:1'],
@@ -164,6 +176,7 @@ class SupplierVoucherController extends Controller
             $voucherId = DB::table('supplier_vouchers')->insertGetId([
                 'numero_referencia' => '',
                 'supplier_id' => $data['supplier_id'],
+                'development_id' => $data['development_id'],
                 'total' => $total,
                 'enganche' => $enganche,
                 'num_socios' => $numSocios,
@@ -245,12 +258,14 @@ class SupplierVoucherController extends Controller
 
         $row = DB::table('supplier_vouchers as cv')
             ->join('suppliers as s', 's.id', '=', 'cv.supplier_id')
+            ->leftJoin('developments as d', 'd.id', '=', 'cv.development_id')
             ->join('statuses as st', 'st.id', '=', 'cv.status_id')
             ->where('cv.id', $id)
             ->select([
                 'cv.*',
                 's.nombres',
                 's.apellidos',
+                'd.nombre as lotificacion',
                 'st.nombre as estado',
             ])
             ->first();
@@ -278,6 +293,7 @@ class SupplierVoucherController extends Controller
                 'id' => $row->id,
                 'numero_referencia' => $row->numero_referencia,
                 'proveedor' => trim(($row->nombres ?? '') . ' ' . ($row->apellidos ?? '')),
+                'lotificacion' => $row->lotificacion,
                 'total' => $row->total,
                 'enganche' => $row->enganche,
                 'num_socios' => $row->num_socios,
