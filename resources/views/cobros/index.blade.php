@@ -169,6 +169,7 @@
                     <span id="migrationBadge" class="badge bg-warning text-dark d-none ms-2 px-2 py-1"><i class="fa-solid fa-clock-rotate-left"></i> En Migración</span>
                 </div>
                 <div class="charge-muted" id="contractSubtitle"></div>
+                <div class="charge-muted mt-1 fw-bold text-primary" id="contractPartners"></div>
             </div>
 
             <div class="d-flex gap-2">
@@ -556,6 +557,12 @@
         const mesesText = (contract.tipo_pago && contract.tipo_pago.toUpperCase().includes('CRÉDITO') && contract.meses > 0) ? ` (${contract.meses} meses)` : '';
         const lotesText = contract.lotes_nombres ? ` (${contract.lotes_nombres})` : '';
         $('#contractSubtitle').text(`${contract.lotificacion || ''}${lotesText} | ${contract.tipo_pago || ''}${mesesText} | Estado: ${contract.estado_nombre || ''}`);
+        
+        if (contract.socios) {
+            $('#contractPartners').text(`Socios: ${contract.socios}`).removeClass('d-none');
+        } else {
+            $('#contractPartners').addClass('d-none');
+        }
 
         const isMigration = $('#contract_id option:selected').data('is-migration') === 1;
         if (isMigration) {

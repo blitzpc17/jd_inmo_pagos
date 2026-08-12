@@ -914,12 +914,22 @@ class ContractCollectionService
             ->toArray();
         $lotsStr = !empty($lots) ? implode(', ', $lots) : '';
 
+        $partners = DB::table('contract_lots as cl')
+            ->join('lot_partners as lp', 'lp.lot_id', '=', 'cl.lot_id')
+            ->join('partners as p', 'p.id', '=', 'lp.partner_id')
+            ->where('cl.contract_id', $contract->id)
+            ->pluck('p.nombre')
+            ->unique()
+            ->toArray();
+        $partnersStr = !empty($partners) ? implode(', ', $partners) : '';
+
         return [
             'id' => $contract->id,
             'folio' => $contract->numero_referencia,
             'cliente' => trim(($contract->nombres ?? '') . ' ' . ($contract->apellidos ?? '')),
             'lotificacion' => $contract->lotificacion,
             'lotes_nombres' => $lotsStr,
+            'socios' => $partnersStr,
             'tipo_pago' => $contract->tipo_pago,
             'estado_clave' => $contract->estado_clave,
             'estado_nombre' => $contract->estado_nombre,
