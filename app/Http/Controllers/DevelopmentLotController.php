@@ -18,6 +18,11 @@ class DevelopmentLotController extends Controller
 
     public function datatable(int $developmentId)
     {
+        $partnersSub = DB::table('lot_partners as lp')
+            ->join('partners as p', 'p.id', '=', 'lp.partner_id')
+            ->whereColumn('lp.lot_id', 'l.id')
+            ->selectRaw("string_agg(p.nombre, ', ')");
+
         $rows = DB::table('lots as l')
             ->join('statuses as s', 's.id', '=', 'l.status_id')
             ->where('l.development_id', $developmentId)
@@ -31,6 +36,7 @@ class DevelopmentLotController extends Controller
                 's.clave as estado_clave',
                 's.nombre as estado',
             ])
+            ->selectSub($partnersSub, 'socios')
             ->orderByRaw("
                 CASE
                     WHEN l.manzana IS NULL OR l.manzana = '' THEN 999999

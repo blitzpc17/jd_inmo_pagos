@@ -38,7 +38,7 @@
                 <tr>
                     <th>#</th>
                     <th>Identificador</th>
-                    <th>Manzana</th>
+                    <th>Socios</th>
                     <th>Precio contado</th>
                     <th>Precio crédito</th>
                     <th>Estado</th>
@@ -362,7 +362,7 @@
             columns: [
                 { data: null, render: (_, __, ___, meta) => meta.row + 1 },
                 { data: 'identificador' },
-                { data: 'manzana', defaultContent: '' },
+                { data: 'socios', defaultContent: '-' },
                 { data: 'precio_contado' },
                 { data: 'precio_credito' },
                 { data: 'estado_badge', orderable: false, searchable: false },
