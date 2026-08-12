@@ -27,16 +27,16 @@
     #modalContractDocumentData .modal-footer {
         position: sticky;
         bottom: 0;
-        background: #fff;
+        background: var(--bs-body-bg);
         z-index: 5;
-        border-top: 1px solid #dee2e6;
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
     }
 
     .resume-box {
-        border: 1px solid #dbe3ea;
+        border: 1px solid var(--bs-border-color, #dbe3ea);
         border-radius: 1rem;
         padding: 1rem;
-        background: #fff;
+        background: var(--bs-body-bg);
     }
 
     .modal .form-control[readonly],
@@ -146,7 +146,7 @@
                         </div>
 
                         <div class="col-md-12">
-                            <div class="form-check bg-light border rounded p-3 mb-2">
+                            <div class="form-check bg-secondary bg-opacity-10 border rounded p-3 mb-2">
                                 <input class="form-check-input ms-1" type="checkbox" id="is_migration" name="is_migration" value="1">
                                 <label class="form-check-label fw-bold ms-2" for="is_migration">
                                     <i class="fa-solid fa-clock-rotate-left text-primary me-1"></i>

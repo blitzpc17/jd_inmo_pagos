@@ -907,11 +907,19 @@ class ContractCollectionService
         $initialPayment = (float) ($contract->monto_pago_inicial ?? 0);
         $totalPaid = $paid + $initialPayment;
 
+        $lots = DB::table('contract_lots as cl')
+            ->join('lots as l', 'l.id', '=', 'cl.lot_id')
+            ->where('cl.contract_id', $contract->id)
+            ->pluck('l.identificador')
+            ->toArray();
+        $lotsStr = !empty($lots) ? implode(', ', $lots) : '';
+
         return [
             'id' => $contract->id,
             'folio' => $contract->numero_referencia,
             'cliente' => trim(($contract->nombres ?? '') . ' ' . ($contract->apellidos ?? '')),
             'lotificacion' => $contract->lotificacion,
+            'lotes_nombres' => $lotsStr,
             'tipo_pago' => $contract->tipo_pago,
             'estado_clave' => $contract->estado_clave,
             'estado_nombre' => $contract->estado_nombre,
