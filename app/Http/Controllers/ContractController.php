@@ -16,6 +16,17 @@ class ContractController extends Controller
 
     public function datatable()
     {
+        $partnersSub = DB::table('contract_lots as cl')
+            ->join('lot_partners as lp', 'lp.lot_id', '=', 'cl.lot_id')
+            ->join('partners as p', 'p.id', '=', 'lp.partner_id')
+            ->whereColumn('cl.contract_id', 'c.id')
+            ->selectRaw("string_agg(DISTINCT p.nombre, ', ')");
+
+        $identifiersSub = DB::table('contract_lots as cl')
+            ->join('lots as l', 'l.id', '=', 'cl.lot_id')
+            ->whereColumn('cl.contract_id', 'c.id')
+            ->selectRaw("string_agg(l.identificador, ', ')");
+
         $rows = DB::table('contracts as c')
             ->join('clients as cl', 'cl.id', '=', 'c.client_id')
             ->join('developments as d', 'd.id', '=', 'c.development_id')
@@ -46,6 +57,8 @@ class ContractController extends Controller
                 'sp.nombres as vendedor_nombres',
                 'sp.apellidos as vendedor_apellidos',
             ])
+            ->selectSub($partnersSub, 'socios')
+            ->selectSub($identifiersSub, 'identificadores')
             ->whereNull('c.fecha_baja')
             ->orderByDesc('c.id')
             ->get()

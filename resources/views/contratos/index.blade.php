@@ -83,8 +83,9 @@
                     <th>Fecha</th>
                     <th>Cliente</th>
                     <th>Lotificación</th>
+                    <th>Identificador</th>
                     <th>Tipo pago</th>
-                    <th>Tipo propiedad</th>
+                    <th>Socios</th>
                     <th>Importe</th>
                     <th>Estado</th>
                     <th>Acciones</th>
@@ -1018,8 +1019,9 @@
                 { data: 'fecha_emision' },
                 { data: 'cliente' },
                 { data: 'lotificacion' },
+                { data: 'identificadores', defaultContent: '-' },
                 { data: 'tipo_pago' },
-                { data: 'tipo_propiedad' },
+                { data: 'socios', defaultContent: '-' },
                 {
                     data: 'importe',
                     className: 'text-end',
