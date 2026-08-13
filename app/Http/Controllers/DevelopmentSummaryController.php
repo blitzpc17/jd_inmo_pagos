@@ -13,8 +13,10 @@ class DevelopmentSummaryController extends Controller
     {
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        
+        $partners = \Illuminate\Support\Facades\DB::table('partners')->whereNull('fecha_baja')->orderBy('nombre')->get();
 
-        return view('lotificaciones.summary', compact('startDate', 'endDate'));
+        return view('lotificaciones.summary', compact('startDate', 'endDate', 'partners'));
     }
 
     public function data(Request $request)
@@ -26,9 +28,10 @@ class DevelopmentSummaryController extends Controller
 
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $partnerId = $request->input('partner_id');
 
         return response()->json([
-            'data' => $this->buildRows($startDate, $endDate),
+            'data' => $this->buildRows($startDate, $endDate, $partnerId),
         ]);
     }
 
@@ -41,10 +44,11 @@ class DevelopmentSummaryController extends Controller
 
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $partnerId = $request->input('partner_id');
 
         return Excel::download(
             new DevelopmentSummaryReportExport(
-                $this->buildRows($startDate, $endDate),
+                $this->buildRows($startDate, $endDate, $partnerId),
                 $startDate,
                 $endDate
             ),
@@ -52,7 +56,7 @@ class DevelopmentSummaryController extends Controller
         );
     }
 
-    protected function buildRows(?string $startDate = null, ?string $endDate = null): array
+    protected function buildRows(?string $startDate = null, ?string $endDate = null, ?int $partnerId = null): array
     {
         $startDate = $startDate ?: now()->startOfMonth()->format('Y-m-d');
         $endDate = $endDate ?: now()->endOfMonth()->format('Y-m-d');
@@ -62,7 +66,7 @@ class DevelopmentSummaryController extends Controller
             ->whereColumn('dp.development_id', 'd.id')
             ->selectRaw("string_agg(p.nombre, ', ')");
 
-        $rows = DB::table('developments as d')
+        $query = DB::table('developments as d')
             ->leftJoin('lots as l', function ($join) use ($startDate, $endDate) {
                 $join->on('l.development_id', '=', 'd.id')
                     ->whereNull('l.fecha_baja')
@@ -70,8 +74,18 @@ class DevelopmentSummaryController extends Controller
                     ->whereDate('l.updated_at', '<=', $endDate);
             })
             ->leftJoin('statuses as s', 's.id', '=', 'l.status_id')
-            ->whereNull('d.fecha_baja')
-            ->groupBy('d.id', 'd.nombre')
+            ->whereNull('d.fecha_baja');
+
+        if ($partnerId) {
+            $query->whereExists(function ($q) use ($partnerId) {
+                $q->select(DB::raw(1))
+                  ->from('development_partners as dp2')
+                  ->whereColumn('dp2.development_id', 'd.id')
+                  ->where('dp2.partner_id', $partnerId);
+            });
+        }
+
+        $rows = $query->groupBy('d.id', 'd.nombre')
             ->orderBy('d.nombre')
             ->select([
                 'd.id',

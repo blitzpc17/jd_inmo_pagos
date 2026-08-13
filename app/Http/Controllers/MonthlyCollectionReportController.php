@@ -13,19 +13,23 @@ class MonthlyCollectionReportController extends Controller
 {
     public function index()
     {
+        $partners = \Illuminate\Support\Facades\DB::table('partners')->whereNull('fecha_baja')->orderBy('nombre')->get();
+
         return view('lotificaciones.monthly_collection_report', [
             'currentMonth' => (int) now()->format('m'),
             'currentYear' => (int) now()->format('Y'),
             'months' => $this->months(),
+            'partners' => $partners,
         ]);
     }
 
     public function data(Request $request)
     {
         [$month, $year] = $this->validatedPeriod($request);
+        $partnerId = $request->input('partner_id');
 
         return response()->json([
-            'data' => $this->buildRows($month, $year),
+            'data' => $this->buildRows($month, $year, $partnerId),
             'meta' => [
                 'month' => $month,
                 'year' => $year,
@@ -38,10 +42,11 @@ class MonthlyCollectionReportController extends Controller
     public function export(Request $request)
     {
         [$month, $year] = $this->validatedPeriod($request);
+        $partnerId = $request->input('partner_id');
 
         return Excel::download(
             new MonthlyCollectionReportExport(
-                $this->buildRows($month, $year),
+                $this->buildRows($month, $year, $partnerId),
                 $this->monthName($month),
                 $year
             ),
@@ -49,7 +54,7 @@ class MonthlyCollectionReportController extends Controller
         );
     }
 
-    protected function buildRows(int $month, int $year): array
+    protected function buildRows(int $month, int $year, ?int $partnerId = null): array
     {
         $start = Carbon::create($year, $month, 1)->startOfDay();
         $end = (clone $start)->endOfMonth()->endOfDay();
@@ -125,7 +130,7 @@ class MonthlyCollectionReportController extends Controller
                 STRING_AGG(DISTINCT NULLIF(BTRIM(COALESCE(ch.observacion,'')), ''), ', ') AS observacion
             ", array_merge($downPaymentTypes, $downPaymentTypes));
 
-        $contracts = DB::table('contracts as c')
+        $contractsQuery = DB::table('contracts as c')
             ->joinSub($contractCharges, 'cp', function ($join) {
                 $join->on('cp.contract_id', '=', 'c.id');
             })
@@ -138,8 +143,18 @@ class MonthlyCollectionReportController extends Controller
             ->leftJoinSub($monthlySchedules, 'ps', function ($join) {
                 $join->on('ps.contract_id', '=', 'c.id');
             })
-            ->whereNull('c.fecha_baja')
-            ->orderBy('d.nombre')
+            ->whereNull('c.fecha_baja');
+
+        if ($partnerId) {
+            $contractsQuery->whereExists(function ($q) use ($partnerId) {
+                $q->select(DB::raw(1))
+                  ->from('development_partners as dp')
+                  ->whereColumn('dp.development_id', 'c.development_id')
+                  ->where('dp.partner_id', $partnerId);
+            });
+        }
+
+        $contracts = $contractsQuery->orderBy('d.nombre')
             ->orderBy('cli.nombres')
             ->get([
                 DB::raw("COALESCE(clots.oficinas_lote, co.nombre, '') as oficina"),
@@ -172,7 +187,7 @@ class MonthlyCollectionReportController extends Controller
                 STRING_AGG(DISTINCT NULLIF(BTRIM(COALESCE(ch.observacion,'')), ''), ', ') AS observacion
             ");
 
-        $reservations = DB::table('reservations as r')
+        $reservationsQuery = DB::table('reservations as r')
             ->join('clients as cli', 'cli.id', '=', 'r.client_id')
             ->join('developments as d', 'd.id', '=', 'r.development_id')
             ->leftJoinSub($reservationLots, 'rlots', function ($join) {
@@ -182,8 +197,18 @@ class MonthlyCollectionReportController extends Controller
                 $join->on('rp.reservation_id', '=', 'r.id');
             })
             ->whereNull('r.fecha_baja')
-            ->whereBetween('r.fecha_emision', [$start->toDateString(), $end->toDateString()])
-            ->orderBy('d.nombre')
+            ->whereBetween('r.fecha_emision', [$start->toDateString(), $end->toDateString()]);
+
+        if ($partnerId) {
+            $reservationsQuery->whereExists(function ($q) use ($partnerId) {
+                $q->select(DB::raw(1))
+                  ->from('development_partners as dp')
+                  ->whereColumn('dp.development_id', 'r.development_id')
+                  ->where('dp.partner_id', $partnerId);
+            });
+        }
+
+        $reservations = $reservationsQuery->orderBy('d.nombre')
             ->orderBy('cli.nombres')
             ->get([
                 DB::raw("COALESCE(rlots.oficinas_lote, '') as oficina"),

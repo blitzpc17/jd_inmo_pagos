@@ -63,7 +63,6 @@ class DevelopmentSummaryReportExport implements
             [
                 '#',
                 'Lotificación',
-                'Socios',
                 'Total lotes',
                 'Disponibles',
                 'Apartados',
@@ -82,7 +81,6 @@ class DevelopmentSummaryReportExport implements
         return [
             $index,
             $row['lotificacion'] ?? '',
-            $row['socios'] ?? '',
             (int) ($row['total'] ?? 0),
             (int) ($row['disponibles'] ?? 0),
             (int) ($row['apartados'] ?? 0),
@@ -148,23 +146,22 @@ class DevelopmentSummaryReportExport implements
                 $totalRow = $lastDataRow + 1;
 
                 // Título
-                $sheet->mergeCells('A1:G1');
-                $sheet->mergeCells('B2:G2');
+                $sheet->mergeCells('A1:F1');
+                $sheet->mergeCells('B2:F2');
 
                 $sheet->getRowDimension(1)->setRowHeight(28);
                 $sheet->getRowDimension($headerRow)->setRowHeight(24);
 
                 // Anchos
                 $sheet->getColumnDimension('A')->setWidth(8);
-                $sheet->getColumnDimension('B')->setWidth(30);
-                $sheet->getColumnDimension('C')->setWidth(50);
+                $sheet->getColumnDimension('B')->setWidth(50);
+                $sheet->getColumnDimension('C')->setWidth(16);
                 $sheet->getColumnDimension('D')->setWidth(16);
                 $sheet->getColumnDimension('E')->setWidth(16);
                 $sheet->getColumnDimension('F')->setWidth(16);
-                $sheet->getColumnDimension('G')->setWidth(16);
 
                 // Encabezado de columnas
-                $sheet->getStyle("A{$headerRow}:G{$headerRow}")->applyFromArray([
+                $sheet->getStyle("A{$headerRow}:F{$headerRow}")->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => self::COLOR_WHITE],
@@ -187,7 +184,7 @@ class DevelopmentSummaryReportExport implements
 
                 // Datos
                 if ($rowCount > 0) {
-                    $sheet->getStyle("A{$firstDataRow}:G{$lastDataRow}")->applyFromArray([
+                    $sheet->getStyle("A{$firstDataRow}:F{$lastDataRow}")->applyFromArray([
                         'alignment' => [
                             'vertical' => Alignment::VERTICAL_CENTER,
                         ],
@@ -203,11 +200,8 @@ class DevelopmentSummaryReportExport implements
                         ->getAlignment()
                         ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-                    // Wrap text para Socios (columna C)
-                    $sheet->getStyle("C{$firstDataRow}:C{$lastDataRow}")->getAlignment()->setWrapText(true);
-
                     // Center for Totales and other states
-                    $sheet->getStyle("D{$firstDataRow}:G{$lastDataRow}")
+                    $sheet->getStyle("C{$firstDataRow}:F{$lastDataRow}")
                         ->getAlignment()
                         ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
@@ -226,7 +220,7 @@ class DevelopmentSummaryReportExport implements
                     // Disponibles / Libres
                     $this->applyColumnStatusStyle(
                         $sheet,
-                        "E{$firstDataRow}:E{$lastDataRow}",
+                        "D{$firstDataRow}:D{$lastDataRow}",
                         self::COLOR_LIBRE_BG,
                         self::COLOR_LIBRE_TEXT
                     );
@@ -234,7 +228,7 @@ class DevelopmentSummaryReportExport implements
                     // Apartados
                     $this->applyColumnStatusStyle(
                         $sheet,
-                        "F{$firstDataRow}:F{$lastDataRow}",
+                        "E{$firstDataRow}:E{$lastDataRow}",
                         self::COLOR_APARTADO_BG,
                         self::COLOR_APARTADO_TEXT
                     );
@@ -242,21 +236,21 @@ class DevelopmentSummaryReportExport implements
                     // Vendidos / Ocupados
                     $this->applyColumnStatusStyle(
                         $sheet,
-                        "G{$firstDataRow}:G{$lastDataRow}",
+                        "F{$firstDataRow}:F{$lastDataRow}",
                         self::COLOR_OCUPADO_BG,
                         self::COLOR_OCUPADO_TEXT
                     );
                 }
 
                 // Totales row
-                $sheet->mergeCells("A{$totalRow}:C{$totalRow}");
+                $sheet->mergeCells("A{$totalRow}:B{$totalRow}");
                 $sheet->setCellValue("A{$totalRow}", 'TOTALES');
-                $sheet->setCellValue("D{$totalRow}", $this->rows->sum('total'));
-                $sheet->setCellValue("E{$totalRow}", $this->rows->sum('disponibles'));
-                $sheet->setCellValue("F{$totalRow}", $this->rows->sum('apartados'));
-                $sheet->setCellValue("G{$totalRow}", $this->rows->sum('vendidos'));
+                $sheet->setCellValue("C{$totalRow}", $this->rows->sum('total'));
+                $sheet->setCellValue("D{$totalRow}", $this->rows->sum('disponibles'));
+                $sheet->setCellValue("E{$totalRow}", $this->rows->sum('apartados'));
+                $sheet->setCellValue("F{$totalRow}", $this->rows->sum('vendidos'));
 
-                $sheet->getStyle("A{$totalRow}:G{$totalRow}")->applyFromArray([
+                $sheet->getStyle("A{$totalRow}:F{$totalRow}")->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => self::COLOR_WHITE],
@@ -284,16 +278,16 @@ class DevelopmentSummaryReportExport implements
                     ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-                $sheet->getStyle("D{$totalRow}:G{$totalRow}")
+                $sheet->getStyle("C{$totalRow}:F{$totalRow}")
                     ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
                 // Autofiltro
-                $sheet->setAutoFilter("A{$headerRow}:G{$headerRow}");
+                $sheet->setAutoFilter("A{$headerRow}:F{$headerRow}");
                 $sheet->freezePane('A5');
 
                 // Bordes adicionales
-                $sheet->getStyle("A1:G2")->applyFromArray([
+                $sheet->getStyle("A1:F2")->applyFromArray([
                     'borders' => [
                         'outline' => [
                             'borderStyle' => Border::BORDER_THIN,

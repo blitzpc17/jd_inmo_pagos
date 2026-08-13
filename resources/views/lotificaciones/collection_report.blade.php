@@ -21,7 +21,7 @@
     <div class="card mb-3 shadow-sm border-0">
         <div class="card-body">
             <div class="row g-3 align-items-end">
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-2">
                     <label for="start_date" class="form-label fw-semibold">Fecha inicio</label>
                     <input
                         type="text"
@@ -34,7 +34,7 @@
                     >
                 </div>
 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-2">
                     <label for="end_date" class="form-label fw-semibold">Fecha fin</label>
                     <input
                         type="text"
@@ -47,7 +47,17 @@
                     >
                 </div>
 
-                <div class="col-12 col-md-6 d-flex flex-wrap gap-2 justify-content-md-end">
+                <div class="col-12 col-md-4">
+                    <label for="partner_id" class="form-label fw-semibold">Socio</label>
+                    <select id="partner_id" class="form-select select2">
+                        <option value="">Todos</option>
+                        @foreach($partners ?? [] as $partner)
+                            <option value="{{ $partner->id }}">{{ $partner->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4 d-flex flex-wrap gap-2 justify-content-md-end">
                     <button type="button" id="btnSearchReport" class="btn btn-primary">
                         <i class="fa-solid fa-magnifying-glass me-1"></i>
                         Consultar
@@ -292,6 +302,7 @@ $(function () {
             data: function (d) {
                 d.start_date = $('#start_date').val();
                 d.end_date = $('#end_date').val();
+                d.partner_id = $('#partner_id').val();
             },
             dataSrc: function (json) {
                 renderTotals(json.totals || {});
@@ -388,6 +399,7 @@ $(function () {
     $('#btnClearReport').on('click', function () {
         setDateValue('#start_date', defaultStartDate);
         setDateValue('#end_date', defaultEndDate);
+        $('#partner_id').val('').trigger('change');
 
         table.ajax.reload();
     });
@@ -399,10 +411,12 @@ $(function () {
 
         const startDate = $('#start_date').val();
         const endDate = $('#end_date').val();
+        const partnerId = $('#partner_id').val();
 
         const url = "{{ route('lotificaciones.collection_report.export') }}"
             + '?start_date=' + encodeURIComponent(startDate)
-            + '&end_date=' + encodeURIComponent(endDate);
+            + '&end_date=' + encodeURIComponent(endDate)
+            + (partnerId ? '&partner_id=' + encodeURIComponent(partnerId) : '');
 
         window.location.href = url;
     });

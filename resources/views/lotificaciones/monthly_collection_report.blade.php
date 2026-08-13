@@ -31,6 +31,16 @@
                        style="width:110px">
             </div>
 
+            <div>
+                <label class="form-label mb-1">Socio</label>
+                <select class="form-select select2" id="filterPartner" style="min-width:150px">
+                    <option value="">Todos</option>
+                    @foreach($partners ?? [] as $partner)
+                        <option value="{{ $partner->id }}">{{ $partner->nombre }}</option>
+                    @endforeach
+                </select>
+            </div>
+
             <button class="btn btn-primary" id="btnSearch">
                 <i class="fa-solid fa-magnifying-glass me-1"></i> Consultar
             </button>
@@ -127,7 +137,8 @@
     function params() {
         return {
             month: $('#filterMonth').val(),
-            year: $('#filterYear').val()
+            year: $('#filterYear').val(),
+            partner_id: $('#filterPartner').val()
         };
     }
 
@@ -136,7 +147,8 @@
 
         return '{{ route('lotificaciones.monthly_collection_report.export') }}' +
             '?month=' + encodeURIComponent(p.month) +
-            '&year=' + encodeURIComponent(p.year);
+            '&year=' + encodeURIComponent(p.year) +
+            (p.partner_id ? '&partner_id=' + encodeURIComponent(p.partner_id) : '');
     }
 
     function updateHeader() {

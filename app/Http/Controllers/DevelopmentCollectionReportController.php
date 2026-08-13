@@ -14,8 +14,10 @@ class DevelopmentCollectionReportController extends Controller
     {
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate   = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        
+        $partners = \Illuminate\Support\Facades\DB::table('partners')->whereNull('fecha_baja')->orderBy('nombre')->get();
 
-        return view('lotificaciones.collection_report', compact('startDate', 'endDate'));
+        return view('lotificaciones.collection_report', compact('startDate', 'endDate', 'partners'));
     }
 
     public function data(Request $request)
@@ -27,8 +29,9 @@ class DevelopmentCollectionReportController extends Controller
 
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate   = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $partnerId = $request->input('partner_id');
 
-        $rows = $this->getReportRows($startDate, $endDate);
+        $rows = $this->getReportRows($startDate, $endDate, $partnerId);
 
         return response()->json([
             'success' => true,
@@ -52,16 +55,17 @@ class DevelopmentCollectionReportController extends Controller
 
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate   = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $partnerId = $request->input('partner_id');
 
         return Excel::download(
-            new DevelopmentCollectionReportExport($startDate, $endDate),
+            new DevelopmentCollectionReportExport($startDate, $endDate, $partnerId),
             'reporte_cobranza_por_lotificacion_' . $startDate . '_al_' . $endDate . '.xlsx'
         );
     }
 
-    public static function getReportRows(string $startDate, string $endDate)
+    public static function getReportRows(string $startDate, string $endDate, ?int $partnerId = null)
     {
-        return collect(DB::select("
+        $sql = "
             WITH contract_status AS (
                 SELECT s.id
                 FROM statuses s
@@ -143,15 +147,24 @@ class DevelopmentCollectionReportController extends Controller
             LEFT JOIN cobros cb ON cb.development_id = d.id
             LEFT JOIN pendientes pd ON pd.development_id = d.id
             LEFT JOIN socios_loti sl ON sl.development_id = d.id
-            WHERE d.fecha_baja IS NULL
-            ORDER BY d.nombre ASC
-        ", [
+            WHERE d.fecha_baja IS NULL";
+
+        $params = [
             'start_date_1' => $startDate,
             'end_date_1'   => $endDate,
             'start_date_2' => $startDate,
             'end_date_2'   => $endDate,
             'start_date_3' => $startDate,
             'end_date_3'   => $endDate,
-        ]));
+        ];
+
+        if ($partnerId) {
+            $sql .= " AND EXISTS (SELECT 1 FROM development_partners dp WHERE dp.development_id = d.id AND dp.partner_id = :partner_id)";
+            $params['partner_id'] = $partnerId;
+        }
+
+        $sql .= " ORDER BY d.nombre ASC";
+
+        return collect(DB::select($sql, $params));
     }
 }

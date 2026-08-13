@@ -29,6 +29,7 @@ class DevelopmentCollectionReportExport implements
 {
     protected string $startDate;
     protected string $endDate;
+    protected ?int $partnerId;
     protected Collection $rows;
 
     private const COLOR_RED_DARK = 'D9042B';
@@ -37,12 +38,12 @@ class DevelopmentCollectionReportExport implements
     private const COLOR_BLACK = '0D0D0D';
     private const COLOR_GRAY = '676767';
 
-    public function __construct(string $startDate, string $endDate)
+    public function __construct(string $startDate, string $endDate, ?int $partnerId = null)
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
-
-        $this->rows = DevelopmentCollectionReportController::getReportRows($startDate, $endDate);
+        $this->partnerId = $partnerId;
+        $this->rows = DevelopmentCollectionReportController::getReportRows($startDate, $endDate, $partnerId);
     }
 
     public function collection(): Collection
