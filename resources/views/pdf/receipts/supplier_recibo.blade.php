@@ -84,6 +84,16 @@
                     <div class="value">{{ $stats['total_payments'] ?? 0 }}</div>
                 </td>
             </tr>
+            <tr>
+                <td colspan="2">
+                    <div class="label">Pagos a Saldo</div>
+                    <div class="value">{{ $stats['capital_payments'] ?? 0 }}</div>
+                </td>
+                <td colspan="2">
+                    <div class="label">Pagos a Interés</div>
+                    <div class="value">{{ $stats['interest_payments'] ?? 0 }}</div>
+                </td>
+            </tr>
         </table>
     </div>
 </div>

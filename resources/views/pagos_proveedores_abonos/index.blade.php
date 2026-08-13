@@ -277,13 +277,10 @@
                         <!-- Abonos a registrar -->
                         <div class="page-card mb-3">
                             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                                <h6 class="fw-bold mb-0">Abonos a registrar - ${p.nombre}</h6>
+                                <h6 class="fw-bold mb-0">Registrar movimientos - ${p.nombre}</h6>
                                 <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-outline-warning btn-sm btn-add-interes" data-partner="${p.id}">
-                                        <i class="fa-solid fa-file-invoice-dollar me-1"></i> Cargo por Interés
-                                    </button>
                                     <button type="button" class="btn btn-outline-primary btn-sm btn-add-abono" data-partner="${p.id}">
-                                        <i class="fa-solid fa-plus me-1"></i> Agregar abono
+                                        <i class="fa-solid fa-plus me-1"></i> Agregar movimiento
                                     </button>
                                 </div>
                             </div>
@@ -291,12 +288,11 @@
                                 <table class="table table-bordered align-middle mb-0 table-abonos-registrar" data-partner="${p.id}">
                                     <thead>
                                         <tr>
-                                            <th># Pago</th>
+                                            <th>#</th>
+                                            <th>Tipo de Entrada</th>
                                             <th>F. Programada</th>
-                                            <th>Cant. a Pagar</th>
-                                            <th>F. de Pago (Real)</th>
-                                            <th>Monto Pagado (Abono)</th>
-                                            <th>Interés Pagado</th>
+                                            <th>Monto</th>
+                                            <th>F. Movimiento (Real)</th>
                                             <th>Forma de pago</th>
                                             <th>Observaciones</th>
                                             <th>Acción</th>
@@ -397,22 +393,36 @@
                 let interesPendiente = parseFloat(p.progress?.interes_pendiente) || 0;
                 if (interesPendiente > alreadyAllocatedInterest) {
                     cantPagar = (interesPendiente - alreadyAllocatedInterest).toFixed(2);
-                    initialCapital = '0.00';
-                    initialInterest = (interesPendiente - alreadyAllocatedInterest).toFixed(2);
+                    initialCapital = cantPagar;
                     observacionStr = 'Pago de interés';
                     progStr = today;
                 }
             }
         }
 
+        let tipoAbonoSelected = 'selected';
+        let tipoInteresSelected = '';
+        let montoClass = 'text-success';
+
+        if (observacionStr === 'Pago de interés') {
+            tipoAbonoSelected = '';
+            tipoInteresSelected = 'selected';
+            montoClass = 'text-danger';
+        }
+
         tableBody.insertAdjacentHTML('beforeend', `
             <tr data-row="${rowIdx}">
                 <td>${rowIdx}</td>
+                <td style="min-width: 160px;">
+                    <select class="form-select form-select-sm item-tipo">
+                        <option value="abono_capital" ${tipoAbonoSelected}>Abono a Saldo</option>
+                        <option value="pago_interes" ${tipoInteresSelected}>Pago de Interés</option>
+                        <option value="generar_interes">Generar Interés (Multa)</option>
+                    </select>
+                </td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-programada" value="${progStr}"></td>
-                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm item-cant-pagar" value="${cantPagar}" readonly></td>
+                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm ${montoClass} fw-bold item-monto" value="${initialCapital}"></td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-fecha" value="${today}"></td>
-                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm text-success fw-bold item-cantidad" value="${initialCapital}"></td>
-                <td style="min-width: 120px;"><input type="number" step="0.01" class="form-control form-control-sm text-danger item-interes" value="${initialInterest}"></td>
                 <td style="min-width: 160px;"><select class="form-select form-select-sm item-payment-method">${paymentMethodOptionsHtml()}</select></td>
                 <td style="min-width: 160px;"><input type="text" class="form-control form-control-sm item-observacion" value="${observacionStr}"></td>
                 <td class="text-center" style="min-width: 60px;">
@@ -436,21 +446,30 @@
         let totalCapitalToPay = 0;
 
         rows.forEach(row => {
+            const tipo = row.querySelector('.item-tipo')?.value || 'abono_capital';
             const fecha_pago_programada = row.querySelector('.item-programada')?.value || null;
-            const cantidad_a_pagar = parseFloat(row.querySelector('.item-cant-pagar')?.value || 0);
+            const monto = parseFloat(row.querySelector('.item-monto')?.value || 0);
             const fecha_recibido = row.querySelector('.item-fecha')?.value || '';
-            const cantidad = parseFloat(row.querySelector('.item-cantidad')?.value || 0);
-            const interes_pagado = parseFloat(row.querySelector('.item-interes')?.value || 0);
             const payment_method_id = row.querySelector('.item-payment-method')?.value || '';
             const observaciones = row.querySelector('.item-observacion')?.value || null;
 
-            if (fecha_recibido && payment_method_id && (cantidad > 0 || interes_pagado > 0)) {
+            if (fecha_recibido && monto > 0) {
+                if (tipo !== 'generar_interes' && !payment_method_id) {
+                    return; // Forma de pago obligatoria si no es generar interés
+                }
+
                 items.push({
-                    fecha_pago_programada, cantidad_a_pagar, fecha_recibido,
-                    cantidad, interes_pagado, payment_method_id: parseInt(payment_method_id, 10),
+                    tipo,
+                    fecha_pago_programada,
+                    monto,
+                    fecha_recibido,
+                    payment_method_id: payment_method_id ? parseInt(payment_method_id, 10) : null,
                     observaciones
                 });
-                totalCapitalToPay += cantidad;
+
+                if (tipo === 'abono_capital') {
+                    totalCapitalToPay += monto;
+                }
             }
         });
 
@@ -506,92 +525,29 @@
             Swal.fire({ icon: 'error', title: 'Error', text: err.message });
         }
     }
-    
-    async function showInterestModal(partnerId) {
-        const voucherId = document.getElementById('supplier_voucher_id').value;
-        if (!voucherId) return;
-        
-        const p = currentVoucher?.partners?.find(x => x.id == partnerId);
-        if (!p) return;
-        
-        const { value: formValues } = await Swal.fire({
-            title: `Generar Cargo por Interés para ${p.nombre}`,
-            html: `
-                <div class="mb-3 text-start">
-                    <label class="form-label">Fecha del cargo</label>
-                    <input type="date" id="swal-int-fecha" class="form-control" value="${new Date().toISOString().slice(0, 10)}">
-                </div>
-                <div class="mb-3 text-start">
-                    <label class="form-label">Cantidad (Interés)</label>
-                    <input type="text" id="swal-int-cant" class="form-control" placeholder="0.00">
-                </div>
-                <div class="text-start">
-                    <label class="form-label">Observaciones</label>
-                    <input type="text" id="swal-int-obs" class="form-control" placeholder="Ej. Interés moratorio">
-                </div>
-            `,
-            focusConfirm: false,
-            showCancelButton: true,
-            confirmButtonText: 'Generar Cargo',
-            cancelButtonText: 'Cancelar',
-            preConfirm: () => {
-                let cantidad = document.getElementById('swal-int-cant').value;
-                if(cantidad) {
-                    cantidad = cantidad.replace(/,/g, '');
-                }
-                return {
-                    fecha_cargo: document.getElementById('swal-int-fecha').value,
-                    cantidad: cantidad,
-                    observaciones: document.getElementById('swal-int-obs').value
-                }
-            },
-            target: document.getElementById('modalAbonoProveedor')
-        });
-        
-        if (formValues) {
-            if (!formValues.cantidad || formValues.cantidad <= 0) {
-                return Swal.fire('Error', 'Debe ingresar una cantidad válida', 'error');
-            }
-            
-            try {
-                const res = await fetch('/abonos-proveedores/interest', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        supplier_voucher_id: voucherId,
-                        supplier_voucher_partner_id: partnerId,
-                        fecha_registro: formValues.fecha_cargo,
-                        cantidad: formValues.cantidad,
-                        observacion: formValues.observaciones
-                    })
-                });
 
-                const json = await res.json();
-                if (!res.ok) throw new Error(json.message || 'Error al guardar cargo por interés');
+    $(document).on('change', '.item-tipo', function() {
+        const tr = $(this).closest('tr');
+        const tipo = $(this).val();
+        const paymentMethod = tr.find('.item-payment-method');
+        const montoInput = tr.find('.item-monto');
 
-                Swal.fire({
-                    icon: 'success', title: 'Correcto', text: 'Cargo por interés generado.', timer: 1500, showConfirmButton: false
-                });
-                
-                await loadVoucherSummary(voucherId);
-                
-                // Restore active tab
-                setTimeout(() => {
-                    const tabBtn = document.getElementById(`tab-partner-${partnerId}-tab`);
-                    if(tabBtn) {
-                        const tab = new bootstrap.Tab(tabBtn);
-                        tab.show();
-                    }
-                }, 100);
-            } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Error', text: err.message });
-            }
+        if (tipo === 'generar_interes') {
+            paymentMethod.prop('disabled', true);
+            paymentMethod.val('');
+            montoInput.removeClass('text-success').addClass('text-danger');
+        } else if (tipo === 'pago_interes') {
+            paymentMethod.prop('disabled', false);
+            montoInput.removeClass('text-success').addClass('text-danger');
+        } else {
+            paymentMethod.prop('disabled', false);
+            montoInput.removeClass('text-danger').addClass('text-success');
         }
-    }
+    });
+
+    $(document).on('click', '.btn-remove-item', function() {
+        $(this).closest('tr').remove();
+    });
 
     async function openNew() {
         await loadOptions();
@@ -634,7 +590,7 @@
         
         const btnAddInteres = e.target.closest('.btn-add-interes');
         if (btnAddInteres) {
-            showInterestModal(btnAddInteres.dataset.partner);
+            // Already handled by add abono now (since it's in the dropdown)
             return;
         }
     });

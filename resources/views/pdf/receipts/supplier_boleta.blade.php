@@ -78,6 +78,23 @@
         </tr>
     </table>
     @endif
+
+    <table class="summary-table mb-12" style="width: 50%;">
+        <tr>
+            <td>
+                <div class="summary-box" style="background-color: #e2e3e5; border-color: #d6d8db;">
+                    <div class="small" style="color: #383d41;">Conteo Pagos a Saldo</div>
+                    <div class="big" style="color: #383d41;">{{ $stats['capital_payments'] ?? 0 }}</div>
+                </div>
+            </td>
+            <td>
+                <div class="summary-box" style="background-color: #f8d7da; border-color: #f5c6cb;">
+                    <div class="small" style="color: #721c24;">Conteo Pagos a Interés</div>
+                    <div class="big" style="color: #721c24;">{{ $stats['interest_payments'] ?? 0 }}</div>
+                </div>
+            </td>
+        </tr>
+    </table>
 </div>
 
 @if(isset($partners) && count($partners) > 0)

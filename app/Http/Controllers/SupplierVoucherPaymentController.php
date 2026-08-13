@@ -228,12 +228,11 @@ class SupplierVoucherPaymentController extends Controller
             'supplier_voucher_id' => ['required', 'integer', 'exists:supplier_vouchers,id'],
             'supplier_voucher_partner_id' => ['required', 'integer', 'exists:supplier_voucher_partners,id'],
             'items' => ['required', 'array', 'min:1'],
+            'items.*.tipo' => ['required', 'string', 'in:abono_capital,pago_interes,generar_interes'],
             'items.*.fecha_pago_programada' => ['nullable', 'date'],
-            'items.*.cantidad_a_pagar' => ['nullable', 'numeric', 'min:0'],
+            'items.*.monto' => ['required', 'numeric', 'min:0'],
             'items.*.fecha_recibido' => ['required', 'date'],
-            'items.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
-            'items.*.cantidad' => ['required', 'numeric', 'min:0'],
-            'items.*.interes_pagado' => ['nullable', 'numeric', 'min:0'],
+            'items.*.payment_method_id' => ['nullable', 'integer', 'exists:payment_methods,id'],
             'items.*.observaciones' => ['nullable', 'string'],
         ])->validate();
 
@@ -247,7 +246,9 @@ class SupplierVoucherPaymentController extends Controller
         $partner = DB::table('supplier_voucher_partners')->where('id', $data['supplier_voucher_partner_id'])->first();
         $progress = $this->getPartnerProgressStatus($voucher, $partner);
 
-        $totalCapitalPagadoNuevo = collect($data['items'])->sum('cantidad');
+        $totalCapitalPagadoNuevo = collect($data['items'])
+            ->where('tipo', 'abono_capital')
+            ->sum('monto');
         $saldoPendiente = (float) $progress['saldo_pendiente'];
 
         if (round($totalCapitalPagadoNuevo, 2) > round($saldoPendiente, 2)) {
@@ -259,26 +260,46 @@ class SupplierVoucherPaymentController extends Controller
         DB::beginTransaction();
 
         try {
-            $rows = [];
+            $rowsItems = [];
+            $rowsInterests = [];
             foreach ($data['items'] as $item) {
-                $rows[] = [
-                    'supplier_voucher_id' => $data['supplier_voucher_id'],
-                    'supplier_voucher_partner_id' => $data['supplier_voucher_partner_id'],
-                    'fecha_pago_programada' => $item['fecha_pago_programada'] ?? null,
-                    'cantidad_a_pagar' => $item['cantidad_a_pagar'] ?? 0,
-                    'fecha_recibido' => $item['fecha_recibido'],
-                    'payment_method_id' => $item['payment_method_id'],
-                    'cantidad' => $item['cantidad'],
-                    'interes_pagado' => $item['interes_pagado'] ?? 0,
-                    'observaciones' => $item['observaciones'] ?? null,
-                    'status_id' => $statusId,
-                    'usuario_genero_id' => session('auth_user.id'),
-                    'updated_at' => now(),
-                    'created_at' => now(),
-                ];
+                if ($item['tipo'] === 'generar_interes') {
+                    $rowsInterests[] = [
+                        'supplier_voucher_id' => $data['supplier_voucher_id'],
+                        'supplier_voucher_partner_id' => $data['supplier_voucher_partner_id'],
+                        'cantidad' => $item['monto'],
+                        'fecha_registro' => $item['fecha_recibido'],
+                        'observacion' => $item['observaciones'] ?? null,
+                        'usuario_genero_id' => session('auth_user.id'),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                } else {
+                    $isCapital = $item['tipo'] === 'abono_capital';
+                    $rowsItems[] = [
+                        'supplier_voucher_id' => $data['supplier_voucher_id'],
+                        'supplier_voucher_partner_id' => $data['supplier_voucher_partner_id'],
+                        'fecha_pago_programada' => $item['fecha_pago_programada'] ?? null,
+                        'cantidad_a_pagar' => $isCapital ? $item['monto'] : 0,
+                        'fecha_recibido' => $item['fecha_recibido'],
+                        'payment_method_id' => $item['payment_method_id'],
+                        'cantidad' => $isCapital ? $item['monto'] : 0,
+                        'interes_pagado' => !$isCapital ? $item['monto'] : 0,
+                        'observaciones' => $item['observaciones'] ?? null,
+                        'status_id' => $statusId,
+                        'usuario_genero_id' => session('auth_user.id'),
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ];
+                }
             }
 
-            DB::table('supplier_voucher_items')->insert($rows);
+            if (!empty($rowsItems)) {
+                DB::table('supplier_voucher_items')->insert($rowsItems);
+            }
+            if (!empty($rowsInterests)) {
+                DB::table('supplier_voucher_interests')->insert($rowsInterests);
+            }
 
             $this->recalculateVoucherTotals($data['supplier_voucher_id']);
 
@@ -605,6 +626,8 @@ class SupplierVoucherPaymentController extends Controller
         $stats = [
             'total_payments' => count($items),
             'paid_payments' => count($items),
+            'capital_payments' => collect($items)->where('cantidad', '>', 0)->count(),
+            'interest_payments' => collect($items)->where('interes_pagado', '>', 0)->count(),
             'pending_payments' => 0,
         ];
 
@@ -661,6 +684,8 @@ class SupplierVoucherPaymentController extends Controller
         $stats = [
             'total_payments' => DB::table('supplier_voucher_items')->where('supplier_voucher_id', $id)->whereNull('fecha_baja')->count(),
             'paid_payments' => DB::table('supplier_voucher_items')->where('supplier_voucher_id', $id)->whereNull('fecha_baja')->count(),
+            'capital_payments' => DB::table('supplier_voucher_items')->where('supplier_voucher_id', $id)->whereNull('fecha_baja')->where('cantidad', '>', 0)->count(),
+            'interest_payments' => DB::table('supplier_voucher_items')->where('supplier_voucher_id', $id)->whereNull('fecha_baja')->where('interes_pagado', '>', 0)->count(),
             'pending_payments' => 0,
         ];
 
