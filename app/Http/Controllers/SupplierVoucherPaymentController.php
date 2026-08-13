@@ -64,7 +64,8 @@ class SupplierVoucherPaymentController extends Controller
                 'cv.fecha_inicio',
                 'cv.fecha_registro',
                 'cv.meses',
-                'cv.mensualidad'
+                'cv.mensualidad',
+                'cv.motivo'
             ]);
 
         $result = [];
@@ -77,7 +78,13 @@ class SupplierVoucherPaymentController extends Controller
             
             $interesPendiente = $progress['interes_pendiente'] ?? 0;
             
-            $text = "{$row->numero_referencia} | TOTAL: {$row->total} | PAGADO: {$row->total_pagado} | DEBE: {$row->saldo_pendiente}";
+            $text = "{$row->numero_referencia}";
+            if (!empty($row->motivo)) {
+                // Truncate motivo if it's too long
+                $motivoCorto = mb_strlen($row->motivo) > 50 ? mb_substr($row->motivo, 0, 47) . '...' : $row->motivo;
+                $text .= " | MOTIVO: {$motivoCorto}";
+            }
+            $text .= " | TOTAL: {$row->total} | PAGADO: {$row->total_pagado} | DEBE: {$row->saldo_pendiente}";
             if ($interesPendiente > 0) {
                 $text .= " | INT. PENDIENTE: " . number_format($interesPendiente, 2, '.', '');
             }

@@ -85,13 +85,17 @@
                 </td>
             </tr>
             <tr>
-                <td colspan="2">
+                <td style="width: 25%;">
                     <div class="label">Pagos a Saldo</div>
                     <div class="value">{{ $stats['capital_payments'] ?? 0 }}</div>
                 </td>
-                <td colspan="2">
+                <td style="width: 25%;">
                     <div class="label">Pagos a Interés</div>
                     <div class="value">{{ $stats['interest_payments'] ?? 0 }}</div>
+                </td>
+                <td colspan="2">
+                    <div class="label">Motivo de la Boleta</div>
+                    <div class="value">{{ $voucher->motivo ?? 'N/A' }}</div>
                 </td>
             </tr>
         </table>

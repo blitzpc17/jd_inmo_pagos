@@ -22,6 +22,8 @@
                     <th>Referencia</th>
                     <th>Proveedor</th>
                     <th>Lotificación</th>
+                    <th>Motivo</th>
+                    <th>Observación</th>
                     <th>Total</th>
                     <th>Meses</th>
                     <th>Mensualidad</th>
@@ -57,13 +59,13 @@
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label">Costo (Total)</label>
-                            <input type="number" step="0.01" min="0.01" class="form-control" id="total" name="total">
+                            <label class="form-label">Total Boleta ($) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" class="form-control" name="total" id="total" required>
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label">Enganche</label>
-                            <input type="number" step="0.01" min="0" class="form-control" id="enganche" name="enganche" readonly>
+                            <label class="form-label">Enganche ($) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" class="form-control" name="enganche" id="enganche" value="0" required>
                         </div>
 
                         <div class="col-md-3">
@@ -105,7 +107,12 @@
                         </div>
 
                         <div class="col-md-12">
-                            <label class="form-label">Observación</label>
+                            <label class="form-label">Motivo de la Boleta (Máx 350 caracteres)</label>
+                            <textarea class="form-control" id="motivo" name="motivo" rows="2" maxlength="350"></textarea>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">Observación Interna</label>
                             <textarea class="form-control" id="observacion" name="observacion" rows="3"></textarea>
                         </div>
                     </div>
@@ -132,7 +139,8 @@
                 <div class="row g-3 mb-3">
                     <div class="col-md-6"><label class="form-label">Referencia</label><input type="text" class="form-control fw-bold" id="dba_ref" readonly></div>
                     <div class="col-md-6"><label class="form-label">Lotificación</label><input type="text" class="form-control fw-bold" id="dba_lotificacion" readonly></div>
-                    <div class="col-md-12"><label class="form-label">Proveedor</label><input type="text" class="form-control" id="dba_proveedor" readonly></div>
+                    <div class="col-md-12"><label class="form-label">Proveedor</label><input type="text" class="form-control fw-bold" id="dba_proveedor" readonly></div>
+                    <div class="col-md-12"><label class="form-label">Motivo de la Boleta</label><textarea class="form-control fw-bold" id="dba_motivo" rows="2" readonly></textarea></div>
                 </div>
                 
                 <div class="row">
@@ -170,7 +178,7 @@
                 </div>
 
                 <div class="row mt-3">
-                    <div class="col-md-12"><label class="form-label">Observación</label><textarea class="form-control" id="dba_observacion" rows="2" readonly></textarea></div>
+                    <div class="col-md-12 mt-2"><label class="form-label">Observación</label><textarea class="form-control" id="dba_observacion" rows="2" readonly></textarea></div>
                 </div>
 
                 <div class="page-card">
@@ -256,6 +264,11 @@
                 { data: 'numero_referencia' },
                 { data: 'proveedor' },
                 { data: 'lotificacion', render: d => d || '-' },
+                { data: 'motivo', title: 'Motivo', render: function(data) {
+                    if (!data) return '';
+                    return data.length > 50 ? data.substring(0, 47) + '...' : data;
+                }},
+                { data: 'observacion', title: 'Observación' },
                 { data: 'total', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
                 { data: 'meses', className: 'text-end' },
                 { data: 'mensualidad', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
@@ -299,6 +312,7 @@
             meses: document.getElementById('meses').value,
             num_socios: document.getElementById('num_socios').value,
             fecha_inicio: document.getElementById('fecha_inicio').value,
+            motivo: document.getElementById('motivo').value,
             observacion: document.getElementById('observacion').value
         };
 
@@ -425,6 +439,7 @@
         partnerContainer.innerHTML = partnerHtml;
         
         document.getElementById('dba_observacion').value = d.observacion || '';
+        document.getElementById('dba_motivo').value = d.motivo || '';
 
         const tbody = document.getElementById('detalleBoletaProveedorItemsBody');
         tbody.innerHTML = '';

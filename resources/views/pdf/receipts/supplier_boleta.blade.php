@@ -25,7 +25,11 @@
                     <div class="label">Estado</div>
                     <div class="value">{{ mb_strtoupper($voucher->estado_pago ?? 'N/A') }}</div>
                 </td>
-                <td colspan="2">
+                <td>
+                    <div class="label">Motivo</div>
+                    <div class="value">{{ $voucher->motivo ?? 'N/A' }}</div>
+                </td>
+                <td>
                     <div class="label">Observaciones</div>
                     <div class="value">{{ $voucher->observacion ?? 'N/A' }}</div>
                 </td>

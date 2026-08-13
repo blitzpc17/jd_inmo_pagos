@@ -403,8 +403,10 @@
         let tipoAbonoSelected = 'selected';
         let tipoInteresSelected = '';
         let montoClass = 'text-success';
+        let defaultMonto = initialCapital; // Store the original calculated capital
 
         if (observacionStr === 'Pago de interés') {
+            initialCapital = 0; // Set to 0 if defaults to interest
             tipoAbonoSelected = '';
             tipoInteresSelected = 'selected';
             montoClass = 'text-danger';
@@ -421,7 +423,7 @@
                     </select>
                 </td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-programada" value="${progStr}"></td>
-                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm ${montoClass} fw-bold item-monto" value="${initialCapital}"></td>
+                <td style="min-width: 130px;"><input type="number" step="0.01" class="form-control form-control-sm ${montoClass} fw-bold item-monto" data-default-amount="${defaultMonto}" value="${initialCapital}"></td>
                 <td style="min-width: 150px;"><input type="date" class="form-control form-control-sm item-fecha" value="${today}"></td>
                 <td style="min-width: 160px;"><select class="form-select form-select-sm item-payment-method">${paymentMethodOptionsHtml()}</select></td>
                 <td style="min-width: 160px;"><input type="text" class="form-control form-control-sm item-observacion" value="${observacionStr}"></td>
@@ -533,15 +535,20 @@
         const montoInput = tr.find('.item-monto');
 
         if (tipo === 'generar_interes') {
-            paymentMethod.prop('disabled', true);
+            paymentMethod.hide();
             paymentMethod.val('');
             montoInput.removeClass('text-success').addClass('text-danger');
+            montoInput.val('0.00');
         } else if (tipo === 'pago_interes') {
+            paymentMethod.show();
             paymentMethod.prop('disabled', false);
             montoInput.removeClass('text-success').addClass('text-danger');
+            montoInput.val('0.00');
         } else {
+            paymentMethod.show();
             paymentMethod.prop('disabled', false);
             montoInput.removeClass('text-danger').addClass('text-success');
+            montoInput.val(montoInput.data('default-amount'));
         }
     });
 
