@@ -57,6 +57,11 @@ class DevelopmentSummaryController extends Controller
         $startDate = $startDate ?: now()->startOfMonth()->format('Y-m-d');
         $endDate = $endDate ?: now()->endOfMonth()->format('Y-m-d');
 
+        $partnersSub = DB::table('development_partners as dp')
+            ->join('partners as p', 'p.id', '=', 'dp.partner_id')
+            ->whereColumn('dp.development_id', 'd.id')
+            ->selectRaw("string_agg(p.nombre, ', ')");
+
         $rows = DB::table('developments as d')
             ->leftJoin('lots as l', function ($join) use ($startDate, $endDate) {
                 $join->on('l.development_id', '=', 'd.id')
@@ -97,11 +102,13 @@ class DevelopmentSummaryController extends Controller
                 "),
                 DB::raw("COUNT(l.id) as total")
             ])
+            ->selectSub($partnersSub, 'socios')
             ->get();
 
         return $rows->map(function ($row) {
             return [
                 'lotificacion' => $row->nombre,
+                'socios' => $row->socios ?? '',
                 'vendidos' => (int) $row->vendidos,
                 'apartados' => (int) $row->apartados,
                 'disponibles' => (int) $row->disponibles,

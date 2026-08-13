@@ -59,6 +59,7 @@ class DevelopmentCollectionReportExport implements
             [
                 '#',
                 'Lotificación',
+                'Socios',
                 'Contratos',
                 'Enganches',
                 'Cobrado',
@@ -76,6 +77,7 @@ class DevelopmentCollectionReportExport implements
         return [
             $index,
             $row->lotificacion,
+            $row->socios,
             (float) $row->contratos,
             (float) $row->enganches,
             (float) $row->cobrado,
@@ -128,11 +130,11 @@ class DevelopmentCollectionReportExport implements
     public function columnFormats(): array
     {
         return [
-            'C' => '"$"#,##0.00',
             'D' => '"$"#,##0.00',
             'E' => '"$"#,##0.00',
             'F' => '"$"#,##0.00',
             'G' => '"$"#,##0.00',
+            'H' => '"$"#,##0.00',
         ];
     }
 
@@ -149,25 +151,27 @@ class DevelopmentCollectionReportExport implements
                 $totalRow = $lastDataRow + 1;
 
                 // Título
-                $sheet->mergeCells('A1:G1');
+                $sheet->mergeCells('A1:H1');
                 $sheet->getRowDimension(1)->setRowHeight(28);
 
                 // Rango
-                $sheet->mergeCells('B2:G2');
+                $sheet->mergeCells('B2:H2');
 
                 // Anchos sugeridos
                 $sheet->getColumnDimension('A')->setWidth(8);
-                $sheet->getColumnDimension('B')->setWidth(36);
-                $sheet->getColumnDimension('C')->setWidth(18);
+                $sheet->getColumnDimension('B')->setWidth(30);
+                $sheet->getColumnDimension('C')->setWidth(35);
+                $sheet->getColumnDimension('C')->setWidth(50);
                 $sheet->getColumnDimension('D')->setWidth(18);
                 $sheet->getColumnDimension('E')->setWidth(18);
-                $sheet->getColumnDimension('F')->setWidth(20);
+                $sheet->getColumnDimension('F')->setWidth(18);
                 $sheet->getColumnDimension('G')->setWidth(20);
+                $sheet->getColumnDimension('H')->setWidth(20);
 
                 // Encabezados
                 $sheet->getRowDimension($headerRow)->setRowHeight(24);
 
-                $sheet->getStyle("A{$headerRow}:G{$headerRow}")->applyFromArray([
+                $sheet->getStyle("A{$headerRow}:H{$headerRow}")->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => self::COLOR_WHITE],
@@ -190,15 +194,9 @@ class DevelopmentCollectionReportExport implements
 
                 // Datos
                 if ($rowCount > 0) {
-                    $sheet->getStyle("A{$firstDataRow}:G{$lastDataRow}")->applyFromArray([
+                    $sheet->getStyle("A{$firstDataRow}:H{$lastDataRow}")->applyFromArray([
                         'alignment' => [
                             'vertical' => Alignment::VERTICAL_CENTER,
-                        ],
-                        'borders' => [
-                            'allBorders' => [
-                                'borderStyle' => Border::BORDER_THIN,
-                                'color' => ['rgb' => 'D9D9D9'],
-                            ],
                         ],
                     ]);
 
@@ -206,33 +204,21 @@ class DevelopmentCollectionReportExport implements
                         ->getAlignment()
                         ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-                    $sheet->getStyle("C{$firstDataRow}:G{$lastDataRow}")
+                    $sheet->getStyle("D{$firstDataRow}:H{$lastDataRow}")
                         ->getAlignment()
                         ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-
-                    // Zebra suave
-                    for ($row = $firstDataRow; $row <= $lastDataRow; $row++) {
-                        if ($row % 2 === 0) {
-                            $sheet->getStyle("A{$row}:G{$row}")->applyFromArray([
-                                'fill' => [
-                                    'fillType' => Fill::FILL_SOLID,
-                                    'startColor' => ['rgb' => 'F7F7F7'],
-                                ],
-                            ]);
-                        }
-                    }
                 }
 
                 // Totales
-                $sheet->setCellValue("A{$totalRow}", '');
-                $sheet->setCellValue("B{$totalRow}", 'TOTALES');
+                $sheet->mergeCells("A{$totalRow}:B{$totalRow}");
+                $sheet->setCellValue("A{$totalRow}", 'TOTALES');
                 $sheet->setCellValue("C{$totalRow}", $this->rows->sum('contratos'));
                 $sheet->setCellValue("D{$totalRow}", $this->rows->sum('enganches'));
                 $sheet->setCellValue("E{$totalRow}", $this->rows->sum('cobrado'));
                 $sheet->setCellValue("F{$totalRow}", $this->rows->sum('resto_por_cobrar'));
                 $sheet->setCellValue("G{$totalRow}", $this->rows->sum('ingreso_mensual'));
 
-                $sheet->getStyle("A{$totalRow}:G{$totalRow}")->applyFromArray([
+                $sheet->getStyle("A{$totalRow}:H{$totalRow}")->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => self::COLOR_WHITE],
@@ -244,55 +230,48 @@ class DevelopmentCollectionReportExport implements
                     'alignment' => [
                         'vertical' => Alignment::VERTICAL_CENTER,
                     ],
-                    'borders' => [
-                        'top' => [
-                            'borderStyle' => Border::BORDER_MEDIUM,
-                            'color' => ['rgb' => self::COLOR_RED],
-                        ],
-                        'allBorders' => [
-                            'borderStyle' => Border::BORDER_THIN,
-                            'color' => ['rgb' => self::COLOR_RED],
-                        ],
-                    ],
                 ]);
 
-                $sheet->getStyle("B{$totalRow}")
+                $sheet->getStyle("A{$totalRow}")
                     ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-                $sheet->getStyle("C{$totalRow}:G{$totalRow}")
+                $sheet->getStyle("C{$totalRow}:H{$totalRow}")
                     ->getNumberFormat()
                     ->setFormatCode('"$"#,##0.00');
 
-                $sheet->getStyle("C{$totalRow}:G{$totalRow}")
+                $sheet->getStyle("C{$totalRow}:H{$totalRow}")
                     ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
                 // Formato moneda en datos
                 if ($rowCount > 0) {
-                    $sheet->getStyle("C{$firstDataRow}:G{$lastDataRow}")
+                    $sheet->getStyle("D{$firstDataRow}:H{$lastDataRow}")
                         ->getNumberFormat()
                         ->setFormatCode('"$"#,##0.00');
                 }
 
                 // Autofiltro
-                $sheet->setAutoFilter("A{$headerRow}:G{$headerRow}");
+                $sheet->setAutoFilter("A{$headerRow}:H{$headerRow}");
 
                 // Congelar encabezados
                 $sheet->freezePane('A5');
 
                 // Bordes generales superiores
-                $sheet->getStyle('A1:G2')->applyFromArray([
+                $sheet->getStyle("A{$headerRow}:H{$totalRow}")->applyFromArray([
                     'borders' => [
-                        'outline' => [
+                        'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
-                            'color' => ['rgb' => self::COLOR_RED_DARK],
+                            'color' => ['rgb' => 'DEE2E6'],
                         ],
                     ],
                 ]);
 
+                // Wrap text para Socios (columna C)
+                $sheet->getStyle("C{$firstDataRow}:C{$totalRow}")->getAlignment()->setWrapText(true);
+
                 // Color del texto del rango
-                $sheet->getStyle('A2:G2')->applyFromArray([
+                $sheet->getStyle('A2:H2')->applyFromArray([
                     'font' => [
                         'color' => ['rgb' => self::COLOR_GRAY],
                     ],

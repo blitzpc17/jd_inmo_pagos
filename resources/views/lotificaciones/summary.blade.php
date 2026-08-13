@@ -184,6 +184,7 @@
                         <tr>
                             <th style="width: 60px;">#</th>
                             <th>Lotificación</th>
+                            <th>Socios</th>
                             <th class="text-center">Total lotes</th>
                             <th class="text-center">Disponibles</th>
                             <th class="text-center">Apartados</th>
@@ -193,7 +194,7 @@
                     <tbody></tbody>
                     <tfoot>
                         <tr>
-                            <th colspan="2" class="text-end">Totales:</th>
+                            <th colspan="3" class="text-end">Totales:</th>
                             <th id="footerTotalLotes" class="text-center">0</th>
                             <th id="footerLibres" class="text-center estado-libre">0</th>
                             <th id="footerApartados" class="text-center estado-apartado">0</th>
@@ -395,6 +396,17 @@ $(function () {
                 defaultContent: '',
                 render: function (value) {
                     return value || 'SIN LOTIFICACIÓN';
+                }
+            },
+            {
+                data: 'socios',
+                defaultContent: '-',
+                render: function (data) {
+                    if (!data) return '-';
+                    if (data.length > 40) {
+                        return '<span title="' + data.replace(/"/g, '&quot;') + '" style="cursor:help;">' + data.substr(0, 40) + '...</span>';
+                    }
+                    return data;
                 }
             },
             {

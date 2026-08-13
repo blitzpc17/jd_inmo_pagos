@@ -66,22 +66,28 @@ class MonthlyCollectionReportController extends Controller
             ->join('lots as l', 'l.id', '=', 'cl.lot_id')
             ->leftJoin('lot_offices as lo', 'lo.lot_id', '=', 'l.id')
             ->leftJoin('offices as o', 'o.id', '=', 'lo.office_id')
+            ->leftJoin('lot_partners as lp', 'lp.lot_id', '=', 'l.id')
+            ->leftJoin('partners as p', 'p.id', '=', 'lp.partner_id')
             ->groupBy('cl.contract_id')
             ->selectRaw("
                 cl.contract_id,
                 STRING_AGG(DISTINCT l.identificador, ', ' ORDER BY l.identificador) AS lotes,
-                STRING_AGG(DISTINCT o.nombre, ', ' ORDER BY o.nombre) AS oficinas_lote
+                STRING_AGG(DISTINCT o.nombre, ', ' ORDER BY o.nombre) AS oficinas_lote,
+                STRING_AGG(DISTINCT p.nombre, ', ' ORDER BY p.nombre) AS socios
             ");
 
         $reservationLots = DB::table('reservation_lots as rl')
             ->join('lots as l', 'l.id', '=', 'rl.lot_id')
             ->leftJoin('lot_offices as lo', 'lo.lot_id', '=', 'l.id')
             ->leftJoin('offices as o', 'o.id', '=', 'lo.office_id')
+            ->leftJoin('lot_partners as lp', 'lp.lot_id', '=', 'l.id')
+            ->leftJoin('partners as p', 'p.id', '=', 'lp.partner_id')
             ->groupBy('rl.reservation_id')
             ->selectRaw("
                 rl.reservation_id,
                 STRING_AGG(DISTINCT l.identificador, ', ' ORDER BY l.identificador) AS lotes,
-                STRING_AGG(DISTINCT o.nombre, ', ' ORDER BY o.nombre) AS oficinas_lote
+                STRING_AGG(DISTINCT o.nombre, ', ' ORDER BY o.nombre) AS oficinas_lote,
+                STRING_AGG(DISTINCT p.nombre, ', ' ORDER BY p.nombre) AS socios
             ");
 
         $monthlySchedules = DB::table('payment_schedules')
@@ -139,6 +145,7 @@ class MonthlyCollectionReportController extends Controller
                 DB::raw("COALESCE(clots.oficinas_lote, co.nombre, '') as oficina"),
                 'd.nombre as lotificacion',
                 DB::raw("COALESCE(clots.lotes, '') as lote"),
+                DB::raw("COALESCE(clots.socios, '') as socios"),
                 DB::raw("BTRIM(COALESCE(cli.nombres,'') || ' ' || COALESCE(cli.apellidos,'')) as nombre_cliente"),
                 DB::raw("COALESCE(cli.telefono, '') as num"),
                 DB::raw("COALESCE(ps.mensualidad_mes, c.cuota_mensual, 0) as mensualidad"),
@@ -182,6 +189,7 @@ class MonthlyCollectionReportController extends Controller
                 DB::raw("COALESCE(rlots.oficinas_lote, '') as oficina"),
                 'd.nombre as lotificacion',
                 DB::raw("COALESCE(rlots.lotes, '') as lote"),
+                DB::raw("COALESCE(rlots.socios, '') as socios"),
                 DB::raw("BTRIM(COALESCE(cli.nombres,'') || ' ' || COALESCE(cli.apellidos,'')) as nombre_cliente"),
                 DB::raw("COALESCE(cli.telefono, '') as num"),
                 DB::raw('0 as mensualidad'),
@@ -210,6 +218,7 @@ class MonthlyCollectionReportController extends Controller
             'oficina' => (string) ($row->oficina ?? ''),
             'lotificacion' => (string) ($row->lotificacion ?? ''),
             'lote' => (string) ($row->lote ?? ''),
+            'socios' => (string) ($row->socios ?? ''),
             'nombre_cliente' => (string) ($row->nombre_cliente ?? ''),
             'num' => (string) ($row->num ?? ''),
             'mensualidad' => round((float) ($row->mensualidad ?? 0), 2),

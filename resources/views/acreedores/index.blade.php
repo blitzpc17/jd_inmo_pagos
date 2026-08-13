@@ -58,9 +58,13 @@
                             <textarea class="form-control" id="direcciones" name="direcciones" rows="3"></textarea>
                         </div>
 
-                        <div class="col-md-6" style="display:none;">
-                            <label class="form-label">Estado</label>
-                            <select class="form-select select2-prov" id="status_id" name="status_id"></select>
+                        <div class="col-md-6" id="divEstado">
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" id="chkActivo" checked>
+                                <label class="form-check-label" for="chkActivo">Activo</label>
+                            </div>
+                            <!-- Hidden input to send status_id -->
+                            <input type="hidden" id="status_id" name="status_id">
                         </div>
                     </div>
                 </div>
@@ -85,32 +89,20 @@
     let optionsCache = null;
 
     function initSelect2() {
-        $('.select2-prov').select2({
-            theme: 'bootstrap4',
-            width: '100%',
-            dropdownParent: $('#modalAcreedor')
-        });
+        // Any other select2 init if needed
     }
 
     async function loadOptions() {
         if (optionsCache) return optionsCache;
         const res = await fetch('/acreedores/options');
         optionsCache = await res.json();
-        fillSelect('status_id', optionsCache.statuses);
         return optionsCache;
-    }
-
-    function fillSelect(id, items) {
-        const el = document.getElementById(id);
-        el.innerHTML = '<option value="">Seleccione...</option>';
-        items.forEach(item => el.innerHTML += `<option value="${item.value}">${item.text}</option>`);
-        $(el).trigger('change');
     }
 
     function resetForm() {
         form.reset();
         acreedorId.value = '';
-        $('.select2-prov').val(null).trigger('change');
+        $('#chkActivo').prop('checked', true);
         document.getElementById('acreedorModalTitle').textContent = 'Nuevo acreedor';
     }
 
@@ -134,13 +126,7 @@
     async function openNew() {
         await loadOptions();
         resetForm();
-        
-        // Find ACTIVE status
-        const activeStatus = optionsCache.statuses.find(s => s.text === 'ACTIVE');
-        if (activeStatus) {
-            $('#status_id').val(activeStatus.value).trigger('change');
-        }
-
+        document.getElementById('divEstado').style.display = 'none';
         modal.show();
     }
 
@@ -155,7 +141,15 @@
         document.getElementById('nombre').value = json.data.nombre || '';
         document.getElementById('telefonos').value = json.data.telefonos || '';
         document.getElementById('direcciones').value = json.data.direcciones || '';
-        $('#status_id').val(json.data.status_id).trigger('change');
+        document.getElementById('direcciones').value = json.data.direcciones || '';
+        
+        const activeStatus = optionsCache.statuses.find(s => s.text.toUpperCase() === 'ACTIVO' || s.value == 1 || s.clave === 'ACTIVE' || s.text === 'Activo'); // We'll just find the one that doesn't say INACTIVO
+        // Usually statuses list returns value and text. Let's find ACTIVE or assume value=1 if not found.
+        const isActiveId = optionsCache.statuses.find(s => (s.text && s.text.toUpperCase() === 'ACTIVO') || s.clave === 'ACTIVE')?.value || 1;
+        $('#chkActivo').prop('checked', json.data.status_id == isActiveId);
+        $('#status_id').val(json.data.status_id);
+
+        document.getElementById('divEstado').style.display = 'block';
 
         document.getElementById('acreedorModalTitle').textContent = 'Editar acreedor';
         modal.show();
@@ -163,6 +157,14 @@
 
     async function saveItem(e) {
         e.preventDefault();
+
+        if (optionsCache) {
+            // Find active/inactive statuses by text
+            const activeStatus = optionsCache.statuses.find(s => s.text.toUpperCase() === 'ACTIVO' || s.clave === 'ACTIVE') || {value: 1};
+            const inactiveStatus = optionsCache.statuses.find(s => s.text.toUpperCase() === 'INACTIVO' || s.clave === 'INACTIVE') || {value: 2};
+            const chkActivo = document.getElementById('chkActivo').checked;
+            document.getElementById('status_id').value = chkActivo ? activeStatus.value : inactiveStatus.value;
+        }
 
         const id = acreedorId.value;
         const formData = new FormData(form);
@@ -191,45 +193,11 @@
         }
     }
 
-    async function deleteItem(id) {
-        const result = await Swal.fire({
-            icon: 'warning',
-            title: '¿Dar de baja acreedor?',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, dar de baja',
-            cancelButtonText: 'Cancelar'
-        });
-
-        if (!result.isConfirmed) return;
-
-        const res = await fetch(`/acreedores/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                'Accept': 'application/json'
-            }
-        });
-
-        const json = await res.json();
-
-        Swal.fire({
-            icon: res.ok ? 'success' : 'error',
-            title: res.ok ? 'Correcto' : 'Error',
-            text: json.message || 'No se pudo dar de baja'
-        });
-
-        if (res.ok) table.ajax.reload(null, false);
-    }
-
     document.getElementById('btnNuevoAcreedor').addEventListener('click', openNew);
     form.addEventListener('submit', saveItem);
 
     $('#tblAcreedores').on('click', '.btn-edit', function () {
         editItem(this.dataset.id);
-    });
-
-    $('#tblAcreedores').on('click', '.btn-delete', function () {
-        deleteItem(this.dataset.id);
     });
 
     initSelect2();

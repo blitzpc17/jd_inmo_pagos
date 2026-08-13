@@ -168,6 +168,7 @@
                         <tr>
                             <th style="width: 60px;">#</th>
                             <th>Lotificación</th>
+                            <th>Socios</th>
                             <th class="text-end">Contratos</th>
                             <th class="text-end">Enganches</th>
                             <th class="text-end">Cobrado</th>
@@ -178,7 +179,7 @@
                     <tbody></tbody>
                     <tfoot>
                         <tr>
-                            <th colspan="2" class="text-end">Totales:</th>
+                            <th colspan="3" class="text-end">Totales:</th>
                             <th id="footerContratos" class="text-end">$0.00</th>
                             <th id="footerEnganches" class="text-end">$0.00</th>
                             <th id="footerCobrado" class="text-end">$0.00</th>
@@ -319,6 +320,17 @@ $(function () {
                 defaultContent: '',
                 render: function (value) {
                     return value || 'SIN LOTIFICACIÓN';
+                }
+            },
+            {
+                data: 'socios',
+                defaultContent: '-',
+                render: function (data) {
+                    if (!data) return '-';
+                    if (data.length > 40) {
+                        return '<span title="' + data.replace(/"/g, '&quot;') + '" style="cursor:help;">' + data.substr(0, 40) + '...</span>';
+                    }
+                    return data;
                 }
             },
             {

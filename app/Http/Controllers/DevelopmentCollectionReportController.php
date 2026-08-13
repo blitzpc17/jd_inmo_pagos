@@ -120,10 +120,19 @@ class DevelopmentCollectionReportController extends Controller
                   AND ps.status IN ('PENDIENTE', 'PARCIAL', 'ATRASADO', 'ATRASADO_PARCIAL', 'ADELANTADO')
                   AND ps.due_date BETWEEN :start_date_3 AND :end_date_3
                 GROUP BY c.development_id
+            ),
+            socios_loti AS (
+                SELECT
+                    dp.development_id,
+                    string_agg(p.nombre, ', ') AS socios
+                FROM development_partners dp
+                INNER JOIN partners p ON p.id = dp.partner_id
+                GROUP BY dp.development_id
             )
             SELECT
                 d.id AS development_id,
                 d.nombre AS lotificacion,
+                COALESCE(sl.socios, '') AS socios,
                 COALESCE(ct.contratos, 0) AS contratos,
                 COALESCE(ct.enganches, 0) AS enganches,
                 COALESCE(cb.cobrado, 0) AS cobrado,
@@ -133,6 +142,7 @@ class DevelopmentCollectionReportController extends Controller
             LEFT JOIN contratos ct ON ct.development_id = d.id
             LEFT JOIN cobros cb ON cb.development_id = d.id
             LEFT JOIN pendientes pd ON pd.development_id = d.id
+            LEFT JOIN socios_loti sl ON sl.development_id = d.id
             WHERE d.fecha_baja IS NULL
             ORDER BY d.nombre ASC
         ", [

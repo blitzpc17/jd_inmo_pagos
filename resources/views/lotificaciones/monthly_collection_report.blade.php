@@ -44,12 +44,13 @@
 
 <div class="page-card">
     <div class="table-responsive">
-        <table class="table table-bordered align-middle w-100" id="tblReporteCobrosMensuales">
+        <table class="table table-bordered align-middle w-100 text-nowrap" id="tblReporteCobrosMensuales">
             <thead>
                 <tr>
                     <th class="th-base">OFICINA</th>
                     <th class="th-base">LOTIFICACION</th>
                     <th class="th-base">LOTE</th>
+                    <th class="th-base">SOCIOS</th>
                     <th class="th-base">NOMBRE DEL CLIENTE</th>
                     <th class="th-base">NUM</th>
                     <th class="th-money text-end">MENSUALIDAD</th>
@@ -163,14 +164,45 @@
             { data: 'oficina' },
             { data: 'lotificacion' },
             { data: 'lote' },
+            { 
+                data: 'socios',
+                defaultContent: '-',
+                render: function (data) {
+                    if (!data) return '-';
+                    if (data.length > 40) {
+                        return '<span title="' + data.replace(/"/g, '&quot;') + '" style="cursor:help;">' + data.substr(0, 40) + '...</span>';
+                    }
+                    return data;
+                }
+            },
             { data: 'nombre_cliente' },
             { data: 'num' },
             { data: 'mensualidad', className: 'text-end col-money', render: moneyRender },
             { data: 'real_pagado', className: 'text-end col-paid', render: moneyRender },
             { data: 'apartados_enganches', className: 'text-end col-down', render: moneyRender },
             { data: 'cobro_recargo', className: 'text-end col-fee', render: moneyRender },
-            { data: 'folio' },
-            { data: 'observacion' }
+            { 
+                data: 'folio',
+                defaultContent: '-',
+                render: function (data) {
+                    if (!data) return '-';
+                    if (data.length > 250) {
+                        return '<span title="' + data.replace(/"/g, '&quot;') + '" style="cursor:help;">' + data.substr(0, 250) + '...</span>';
+                    }
+                    return data;
+                }
+            },
+            { 
+                data: 'observacion',
+                defaultContent: '-',
+                render: function (data) {
+                    if (!data) return '-';
+                    if (data.length > 250) {
+                        return '<span title="' + data.replace(/"/g, '&quot;') + '" style="cursor:help;">' + data.substr(0, 250) + '...</span>';
+                    }
+                    return data;
+                }
+            }
         ],
         pageLength: 25,
         order: [[1, 'asc'], [3, 'asc']],

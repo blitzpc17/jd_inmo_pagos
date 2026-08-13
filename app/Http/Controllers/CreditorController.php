@@ -17,7 +17,6 @@ class CreditorController extends Controller
     {
         $rows = DB::table('creditors as c')
             ->join('statuses as s', 's.id', '=', 'c.status_id')
-            ->whereNull('c.fecha_baja')
             ->select([
                 'c.id',
                 'c.nombre',
@@ -32,9 +31,6 @@ class CreditorController extends Controller
                     <div class="d-flex gap-1">
                         <button class="btn btn-sm btn-outline-primary btn-edit" data-id="'.$r->id.'">
                             <i class="fa-solid fa-pen"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger btn-delete" data-id="'.$r->id.'">
-                            <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
                 ';
@@ -63,14 +59,20 @@ class CreditorController extends Controller
             'nombre' => ['required', 'string', 'max:150'],
             'telefonos' => ['nullable', 'string'],
             'direcciones' => ['nullable', 'string'],
-            'status_id' => ['required', 'integer', 'exists:statuses,id'],
+            'status_id' => ['nullable', 'integer', 'exists:statuses,id'],
         ])->validate();
+
+        $activeId = DB::table('statuses as s')
+            ->join('processes as p', 'p.id', '=', 's.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('s.clave', 'ACTIVE')
+            ->value('s.id');
 
         DB::table('creditors')->insert([
             'nombre' => mb_strtoupper($data['nombre']),
             'telefonos' => $data['telefonos'] ?? null,
             'direcciones' => $data['direcciones'] ?? null,
-            'status_id' => $data['status_id'],
+            'status_id' => $data['status_id'] ?? $activeId,
             'usuario_genero_id' => session('auth_user.id'),
             'updated_at' => now(),
             'created_at' => now(),
@@ -102,42 +104,35 @@ class CreditorController extends Controller
             'status_id' => ['required', 'integer', 'exists:statuses,id'],
         ])->validate();
 
-        DB::table('creditors')
-            ->where('id', $id)
-            ->update([
-                'nombre' => mb_strtoupper($data['nombre']),
-                'telefonos' => $data['telefonos'] ?? null,
-                'direcciones' => $data['direcciones'] ?? null,
-                'status_id' => $data['status_id'],
-                'updated_at' => now(),
-            ]);
+        $updateData = [
+            'nombre' => mb_strtoupper($data['nombre']),
+            'telefonos' => $data['telefonos'] ?? null,
+            'direcciones' => $data['direcciones'] ?? null,
+            'status_id' => $data['status_id'],
+            'updated_at' => now(),
+        ];
 
-        return response()->json([
-            'ok' => true,
-            'message' => 'Acreedor actualizado correctamente.'
-        ]);
-    }
-
-    public function destroy(Request $request, int $id)
-    {
         $inactiveId = DB::table('statuses as s')
             ->join('processes as p', 'p.id', '=', 's.process_id')
             ->where('p.clave', 'GENERAL')
             ->where('s.clave', 'INACTIVE')
             ->value('s.id');
 
+        if ($data['status_id'] == $inactiveId) {
+            $updateData['fecha_baja'] = now();
+            $updateData['usuario_baja_id'] = session('auth_user.id');
+        } else {
+            $updateData['fecha_baja'] = null;
+            $updateData['usuario_baja_id'] = null;
+        }
+
         DB::table('creditors')
             ->where('id', $id)
-            ->update([
-                'status_id' => $inactiveId,
-                'fecha_baja' => now(),
-                'usuario_baja_id' => session('auth_user.id'),
-                'updated_at' => now(),
-            ]);
+            ->update($updateData);
 
         return response()->json([
             'ok' => true,
-            'message' => 'Acreedor dado de baja correctamente.'
+            'message' => 'Acreedor actualizado correctamente.'
         ]);
     }
 }
