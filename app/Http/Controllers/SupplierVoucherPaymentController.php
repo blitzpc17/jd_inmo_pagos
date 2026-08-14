@@ -162,11 +162,17 @@ class SupplierVoucherPaymentController extends Controller
             $partnerProgress = $this->getPartnerProgressStatus($row, $partner);
             
             $partnerSchedules = [];
-            $factor = (float) $partner->porcentaje / 100;
             $partnerPaid = $partnerProgress['ha_pagado'];
+            $partnerCapitalTotal = $partnerProgress['capital_total'];
+            $numSchedules = count($schedules);
+            $monthlyPartnerAmount = $numSchedules > 0 ? round($partnerCapitalTotal / $numSchedules, 2) : 0;
+            $accumulatedPartnerAmount = 0;
             
-            foreach ($schedules as $globalSchedule) {
-                $pAmount = round((float) $globalSchedule->amount * $factor, 2);
+            foreach ($schedules as $idx => $globalSchedule) {
+                $isLast = ($idx === $numSchedules - 1);
+                $pAmount = $isLast ? round($partnerCapitalTotal - $accumulatedPartnerAmount, 2) : $monthlyPartnerAmount;
+                $accumulatedPartnerAmount += $pAmount;
+                
                 $pPaid = 0;
                 $pStatus = 'PENDING';
                 
@@ -605,11 +611,17 @@ class SupplierVoucherPaymentController extends Controller
             $p->progress = $prog;
             
             $partnerSchedules = [];
-            $factor = (float) $p->porcentaje / 100;
             $partnerPaid = $prog['ha_pagado'];
+            $partnerCapitalTotal = $prog['capital_total'];
+            $numSchedules = count($schedules);
+            $monthlyPartnerAmount = $numSchedules > 0 ? round($partnerCapitalTotal / $numSchedules, 2) : 0;
+            $accumulatedPartnerAmount = 0;
             
-            foreach ($schedules as $globalSchedule) {
-                $pAmount = round((float) $globalSchedule->amount * $factor, 2);
+            foreach ($schedules as $idx => $globalSchedule) {
+                $isLast = ($idx === $numSchedules - 1);
+                $pAmount = $isLast ? round($partnerCapitalTotal - $accumulatedPartnerAmount, 2) : $monthlyPartnerAmount;
+                $accumulatedPartnerAmount += $pAmount;
+                
                 $pPaid = 0;
                 $pStatus = 'PENDING';
                 

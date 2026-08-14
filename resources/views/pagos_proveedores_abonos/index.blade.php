@@ -67,7 +67,6 @@
 
                 <div class="modal-footer">
                     <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cerrar</button>
-                    <button class="btn btn-primary" type="submit">Guardar abonos</button>
                 </div>
         </form>
     </div>
@@ -153,6 +152,12 @@
     }
 
     const fCurrency = v => '$ ' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const fDate = d => {
+        if (!d) return '';
+        const parts = d.split('-');
+        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        return d;
+    };
 
     async function loadVoucherSummary(voucherId) {
         resetSummary();
@@ -208,9 +213,9 @@
                 const historicoHtml = (p.items || []).map((item, idx) => `
                     <tr>
                         <td>${idx + 1}</td>
-                        <td>${item.fecha_pago_programada ?? ''}</td>
+                        <td>${fDate(item.fecha_pago_programada)}</td>
                         <td>${fCurrency(item.cantidad_a_pagar ?? 0)}</td>
-                        <td>${item.fecha_recibido ?? ''}</td>
+                        <td>${fDate(item.fecha_recibido)}</td>
                         <td><span class="text-success fw-bold">${fCurrency(item.cantidad ?? 0)}</span></td>
                         <td><span class="text-danger">${fCurrency(item.interes_pagado ?? 0)}</span></td>
                         <td>${item.forma_pago ?? ''}</td>
@@ -231,7 +236,7 @@
                         return `
                             <tr>
                                 <td>${sc.installment_number}</td>
-                                <td>${sc.due_date}</td>
+                                <td>${fDate(sc.due_date)}</td>
                                 <td>${fCurrency(sc.amount)}</td>
                                 <td><span class="text-success">${fCurrency(sc.amount_paid)}</span></td>
                                 <td><span class="text-danger">${fCurrency(pend)}</span></td>
@@ -475,6 +480,7 @@
         const rows = tableBody.querySelectorAll('tr');
         const items = [];
         let totalCapitalToPay = 0;
+        let totalInterestToPay = 0;
 
         rows.forEach(row => {
             const tipo = row.querySelector('.item-tipo')?.value || 'abono_capital';
@@ -500,6 +506,8 @@
 
                 if (tipo === 'abono_capital') {
                     totalCapitalToPay += monto;
+                } else if (tipo === 'pago_interes') {
+                    totalInterestToPay += monto;
                 }
             }
         });
@@ -516,6 +524,15 @@
                     icon: 'warning', 
                     title: 'Monto Excedido', 
                     text: `El abono a capital ($${totalCapitalToPay.toLocaleString()}) no puede ser mayor al saldo pendiente de capital del socio ($${remainingCapital.toLocaleString()}).`
+                });
+            }
+
+            const remainingInterest = parseFloat(p.progress?.interes_pendiente || 0);
+            if (parseFloat(totalInterestToPay.toFixed(2)) > parseFloat(remainingInterest.toFixed(2))) {
+                return Swal.fire({ 
+                    icon: 'warning', 
+                    title: 'Monto Excedido', 
+                    text: `El pago a interés ($${totalInterestToPay.toLocaleString()}) no puede ser mayor al interés pendiente del socio ($${remainingInterest.toLocaleString()}).`
                 });
             }
         }

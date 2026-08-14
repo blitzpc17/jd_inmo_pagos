@@ -225,6 +225,13 @@
         return '$ ' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     };
 
+    const fDate = d => {
+        if (!d) return '';
+        const parts = d.split('-');
+        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        return d;
+    };
+
     function initSelect2() {
         $('.select2-proveedor').select2({
             theme: 'bootstrap4',
@@ -448,9 +455,9 @@
             tbody.innerHTML += `
                 <tr>
                     <td>${index + 1}</td>
-                    <td>${item.fecha_pago_programada ?? ''}</td>
+                    <td>${fDate(item.fecha_pago_programada)}</td>
                     <td>${fCurrency(item.cantidad_a_pagar ?? 0)}</td>
-                    <td>${item.fecha_recibido ?? ''}</td>
+                    <td>${fDate(item.fecha_recibido)}</td>
                     <td><span class="text-success fw-bold">${fCurrency(item.cantidad ?? 0)}</span></td>
                     <td><span class="text-danger">${fCurrency(item.interes_pagado ?? 0)}</span></td>
                     <td>${item.forma_pago ?? ''}</td>

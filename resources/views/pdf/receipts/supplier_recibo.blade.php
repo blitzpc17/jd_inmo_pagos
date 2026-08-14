@@ -17,7 +17,7 @@
                 </td>
                 <td style="width: 33.333%;">
                     <div class="label">Fecha Recibido</div>
-                    <div class="value">{{ $item->fecha_recibido ?? 'N/A' }}</div>
+                    <div class="value">{{ isset($item->fecha_recibido) ? \Carbon\Carbon::parse($item->fecha_recibido)->format('d-m-Y') : 'N/A' }}</div>
                 </td>
             </tr>
             <tr>
