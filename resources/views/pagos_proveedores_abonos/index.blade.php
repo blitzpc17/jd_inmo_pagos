@@ -58,6 +58,7 @@
                     </div>
 
                     <!-- PESTAÑAS POR SOCIO -->
+                    <div id="globalVoucherAlert"></div>
                     <ul class="nav nav-tabs mb-3" id="partnerTabs" role="tablist"></ul>
                     <div class="tab-content" id="partnerTabsContent">
                         <div class="text-muted text-center p-4">Seleccione una boleta para ver los detalles de los socios.</div>
@@ -125,6 +126,8 @@
         });
         document.getElementById('partnerTabs').innerHTML = '';
         document.getElementById('partnerTabsContent').innerHTML = '<div class="text-muted text-center p-4">Seleccione una boleta para ver los detalles de los socios.</div>';
+        const globalAlert = document.getElementById('globalVoucherAlert');
+        if (globalAlert) globalAlert.innerHTML = '';
         rowIndices = {};
     }
 
@@ -180,6 +183,7 @@
             rowIndices = {};
             
             const partners = d.partners || [];
+            let allPartnersPaid = true;
             
             partners.forEach((p, index) => {
                 const isActive = index === 0 ? 'active' : '';
@@ -187,17 +191,20 @@
                 
                 rowIndices[p.id] = 0; // Initialize row index for this partner
                 
+                const prog = p.progress || {};
+                const isFullyPaid = (parseFloat(prog.saldo_pendiente) <= 0.01 && parseFloat(prog.interes_pendiente) <= 0.01);
+                if (!isFullyPaid) allPartnersPaid = false;
+
                 const badgeTitular = p.es_titular ? '<span class="badge bg-primary ms-1" style="font-size:0.6rem;">TITULAR</span>' : '';
+                const badgePagado = isFullyPaid ? '<span class="badge bg-success ms-1" style="font-size:0.6rem;">PAGADO</span>' : '';
                 
                 tabsUl.innerHTML += `
                     <li class="nav-item" role="presentation">
                         <button class="nav-link ${isActive}" id="${tabId}-tab" data-bs-toggle="tab" data-bs-target="#${tabId}" type="button" role="tab">
-                            ${p.nombre} (${parseFloat(p.porcentaje).toFixed(2)}%) ${badgeTitular}
+                            ${p.nombre} (${parseFloat(p.porcentaje).toFixed(2)}%) ${badgeTitular} ${badgePagado}
                         </button>
                     </li>
                 `;
-                
-                const prog = p.progress || {};
                 const historicoHtml = (p.items || []).map((item, idx) => `
                     <tr>
                         <td>${idx + 1}</td>
@@ -275,6 +282,11 @@
                         </div>
 
                         <!-- Abonos a registrar -->
+                        ${isFullyPaid ? `
+                        <div class="alert alert-success text-center fw-bold mt-4">
+                            <i class="fa-solid fa-check-circle me-2"></i> Este socio ya no presenta adeudos ni intereses por pagar.
+                        </div>
+                        ` : `
                         <div class="page-card mb-3">
                             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                                 <h6 class="fw-bold mb-0">Registrar movimientos - ${p.nombre}</h6>
@@ -292,7 +304,7 @@
                                             <th>Tipo de Entrada</th>
                                             <th>F. Programada</th>
                                             <th>Monto</th>
-                                            <th>F. Movimiento (Real)</th>
+                                            <th>F. Movimiento</th>
                                             <th>Forma de pago</th>
                                             <th>Observaciones</th>
                                             <th>Acción</th>
@@ -307,6 +319,7 @@
                                 </button>
                             </div>
                         </div>
+                        `}
 
                         <!-- Historial -->
                         <div class="page-card mt-3">
@@ -338,6 +351,20 @@
             partners.forEach(p => {
                 addItemToPartner(p.id);
             });
+            
+            const globalAlert = document.getElementById('globalVoucherAlert');
+            if (globalAlert) {
+                if (allPartnersPaid && partners.length > 0) {
+                    globalAlert.innerHTML = `
+                        <div class="alert alert-success mt-3 mb-4 text-center h5">
+                            <i class="fa-solid fa-check-circle me-2"></i> <strong>BOLETA LIQUIDADA</strong>: Todos los socios han saldado su deuda e intereses.
+                        </div>
+                    `;
+                    // Optional: hide tabs if you want, but showing history is nice.
+                } else {
+                    globalAlert.innerHTML = '';
+                }
+            }
             
         } catch (e) {
             console.error(e);
@@ -412,12 +439,14 @@
             montoClass = 'text-danger';
         }
 
+        let disableAbonoCapital = (parseFloat(p.progress?.saldo_pendiente) <= 0.01) ? 'disabled style="display:none;"' : '';
+
         tableBody.insertAdjacentHTML('beforeend', `
             <tr data-row="${rowIdx}">
                 <td>${rowIdx}</td>
                 <td style="min-width: 160px;">
                     <select class="form-select form-select-sm item-tipo">
-                        <option value="abono_capital" ${tipoAbonoSelected}>Abono a Saldo</option>
+                        <option value="abono_capital" ${tipoAbonoSelected} ${disableAbonoCapital}>Abono a Saldo</option>
                         <option value="pago_interes" ${tipoInteresSelected}>Pago de Interés</option>
                         <option value="generar_interes">Generar Interés (Multa)</option>
                     </select>

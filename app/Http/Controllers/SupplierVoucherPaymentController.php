@@ -596,6 +596,12 @@ class SupplierVoucherPaymentController extends Controller
             
         foreach ($partners as $p) {
             $prog = $this->getPartnerProgressStatus($voucher, $p);
+            
+            // Calculate counts for this partner
+            $pItems = collect($items)->where('supplier_voucher_partner_id', $p->id);
+            $prog['conteo_pagos_saldo'] = $pItems->where('cantidad', '>', 0)->count();
+            $prog['conteo_pagos_interes'] = $pItems->where('interes_pagado', '>', 0)->count();
+            
             $p->progress = $prog;
             
             $partnerSchedules = [];

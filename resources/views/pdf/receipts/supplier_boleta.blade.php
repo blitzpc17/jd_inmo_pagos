@@ -83,22 +83,7 @@
     </table>
     @endif
 
-    <table class="summary-table mb-12" style="width: 50%;">
-        <tr>
-            <td>
-                <div class="summary-box" style="background-color: #e2e3e5; border-color: #d6d8db;">
-                    <div class="small" style="color: #383d41;">Conteo Pagos a Saldo</div>
-                    <div class="big" style="color: #383d41;">{{ $stats['capital_payments'] ?? 0 }}</div>
-                </div>
-            </td>
-            <td>
-                <div class="summary-box" style="background-color: #f8d7da; border-color: #f5c6cb;">
-                    <div class="small" style="color: #721c24;">Conteo Pagos a Interés</div>
-                    <div class="big" style="color: #721c24;">{{ $stats['interest_payments'] ?? 0 }}</div>
-                </div>
-            </td>
-        </tr>
-    </table>
+
 </div>
 
 @if(isset($partners) && count($partners) > 0)
@@ -107,25 +92,35 @@
         <table class="detail-table mb-12">
             <thead>
                 <tr>
-                    <th>Socio</th>
-                    <th>%</th>
-                    <th class="text-right">Capital Asignado</th>
-                    <th class="text-right">Abonado (Capital)</th>
-                    <th class="text-right">Pendiente (Capital)</th>
-                    <th class="text-right">Interés Generado</th>
-                    <th class="text-right">Interés Pagado</th>
+                    <th rowspan="2">Socio</th>
+                    <th rowspan="2">%</th>
+                    <th class="text-right">Capital Asig.</th>
+                    <th class="text-right">Abonado (Cap)</th>
+                    <th class="text-right">Pendiente (Cap)</th>
+                    <th class="text-center" rowspan="2">Pagos Saldo</th>
+                    <th class="text-center" rowspan="2">Pagos Interés</th>
+                </tr>
+                <tr>
+                    <th class="text-right">Int. Generado</th>
+                    <th class="text-right">Int. Pagado</th>
+                    <th class="text-right">Int. Pendiente</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($partners as $p)
                 <tr>
-                    <td>{{ mb_strtoupper($p->nombre) }} {!! $p->es_titular ? '<strong>(TITULAR)</strong>' : '' !!}</td>
-                    <td>{{ number_format($p->porcentaje, 2) }}%</td>
+                    <td rowspan="2">{{ mb_strtoupper($p->nombre) }} {!! $p->es_titular ? '<br><strong>(TITULAR)</strong>' : '' !!}</td>
+                    <td rowspan="2">{{ number_format($p->porcentaje, 2) }}%</td>
                     <td class="text-right">${{ number_format($p->progress['capital_total'] ?? 0, 2) }}</td>
                     <td class="text-right text-success fw-bold">${{ number_format($p->progress['ha_pagado'] ?? 0, 2) }}</td>
                     <td class="text-right text-danger fw-bold">${{ number_format($p->progress['saldo_pendiente'] ?? 0, 2) }}</td>
+                    <td class="text-center" rowspan="2">{{ $p->progress['conteo_pagos_saldo'] ?? 0 }}</td>
+                    <td class="text-center" rowspan="2">{{ $p->progress['conteo_pagos_interes'] ?? 0 }}</td>
+                </tr>
+                <tr>
                     <td class="text-right">${{ number_format($p->progress['interes_acumulado'] ?? 0, 2) }}</td>
                     <td class="text-right">${{ number_format($p->progress['interes_pagado'] ?? 0, 2) }}</td>
+                    <td class="text-right text-danger fw-bold">${{ number_format($p->progress['interes_pendiente'] ?? 0, 2) }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -170,6 +165,11 @@
 @endif
 
 <div class="section-title">Partidas (Abonos)</div>
+
+<div style="font-size: 11px; margin-bottom: 8px; text-align: right; font-weight: bold; color: #555;">
+    Total Pagos a Saldo: {{ $stats['capital_payments'] ?? 0 }} &nbsp;&nbsp;|&nbsp;&nbsp; 
+    Total Pagos a Interés: {{ $stats['interest_payments'] ?? 0 }}
+</div>
 
 <table class="detail-table">
     <thead>

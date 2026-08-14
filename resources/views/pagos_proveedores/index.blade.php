@@ -65,7 +65,7 @@
 
                         <div class="col-md-3">
                             <label class="form-label">Enganche ($) <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" class="form-control" name="enganche" id="enganche" value="0" required>
+                            <input type="number" step="0.01" class="form-control" name="enganche" id="enganche" value="0" readonly required>
                         </div>
 
                         <div class="col-md-3">
