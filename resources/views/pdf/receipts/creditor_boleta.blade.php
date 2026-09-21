@@ -37,38 +37,68 @@
 <div class="keep-together">
     <div class="section-title">Resumen Financiero</div>
 
-    <table class="summary-table mb-12">
+    <table class="summary-table mb-12" style="width: 100%; border-spacing: 5px;">
         <tr>
-            <td>
+            <td style="width: 25%;">
                 <div class="summary-box">
                     <div class="small">Total Boleta</div>
                     <div class="big">${{ number_format($voucher->importe ?? 0, 2) }}</div>
                 </div>
             </td>
-            <td>
-                <div class="summary-box success">
-                    <div class="small">Total Abonos</div>
-                    <div class="big">${{ number_format($totalAbonos ?? 0, 2) }}</div>
+            <td style="width: 25%;">
+                <div class="summary-box">
+                    <div class="small">Enganche</div>
+                    <div class="big">${{ number_format($voucher->enganche ?? 0, 2) }}</div>
                 </div>
             </td>
-            <td>
+            <td style="width: 25%;">
+                <div class="summary-box success">
+                    <div class="small">Capital Pagado</div>
+                    <div class="big">${{ number_format($voucher->total_pagado ?? 0, 2) }}</div>
+                </div>
+            </td>
+            <td style="width: 25%;">
                 <div class="summary-box warning">
-                    <div class="small">Resto</div>
-                    <div class="big">${{ number_format(($voucher->importe ?? 0) - ($totalAbonos ?? 0), 2) }}</div>
+                    <div class="small">Capital Restante</div>
+                    <div class="big">${{ number_format($voucher->saldo_pendiente ?? 0, 2) }}</div>
+                </div>
+            </td>
+        </tr>
+    </table>
+    
+    <table class="summary-table mb-12" style="width: 100%; border-spacing: 5px;">
+        <tr>
+            <td style="width: 33.33%;">
+                <div class="summary-box">
+                    <div class="small">Interés Generado</div>
+                    <div class="big">${{ number_format($progress['interes_acumulado'] ?? 0, 2) }}</div>
+                </div>
+            </td>
+            <td style="width: 33.33%;">
+                <div class="summary-box success">
+                    <div class="small">Interés Pagado</div>
+                    <div class="big">${{ number_format($progress['interes_pagado'] ?? 0, 2) }}</div>
+                </div>
+            </td>
+            <td style="width: 33.33%;">
+                <div class="summary-box warning">
+                    <div class="small">Interés Pendiente</div>
+                    <div class="big">${{ number_format($progress['interes_pendiente'] ?? 0, 2) }}</div>
                 </div>
             </td>
         </tr>
     </table>
 </div>
 
-<div class="section-title">Partidas (Abonos)</div>
+<div class="section-title">Historial de Operaciones</div>
 
 <table class="detail-table">
     <thead>
         <tr>
             <th style="width: 25px;">#</th>
-            <th>Concepto</th>
+            <th>Tipo</th>
             <th>Fecha</th>
+            <th>Concepto / Obs.</th>
             <th class="text-right">Monto</th>
         </tr>
     </thead>
@@ -76,13 +106,14 @@
         @forelse($items as $i => $row)
             <tr>
                 <td>{{ $i + 1 }}</td>
+                <td><strong>{{ $row->tipo }}</strong></td>
+                <td>{{ $row->fecha }}</td>
                 <td>{{ $row->concepto }}</td>
-                <td>{{ $row->created_at ?? '' }}</td>
-                <td class="text-right">${{ number_format($row->importe, 2) }}</td>
+                <td class="text-right">${{ number_format($row->monto, 2) }}</td>
             </tr>
         @empty
             <tr>
-                <td colspan="4" class="text-center">Sin abonos registrados</td>
+                <td colspan="5" class="text-center">Sin operaciones registradas</td>
             </tr>
         @endforelse
     </tbody>

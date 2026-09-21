@@ -326,16 +326,27 @@ class SupplierVoucherController extends Controller
             return;
         }
 
+        // Auto-heal enganche from partners in case of bad migration/manual insert
+        $sumEnganches = (float) DB::table('supplier_voucher_partners')
+            ->where('supplier_voucher_id', $voucherId)
+            ->whereNull('fecha_baja')
+            ->sum('enganche');
+
         $totalPagado = (float) DB::table('supplier_voucher_items')
             ->where('supplier_voucher_id', $voucherId)
             ->whereNull('fecha_baja')
             ->sum('cantidad');
 
-        $saldoPendiente = max(0, (float) $voucher->total - (float) $voucher->enganche - $totalPagado);
+        $capitalTotal = max(0, (float) $voucher->total - $sumEnganches);
+        $capitalPagado = min($totalPagado, $capitalTotal);
+        $saldoPendiente = $capitalTotal - $capitalPagado;
+        $mensualidadCalculada = max(1, (int)$voucher->meses) > 0 ? round($capitalTotal / max(1, (int)$voucher->meses), 2) : 0;
 
         DB::table('supplier_vouchers')
             ->where('id', $voucherId)
             ->update([
+                'enganche' => $sumEnganches,
+                'mensualidad' => $mensualidadCalculada,
                 'total_pagado' => $totalPagado,
                 'saldo_pendiente' => $saldoPendiente,
                 'updated_at' => now(),
@@ -350,7 +361,9 @@ class SupplierVoucherController extends Controller
         $mesesTranscurridos = max(1, $fechaInicio->diffInMonths($hoy) + 1);
         $mesesExigibles = min((int) $voucher->meses, $mesesTranscurridos);
 
-        $deberiaLlevar = round($mesesExigibles * (float) $voucher->mensualidad, 2);
+        $capitalTotal = max(0, (float) $voucher->total - (float) $voucher->enganche);
+        $mensualidadVoucher = max(1, (int)$voucher->meses) > 0 ? $capitalTotal / max(1, (int)$voucher->meses) : 0;
+        $deberiaLlevar = round($mesesExigibles * $mensualidadVoucher, 2);
         
         $totalAbonado = (float) DB::table('supplier_voucher_items')
             ->where('supplier_voucher_id', $voucher->id)
@@ -362,7 +375,6 @@ class SupplierVoucherController extends Controller
             ->whereNull('fecha_baja')
             ->sum('cantidad');
             
-        $capitalTotal = max(0, (float) $voucher->total - (float) $voucher->enganche);
         $capitalPagado = min($totalAbonado, $capitalTotal);
         $excesoParaInteres = max(0, $totalAbonado - $capitalTotal);
 

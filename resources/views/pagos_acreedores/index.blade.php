@@ -5,7 +5,7 @@
     <div class="d-flex justify-content-between align-items-center gap-2">
         <div>
             <h3 class="fw-bold mb-1">Boletas de Acreedores</h3>
-            <div class="text-muted">Gestión de proyectos, contratos y abonos por lotificación</div>
+            <div class="text-muted">Gestión de boletas y abonos de acreedores</div>
         </div>
 
         <button class="btn btn-primary" id="btnNuevoPagoAcreedor">
@@ -16,18 +16,18 @@
 
 <div class="page-card">
     <div class="table-responsive">
-        <table class="table table-bordered align-middle w-100" id="tblPagosAcreedores">
+        <table class="table table-bordered align-middle w-100 text-nowrap" id="tblPagosAcreedores">
             <thead>
                 <tr>
                     <th>#</th>
                     <th>Folio</th>
                     <th>Acreedor</th>
                     <th>Concepto</th>
-                    <th>Capital</th>
                     <th>Total</th>
-                    <th>Abonos</th>
-                    <th>Resto</th>
-                    <th>Plazo</th>
+                    <th>Enganche</th>
+                    <th>Abonos Cap.</th>
+                    <th>Resto Cap.</th>
+                    <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -41,7 +41,7 @@
         <div class="modal-content">
             <form id="formPagoAcreedor">
                 <div class="modal-header">
-                    <h5 class="modal-title">Nueva Boleta / Proyecto de Acreedor</h5>
+                    <h5 class="modal-title">Nueva Boleta de Acreedor</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
@@ -52,36 +52,20 @@
                             <select class="form-select select2-pp" id="creditor_id" name="creditor_id"></select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Concepto / Lotificación (Opcional)</label>
-                            <textarea class="form-control" id="concepto" name="concepto" rows="3" maxlength="350"></textarea>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Plazo (Meses)</label>
-                            <input type="number" class="form-control" id="plazo" name="plazo" min="1" required>
+                            <label class="form-label fw-bold">Concepto (Opcional)</label>
+                            <textarea class="form-control" id="concepto" name="concepto" rows="1" maxlength="350"></textarea>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Fecha Inicio</label>
                             <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-bold">Fecha Fin</label>
-                            <input type="date" class="form-control" id="fecha_fin" readonly>
+                            <label class="form-label fw-bold">Total Boleta ($)</label>
+                            <input type="number" step="0.01" class="form-control" id="total" name="total" min="0" required>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Capital ($)</label>
-                            <input type="number" step="0.01" class="form-control" id="capital" name="capital" min="0" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Porcentaje Interés (%)</label>
-                            <input type="number" step="0.01" class="form-control" id="porcentaje_interes" name="porcentaje_interes" min="0" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Monto Interés ($)</label>
-                            <input type="number" step="0.01" class="form-control bg-light" id="monto_interes" readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Total a Pagar ($)</label>
-                            <input type="number" step="0.01" class="form-control bg-light" id="importe" readonly>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Enganche ($)</label>
+                            <input type="number" step="0.01" class="form-control" id="enganche" name="enganche" min="0" required>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label fw-bold">Observaciones</label>
@@ -99,167 +83,151 @@
     </div>
 </div>
 
-<!-- Modal Detalles y Abonos -->
-<div class="modal fade" id="modalDetallePagoAcreedor" tabindex="-1">
+<!-- Modal Detalle e Historial -->
+<div class="modal fade" id="modalDetalleBoletaAcreedor" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Detalle de Boleta y Abonos</h5>
-                <div class="ms-auto d-flex gap-2 align-items-center">
-                    <a id="btnImprimirBoletaAcreedor" href="#" target="_blank" class="btn btn-sm btn-outline-danger">
-                        <i class="fa-solid fa-file-pdf me-1"></i> Imprimir Boleta
-                    </a>
-                    <button type="button" class="btn-close ms-0" data-bs-dismiss="modal"></button>
+                <div>
+                    <h5 class="modal-title mb-1">
+                        Detalle de Boleta: <span id="dpp_ref" class="text-primary fw-bold"></span>
+                        <span id="dpp_estado_badge"></span>
+                    </h5>
+                    <div class="text-muted small" id="dpp_acreedor_nombre"></div>
                 </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-
-            <div class="modal-body">
-                <!-- Dashboard Cabecera -->
-                <div class="row g-3 mb-4">
-                    <div class="col-md-8">
-                        <div class="card h-100 shadow-sm border-0">
-                            <div class="card-body">
-                                <h5 class="fw-bold mb-3"><i class="fa-solid fa-file-contract me-2 text-primary"></i>Datos del Proyecto</h5>
-                                <div class="row g-2 text-sm">
-                                    <div class="col-md-6"><strong>Folio:</strong> <span id="dpp_ref"></span></div>
-                                    <div class="col-md-6"><strong>Estado:</strong> <span id="dpp_estado"></span></div>
-                                    <div class="col-md-6"><strong>Acreedor:</strong> <span id="dpp_acreedor"></span></div>
-                                    <div class="col-md-6"><strong>Concepto:</strong> <span id="dpp_concepto"></span></div>
-                                    <div class="col-md-4"><strong>F. Inicio:</strong> <span id="dpp_fecha_inicio"></span></div>
-                                    <div class="col-md-4"><strong>F. Fin:</strong> <span id="dpp_fecha_fin"></span></div>
-                                    <div class="col-md-4"><strong>Plazo:</strong> <span id="dpp_plazo"></span> meses</div>
-                                </div>
-                            </div>
+            <div class="modal-body p-0">
+                <div class="p-3 border-bottom">
+                    <div class="row g-3">
+                        <div class="col-md-2">
+                            <small class="text-muted d-block">Total</small>
+                            <strong id="dpp_total" class="fs-6"></strong>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted d-block">Enganche</small>
+                            <strong id="dpp_enganche" class="fs-6"></strong>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted d-block">Capital Pagado</small>
+                            <strong id="dpp_pagado" class="text-success fs-6"></strong>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted d-block">Capital Pendiente</small>
+                            <strong id="dpp_pendiente" class="text-danger fs-6"></strong>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="card h-100 shadow-sm border-0 bg-transparent">
-                            <div class="card-body">
-                                <h5 class="fw-bold mb-3"><i class="fa-solid fa-calculator me-2 text-primary"></i>Finanzas</h5>
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">Capital:</span>
-                                    <strong id="dpp_capital"></strong>
+                </div>
+                
+                <div class="p-3 border-bottom">
+                    <div class="row align-items-center">
+                        <div class="col-md-12">
+                            <div class="d-flex justify-content-start gap-4">
+                                <div class="text-start">
+                                    <small class="text-muted d-block">Interés Generado</small>
+                                    <strong id="prog_int_acum"></strong>
                                 </div>
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">% Interés:</span>
-                                    <strong id="dpp_porcentaje_interes"></strong>
+                                <div class="text-start">
+                                    <small class="text-muted d-block">Interés Pagado</small>
+                                    <strong id="prog_int_pag" class="text-success"></strong>
                                 </div>
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">Monto Interés:</span>
-                                    <strong id="dpp_monto_interes"></strong>
-                                </div>
-                                <hr class="my-1">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">Total a Pagar:</span>
-                                    <strong id="dpp_importe"></strong>
-                                </div>
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">Pago Mensual:</span>
-                                    <strong id="dpp_pago_mensual"></strong>
-                                </div>
-                                <hr class="my-1">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="text-muted">Abono Capital:</span>
-                                    <strong id="dpp_abonos"></strong>
-                                </div>
-                                <div class="d-flex justify-content-between fs-5">
-                                    <span class="fw-bold">Resto:</span>
-                                    <strong id="dpp_resto" class="text-danger"></strong>
+                                <div class="text-start">
+                                    <small class="text-muted d-block">Interés Pendiente</small>
+                                    <strong id="prog_int_pend" class="text-danger"></strong>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tabla de Partidas -->
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
-                        <h6 class="fw-bold mb-0">Partidas (Abonos Realizados)</h6>
-                        <button class="btn btn-sm btn-success" id="btnAgregarAbono">
-                            <i class="fa-solid fa-plus me-1"></i> Agregar Abono
-                        </button>
+                <div class="p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0">Historial de Pagos y Movimientos</h6>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-success" id="btnAgregarAbono">
+                                <i class="fa-solid fa-plus me-1"></i> Registrar Operación
+                            </button>
+                            <a href="#" id="btnImprimirBoletaAcreedor" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <i class="fa-solid fa-print me-1"></i> Boleta PDF
+                            </a>
+                        </div>
                     </div>
+                    
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
+                        <table class="table table-sm table-bordered align-middle">
                             <thead>
                                 <tr>
-                                    <th style="width: 40px;">#</th>
+                                    <th>#</th>
                                     <th>Fecha</th>
+                                    <th>Tipo</th>
                                     <th>Monto</th>
-                                    <th>Saldo</th>
-                                    <th>Recargo</th>
-                                    <th>Firma</th>
-                                    <th>Nota</th>
-                                    <th style="width: 50px;"></th>
+                                    <th>Concepto/Obs.</th>
+                                    <th>Usuario</th>
+                                    <th>Recibo</th>
                                 </tr>
                             </thead>
-                            <tbody id="dppItemsBody"></tbody>
+                            <tbody id="dppItemsBody">
+                            </tbody>
+                            <tfoot id="dppItemsFoot">
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold align-top pt-2">Resumen de Totales:</td>
+                                    <td colspan="4">
+                                        <div class="d-flex flex-column small">
+                                            <div><span class="text-muted" style="display:inline-block; width:130px;">Abonos a Capital:</span> <strong class="text-success" id="tf_cap_pagado"></strong></div>
+                                            <div><span class="text-muted" style="display:inline-block; width:130px;">Cargos de Interés:</span> <strong class="text-danger" id="tf_int_gen"></strong></div>
+                                            <div><span class="text-muted" style="display:inline-block; width:130px;">Pagos de Interés:</span> <strong class="text-warning text-dark" id="tf_int_pag"></strong></div>
+                                            <hr class="my-1">
+                                            <div><span class="text-muted" style="display:inline-block; width:130px;">Capital Pendiente:</span> <strong class="text-primary" id="tf_cap_restante"></strong></div>
+                                            <div><span class="text-muted" style="display:inline-block; width:130px;">Interés Pendiente:</span> <strong class="text-danger" id="tf_int_restante"></strong></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
-            </div>
-
-            <div class="modal-footer">
-                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal Agregar Abono -->
-<div class="modal fade" id="modalAgregarAbono" tabindex="-1" style="z-index: 1060;">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form id="formAgregarAbono">
-                <div class="modal-header">
-                    <h5 class="modal-title">Registrar Abono</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- Modal Registrar Abono/Interés -->
+<div class="modal fade" id="modalAbonoAcreedor" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <form class="modal-content" id="formAbonoAcreedor">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Operación (Abono / Interés)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="abono_boleta_id">
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm align-middle" id="tblAbonosDynamic">
+                        <thead>
+                            <tr>
+                                <th style="min-width: 160px">Tipo de Operación</th>
+                                <th style="min-width: 120px">Monto</th>
+                                <th style="min-width: 140px">Fecha</th>
+                                <th style="min-width: 160px">Forma Pago</th>
+                                <th style="min-width: 180px">Observaciones</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dynamic rows -->
+                        </tbody>
+                    </table>
                 </div>
-                <div class="modal-body">
-                    <input type="hidden" id="abono_boleta_id">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Fecha</label>
-                            <input type="date" class="form-control" id="abono_fecha" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Abono Capital ($)</label>
-                            <input type="number" step="0.01" class="form-control" id="abono_monto" min="0" value="0" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">% Interés</label>
-                            <input type="number" step="0.01" class="form-control" id="abono_porcentaje_interes" min="0" value="0">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Recargo Calculado ($)</label>
-                            <input type="number" step="0.01" class="form-control bg-light" id="abono_recargo_calculado" readonly>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Monto Recargo ($)</label>
-                            <input type="number" step="0.01" class="form-control" id="abono_recargo" min="0" value="0">
-                        </div>
-                        <div class="col-md-12">
-                            <div class="d-flex justify-content-between p-2 border rounded bg-body-tertiary">
-                                <div><span class="text-muted small fw-bold">Resto Actual:</span> <strong id="lbl_abono_resto_actual" class="text-body">$0.00</strong></div>
-                                <div><span class="text-muted small fw-bold">Nuevo Resto:</span> <strong id="lbl_abono_nuevo_resto" class="text-danger">$0.00</strong></div>
-                            </div>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label fw-bold">Forma de Pago</label>
-                            <select class="form-select select2-abono" id="abono_payment_method_id" required></select>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label fw-bold">Concepto / Referencia</label>
-                            <input type="text" class="form-control" id="abono_concepto" required>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary" type="submit">Guardar</button>
-                </div>
-            </form>
-        </div>
+                <button type="button" class="btn btn-sm btn-outline-primary mt-1" id="btnAddAbonoRow">
+                    <i class="fa-solid fa-plus me-1"></i> Agregar Fila
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-primary" type="submit">Guardar Operaciones</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -267,311 +235,324 @@
 
 @push('scripts')
 <script>
-(() => {
-    const modal = new bootstrap.Modal(document.getElementById('modalPagoAcreedor'));
-    const modalDetalle = new bootstrap.Modal(document.getElementById('modalDetallePagoAcreedor'));
-    const modalAbono = new bootstrap.Modal(document.getElementById('modalAgregarAbono'));
-    const form = document.getElementById('formPagoAcreedor');
-    const formAbono = document.getElementById('formAgregarAbono');
+(function() {
+    let table;
+    const modalPago = new bootstrap.Modal(document.getElementById('modalPagoAcreedor'));
+    const modalDetalle = new bootstrap.Modal(document.getElementById('modalDetalleBoletaAcreedor'));
+    const modalAbono = new bootstrap.Modal(document.getElementById('modalAbonoAcreedor'));
+    
+    const formPago = document.getElementById('formPagoAcreedor');
+    const formAbono = document.getElementById('formAbonoAcreedor');
+    
+    let currentVoucherId = null;
+    let paymentMethods = [];
+    let rowCount = 0;
 
-    let table = null;
-    let optionsCache = null;
-    let currentBoletaResto = 0;
+    const fCurrency = v => '$ ' + parseFloat(v || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const fDate = d => {
+        if (!d) return '';
+        const parts = d.split(' ')[0].split('-');
+        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        return d;
+    };
 
-    const formatter = new Intl.NumberFormat('es-MX', {
-        style: 'currency',
-        currency: 'MXN'
-    });
-
-    function initSelect2() {
-        $('.select2-pp').select2({
-            theme: 'bootstrap4',
-            width: '100%',
-            dropdownParent: $('#modalPagoAcreedor')
-        });
-        $('.select2-abono').select2({
-            theme: 'bootstrap4',
-            width: '100%',
-            dropdownParent: $('#modalAgregarAbono')
-        });
-    }
-
-    function fillSelect(id, items) {
-        const el = document.getElementById(id);
-        el.innerHTML = '<option value="">Seleccione...</option>';
-        items.forEach(item => {
-            el.innerHTML += `<option value="${item.value}">${item.text}</option>`;
-        });
-        $(el).trigger('change');
-    }
-
-    async function loadOptions() {
-        if (optionsCache) return optionsCache;
+    async function initOptions() {
         const res = await fetch('/pagos-acreedores/options');
-        optionsCache = await res.json();
-
-        fillSelect('creditor_id', optionsCache.creditors);
-        fillSelect('abono_payment_method_id', optionsCache.payment_methods);
-
-        return optionsCache;
-    }
-
-    function resetForm() {
-        form.reset();
-        $('.select2-pp').val(null).trigger('change');
-        document.getElementById('fecha_inicio').value = new Date().toISOString().slice(0, 10);
-        document.getElementById('fecha_fin').value = '';
-    }
-
-    function autoCalcFechaFin() {
-        const fechaInStr = document.getElementById('fecha_inicio').value;
-        const plazoStr = document.getElementById('plazo').value;
+        const json = await res.json();
         
-        if (fechaInStr && plazoStr) {
-            const date = new Date(fechaInStr);
-            const months = parseInt(plazoStr, 10);
-            if (!isNaN(months)) {
-                // Sumar meses
-                date.setMonth(date.getMonth() + months);
-                document.getElementById('fecha_fin').value = date.toISOString().slice(0, 10);
-            }
-        }
+        const selCreditor = $('#creditor_id');
+        selCreditor.empty();
+        json.creditors.forEach(c => selCreditor.append(new Option(c.text, c.value)));
+        
+        paymentMethods = json.payment_methods || [];
     }
-
-    document.getElementById('fecha_inicio').addEventListener('change', autoCalcFechaFin);
-    document.getElementById('plazo').addEventListener('input', autoCalcFechaFin);
 
     function initTable() {
         table = $('#tblPagosAcreedores').DataTable({
-            ajax: { url: '/pagos-acreedores/datatable', dataSrc: 'data' },
+            processing: true,
+            serverSide: false,
+            ajax: '/pagos-acreedores/datatable',
             columns: [
-                { data: null, render: (_, __, ___, meta) => meta.row + 1 },
+                { data: 'id' },
                 { data: 'numero_referencia' },
                 { data: 'acreedor' },
-                { data: 'concepto', render: d => d || '-' },
-                { data: 'capital', render: d => formatter.format(d) },
-                { data: 'importe', render: d => formatter.format(d) },
-                { data: 'abonos', render: d => formatter.format(d) },
-                { data: 'resto', render: d => `<span class="text-danger fw-bold">${formatter.format(d)}</span>` },
-                { data: 'plazo', render: d => d + ' meses' },
+                { data: 'concepto' },
+                { data: 'importe', render: v => `<span class="fw-bold">${fCurrency(v)}</span>` },
+                { data: 'enganche', render: v => `<span class="text-muted">${fCurrency(v)}</span>` },
+                { data: 'total_pagado', render: v => `<span class="text-success">${fCurrency(v)}</span>` },
+                { data: 'saldo_pendiente', render: v => `<span class="text-danger fw-bold">${fCurrency(v)}</span>` },
+                { data: 'estado_pago_badge' },
                 { data: 'acciones', orderable: false, searchable: false }
             ],
-            pageLength: 10,
-            order: [],
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' }
+            order: [[0, 'desc']],
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' }
         });
     }
-
-    function autoCalcInteres() {
-        const capitalStr = document.getElementById('capital').value;
-        const porcentajeStr = document.getElementById('porcentaje_interes').value;
-        
-        let capital = parseFloat(capitalStr) || 0;
-        let porcentaje = parseFloat(porcentajeStr) || 0;
-        
-        let montoInteres = capital * (porcentaje / 100);
-        let importe = capital + montoInteres;
-        
-        document.getElementById('monto_interes').value = montoInteres.toFixed(2);
-        document.getElementById('importe').value = importe.toFixed(2);
-    }
     
-    document.getElementById('capital').addEventListener('input', autoCalcInteres);
-    document.getElementById('porcentaje_interes').addEventListener('input', autoCalcInteres);
+    // No mensualidad calculation needed
 
-    async function openNew() {
-        await loadOptions();
-        resetForm();
-        modal.show();
-    }
+    document.getElementById('btnNuevoPagoAcreedor').addEventListener('click', () => {
+        formPago.reset();
+        $('#creditor_id').val(null).trigger('change');
+        modalPago.show();
+    });
 
-    async function saveBoleta(e) {
+    formPago.addEventListener('submit', async e => {
         e.preventDefault();
-
-        const payload = {
-            creditor_id: document.getElementById('creditor_id').value,
-            concepto: document.getElementById('concepto').value,
-            plazo: document.getElementById('plazo').value,
-            fecha_inicio: document.getElementById('fecha_inicio').value,
-            capital: document.getElementById('capital').value,
-            porcentaje_interes: document.getElementById('porcentaje_interes').value,
-            observacion: document.getElementById('observacion').value
-        };
-
+        const payload = Object.fromEntries(new FormData(formPago));
+        
         try {
             const res = await fetch('/pagos-acreedores', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify(payload)
             });
-
             const json = await res.json();
-            if (!res.ok) throw new Error(json.message || 'No se pudo guardar');
-
-            modal.hide();
+            if(!res.ok) throw new Error(json.message || 'Error guardando');
+            
+            modalPago.hide();
             table.ajax.reload(null, false);
-
-            Swal.fire({
-                icon: 'success',
-                title: 'Correcto',
-                text: json.message,
-                timer: 1600,
-                showConfirmButton: false
-            });
-        } catch (err) {
-            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            Swal.fire({ icon: 'success', title: 'Boleta Registrada', showConfirmButton: false, timer: 1500 });
+        } catch(err) {
+            Swal.fire('Error', err.message, 'error');
         }
-    }
-
-    async function viewItem(id) {
-        const res = await fetch(`/pagos-acreedores/${id}`);
-        const json = await res.json();
-
-        const d = json.data;
-        document.getElementById('abono_boleta_id').value = id; // Para el modal de abonos
-        document.getElementById('btnImprimirBoletaAcreedor').href = `/pagos-acreedores/${id}/pdf/boleta`;
-        currentBoletaResto = parseFloat(d.resto || 0);
-
-        document.getElementById('dpp_ref').innerText = d.numero_referencia || '-';
-        document.getElementById('dpp_estado').innerHTML = `<span class="badge bg-primary">${d.estado}</span>`;
-        document.getElementById('dpp_acreedor').innerText = d.acreedor || '-';
-        document.getElementById('dpp_concepto').innerText = d.concepto || '-';
-        document.getElementById('dpp_fecha_inicio').innerText = d.fecha_inicio || '-';
-        document.getElementById('dpp_fecha_fin').innerText = d.fecha_fin || '-';
-        document.getElementById('dpp_plazo').innerText = d.plazo || '0';
-
-        document.getElementById('dpp_capital').innerText = formatter.format(d.capital || 0);
-        document.getElementById('dpp_porcentaje_interes').innerText = (d.porcentaje_interes || 0) + '%';
-        document.getElementById('dpp_monto_interes').innerText = formatter.format(d.monto_interes || 0);
-        document.getElementById('dpp_importe').innerText = formatter.format(d.importe || 0);
-        
-        let pagoMensual = parseFloat(d.importe || 0) / parseInt(d.plazo || 1);
-        document.getElementById('dpp_pago_mensual').innerText = formatter.format(pagoMensual);
-        
-        document.getElementById('dpp_abonos').innerText = formatter.format(d.abonos || 0);
-        document.getElementById('dpp_resto').innerText = formatter.format(d.resto || 0);
-
-        const tbody = document.getElementById('dppItemsBody');
-        tbody.innerHTML = '';
-
-        let saldoVariable = parseFloat(d.importe || 0);
-
-        if (!(d.items && d.items.length)) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No hay abonos registrados</td></tr>`;
-        } else {
-            d.items.forEach((item, index) => {
-                const montoAbono = parseFloat(item.importe || 0);
-                const recargoReal = parseFloat(item.recargo || 0);
-                
-                let textMonto = formatter.format(montoAbono);
-                let textRecargo = recargoReal > 0 ? formatter.format(recargoReal) : '';
-                
-                saldoVariable -= montoAbono;
-                
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td>${item.fecha ?? '-'}</td>
-                        <td class="fw-bold">${textMonto}</td>
-                        <td class="text-primary fw-bold">${formatter.format(Math.max(0, saldoVariable))}</td>
-                        <td class="text-danger fw-bold">${textRecargo}</td>
-                        <td></td>
-                        <td>${item.concepto ?? ''}</td>
-                        <td>
-                            <a href="/pagos-acreedores/${id}/pdf/recibo/${item.id}" target="_blank" class="btn btn-sm btn-outline-danger" title="Imprimir Recibo">
-                                <i class="fa-solid fa-file-pdf"></i>
-                            </a>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        modalDetalle.show();
-    }
-
-    document.getElementById('btnNuevoPagoAcreedor').addEventListener('click', openNew);
-    form.addEventListener('submit', saveBoleta);
-
-    $('#tblPagosAcreedores').on('click', '.btn-view', function () {
-        viewItem(this.dataset.id);
     });
 
-    document.getElementById('btnAgregarAbono').addEventListener('click', async () => {
-        await loadOptions();
-        formAbono.reset();
-        document.getElementById('abono_fecha').value = new Date().toISOString().slice(0, 10);
-        $('.select2-abono').val(null).trigger('change');
-        
-        // Reset labels
-        document.getElementById('lbl_abono_resto_actual').innerText = formatter.format(currentBoletaResto);
-        document.getElementById('lbl_abono_nuevo_resto').innerText = formatter.format(currentBoletaResto);
-        
+    $('#tblPagosAcreedores').on('click', '.btn-view', function() {
+        viewDetails(this.dataset.id);
+    });
+
+    async function viewDetails(id) {
+        currentVoucherId = id;
+        try {
+            const res = await fetch(`/pagos-acreedores/${id}`);
+            const json = await res.json();
+            if(!res.ok) throw new Error();
+            const d = json.data;
+            
+            document.getElementById('abono_boleta_id').value = id;
+            document.getElementById('btnImprimirBoletaAcreedor').href = `/pagos-acreedores/${id}/pdf/boleta`;
+            
+            document.getElementById('dpp_ref').innerText = d.numero_referencia;
+            document.getElementById('dpp_acreedor_nombre').innerText = d.acreedor;
+            
+            let badgeClass = 'bg-secondary';
+            if(d.estado_pago === 'VIGENTE') badgeClass = 'bg-success';
+            if(d.estado_pago === 'PAGADO') badgeClass = 'bg-primary';
+            
+            document.getElementById('dpp_estado_badge').innerHTML = `<span class="badge ${badgeClass} ms-2 fs-6">${d.estado_pago}</span>`;
+            
+            document.getElementById('dpp_total').innerText = fCurrency(d.total);
+            document.getElementById('dpp_enganche').innerText = fCurrency(d.enganche);
+            document.getElementById('dpp_pagado').innerText = fCurrency(d.total_pagado);
+            document.getElementById('dpp_pendiente').innerText = fCurrency(d.saldo_pendiente);
+            
+            document.getElementById('prog_int_acum').innerText = fCurrency(d.interes_acumulado);
+            document.getElementById('prog_int_pag').innerText = fCurrency(d.interes_pagado);
+            document.getElementById('prog_int_pend').innerText = fCurrency(d.interes_pendiente);
+            
+            // Populate tfoot totals
+            document.getElementById('tf_cap_pagado').innerText = fCurrency(d.total_pagado);
+            document.getElementById('tf_int_gen').innerText = fCurrency(d.interes_acumulado);
+            document.getElementById('tf_int_pag').innerText = fCurrency(d.interes_pagado);
+            document.getElementById('tf_cap_restante').innerText = fCurrency(d.saldo_pendiente);
+            document.getElementById('tf_int_restante').innerText = fCurrency(d.interes_pendiente);
+            
+            const tbody = document.getElementById('dppItemsBody');
+            tbody.innerHTML = '';
+            
+            let allItems = [];
+            (d.items || []).forEach(i => {
+                let rec = '';
+                if(i.id) rec = `<a href="/pagos-acreedores/${id}/pdf/recibo/${i.id}" target="_blank" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-file-pdf"></i></a>`;
+                
+                if (parseFloat(i.importe) > 0) {
+                    allItems.push({ fecha: i.fecha, html: `
+                        <tr>
+                            <td>-</td>
+                            <td>${fDate(i.fecha)}</td>
+                            <td><span class="badge bg-success">Abono Capital</span></td>
+                            <td class="fw-bold text-success">${fCurrency(i.importe)}</td>
+                            <td>${i.concepto || ''}</td>
+                            <td>${i.usuario_registro || '-'}</td>
+                            <td>${rec}</td>
+                        </tr>
+                    `});
+                }
+                if (parseFloat(i.interes_pagado) > 0) {
+                    allItems.push({ fecha: i.fecha, html: `
+                        <tr>
+                            <td>-</td>
+                            <td>${fDate(i.fecha)}</td>
+                            <td><span class="badge bg-warning text-dark">Pago Interés</span></td>
+                            <td class="fw-bold text-warning">${fCurrency(i.interes_pagado)}</td>
+                            <td>${i.concepto || ''}</td>
+                            <td>${i.usuario_registro || '-'}</td>
+                            <td>${rec}</td>
+                        </tr>
+                    `});
+                }
+            });
+            
+            (d.interests || []).forEach(i => {
+                allItems.push({ fecha: i.created_at, html: `
+                    <tr>
+                        <td>-</td>
+                        <td>${fDate(i.created_at)}</td>
+                        <td><span class="badge bg-danger">Cargo Interés</span></td>
+                        <td class="fw-bold text-danger">${fCurrency(i.cantidad)}</td>
+                        <td>Generación Automática / Manual</td>
+                        <td>-</td>
+                        <td></td>
+                    </tr>
+                `});
+            });
+            
+            allItems.sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+            
+            if(allItems.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay movimientos.</td></tr>';
+            } else {
+                allItems.forEach((itm, idx) => {
+                    let html = itm.html.replace('<td>-</td>', `<td>${idx+1}</td>`);
+                    tbody.innerHTML += html;
+                });
+            }
+            
+            modalDetalle.show();
+        } catch(err) {
+            Swal.fire('Error', 'No se pudo cargar la boleta', 'error');
+        }
+    }
+
+    // Modal de Abonos y Generación de Interés
+    document.getElementById('btnAgregarAbono').addEventListener('click', () => {
+        document.querySelector('#tblAbonosDynamic tbody').innerHTML = '';
+        addAbonoRow();
         modalAbono.show();
     });
 
-    document.getElementById('abono_monto').addEventListener('input', function() {
-        const monto = parseFloat(this.value || 0);
-        const nuevoResto = Math.max(0, currentBoletaResto - monto);
-        document.getElementById('lbl_abono_nuevo_resto').innerText = formatter.format(nuevoResto);
-    });
+    document.getElementById('btnAddAbonoRow').addEventListener('click', addAbonoRow);
 
-    document.getElementById('abono_porcentaje_interes').addEventListener('input', function() {
-        const porcentaje = parseFloat(this.value || 0);
-        const calculado = currentBoletaResto * (porcentaje / 100);
-        document.getElementById('abono_recargo_calculado').value = calculado.toFixed(2);
-        document.getElementById('abono_recargo').value = calculado.toFixed(2);
-    });
+    function addAbonoRow() {
+        rowCount++;
+        const tbody = document.querySelector('#tblAbonosDynamic tbody');
+        
+        let pmOptions = '<option value="">(Ninguna)</option>';
+        paymentMethods.forEach(pm => {
+            pmOptions += `<option value="${pm.value}">${pm.text}</option>`;
+        });
 
-    formAbono.addEventListener('submit', async function(e) {
+        const today = new Date().toISOString().slice(0, 10);
+        
+        const tr = document.createElement('tr');
+        tr.id = `row_abono_${rowCount}`;
+        tr.innerHTML = `
+            <td>
+                <select class="form-select form-select-sm" name="items[${rowCount}][tipo]" onchange="toggleAbonoRow(${rowCount}, this)">
+                    <option value="abono_capital">Abono a Capital</option>
+                    <option value="pago_interes">Pago de Interés</option>
+                    <option value="generar_interes">Generar Cargo por Interés</option>
+                </select>
+            </td>
+            <td>
+                <input type="number" step="0.01" class="form-control form-control-sm" name="items[${rowCount}][monto]" min="0.01" required>
+            </td>
+            <td>
+                <input type="date" class="form-control form-control-sm" name="items[${rowCount}][fecha_recibido]" value="${today}" required>
+            </td>
+            <td>
+                <select class="form-select form-select-sm row-pm" name="items[${rowCount}][payment_method_id]">
+                    ${pmOptions}
+                </select>
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm" name="items[${rowCount}][observaciones]" placeholder="Opcional">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    }
+    
+    window.toggleAbonoRow = function(id, sel) {
+        const tr = document.getElementById(`row_abono_${id}`);
+        const pmSel = tr.querySelector('.row-pm');
+        if (sel.value === 'generar_interes') {
+            pmSel.disabled = true;
+            pmSel.value = '';
+        } else {
+            pmSel.disabled = false;
+        }
+    };
+
+    formAbono.addEventListener('submit', async e => {
         e.preventDefault();
-        const boletaId = document.getElementById('abono_boleta_id').value;
+        const rows = document.querySelectorAll('#tblAbonosDynamic tbody tr');
+        if (rows.length === 0) {
+            Swal.fire('Atención', 'Debes agregar al menos una operación.', 'warning');
+            return;
+        }
+
+        const fd = new FormData(formAbono);
         const payload = {
-            fecha: document.getElementById('abono_fecha').value,
-            monto: document.getElementById('abono_monto').value,
-            porcentaje_interes: document.getElementById('abono_porcentaje_interes').value,
-            recargo: document.getElementById('abono_recargo').value,
-            payment_method_id: document.getElementById('abono_payment_method_id').value,
-            concepto: document.getElementById('abono_concepto').value
+            creditor_payment_id: document.getElementById('abono_boleta_id').value,
+            items: []
         };
+        
+        // Parse Form Data arrays
+        const obj = Object.fromEntries(fd);
+        for(let key in obj) {
+            const match = key.match(/^items\[(\d+)\]\[(.+)\]$/);
+            if (match) {
+                const idx = match[1];
+                const prop = match[2];
+                let item = payload.items.find(i => i._idx === idx);
+                if (!item) {
+                    item = { _idx: idx };
+                    payload.items.push(item);
+                }
+                item[prop] = obj[key];
+            }
+        }
 
         try {
-            const res = await fetch(`/pagos-acreedores/${boletaId}/abono`, {
+            const res = await fetch(`/pagos-acreedores/${payload.creditor_payment_id}/abono`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify(payload)
             });
-
             const json = await res.json();
-            if (!res.ok) throw new Error(json.message || 'Error al guardar abono');
-
+            if(!res.ok) throw new Error(json.message || 'Error al procesar.');
+            
             modalAbono.hide();
-            Swal.fire({
-                icon: 'success',
-                title: 'Abono registrado',
-                timer: 1500,
-                showConfirmButton: false
-            });
-
-            // Refrescar vistas
+            Swal.fire({ icon: 'success', title: 'Éxito', text: json.message, timer: 1500, showConfirmButton: false });
+            
             table.ajax.reload(null, false);
-            viewItem(boletaId); // recargar detalle
-
+            viewDetails(payload.creditor_payment_id);
+            
         } catch(err) {
-            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            Swal.fire('Error', err.message, 'error');
         }
     });
 
-    initSelect2();
-    initTable();
+    $(document).ready(() => {
+        $('.select2-pp').select2({ dropdownParent: $('#modalPagoAcreedor'), width: '100%' });
+        initOptions();
+        initTable();
+    });
+
 })();
 </script>
 @endpush

@@ -15,7 +15,7 @@
 
 <div class="page-card">
     <div class="table-responsive">
-        <table class="table table-bordered align-middle w-100" id="tblPagosProveedores">
+        <table class="table table-bordered align-middle text-nowrap w-100" id="tblPagosProveedores">
             <thead>
                 <tr>
                     <th>#</th>
@@ -25,6 +25,7 @@
                     <th>Motivo</th>
                     <th>Observación</th>
                     <th>Total</th>
+                    <th>Enganche</th>
                     <th>Meses</th>
                     <th>Mensualidad</th>
                     <th>Pagado</th>
@@ -277,6 +278,7 @@
                 }},
                 { data: 'observacion', title: 'Observación' },
                 { data: 'total', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
+                { data: 'enganche', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
                 { data: 'meses', className: 'text-end' },
                 { data: 'mensualidad', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },
                 { data: 'total_pagado', className: 'text-end', render: (data, type) => type === 'display' ? fCurrency(data) : data },

@@ -15,10 +15,12 @@ class ShareMenu
         $user = Session::get('auth_user');
 
         if ($user) {
-            $menu = $this->buildMenu((int) $user['id'], (int) $user['role_id']);
-            view()->share('dynamicMenu', $menu);
+            $menuData = $this->buildMenu((int) $user['id'], (int) $user['role_id']);
+            view()->share('dynamicMenu', $menuData['tree']);
+            view()->share('userPermissions', $menuData['permissions']);
         } else {
             view()->share('dynamicMenu', []);
+            view()->share('userPermissions', []);
         }
 
         return $next($request);
@@ -34,7 +36,8 @@ class ShareMenu
                 m.ruta,
                 m.icono,
                 m.parent_id,
-                m.orden
+                m.orden,
+                m.es_menu
             FROM menus m
             INNER JOIN statuses s ON s.id = m.status_id
             INNER JOIN processes p ON p.id = s.process_id
@@ -60,6 +63,7 @@ class ShareMenu
         ", [$roleId, $userId]);
 
         $items = collect($rows)->map(fn ($r) => (array) $r)->keyBy('id')->toArray();
+        $permissions = array_column($items, 'clave');
 
         $tree = [];
         foreach ($items as $id => &$item) {
@@ -67,6 +71,9 @@ class ShareMenu
         }
 
         foreach ($items as $id => &$item) {
+            if (!$item['es_menu']) {
+                continue;
+            }
             if (!empty($item['parent_id']) && isset($items[$item['parent_id']])) {
                 $items[$item['parent_id']]['children'][] = &$item;
             } else {
@@ -74,6 +81,9 @@ class ShareMenu
             }
         }
 
-        return $tree;
+        return [
+            'tree' => $tree,
+            'permissions' => $permissions
+        ];
     }
 }

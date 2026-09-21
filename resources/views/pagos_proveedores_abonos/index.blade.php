@@ -210,7 +210,12 @@
                         </button>
                     </li>
                 `;
-                const historicoHtml = (p.items || []).map((item, idx) => `
+                let totalAbonado = 0;
+                let totalInteres = 0;
+                const historicoHtml = (p.items || []).map((item, idx) => {
+                    totalAbonado += parseFloat(item.cantidad || 0);
+                    totalInteres += parseFloat(item.interes_pagado || 0);
+                    return `
                     <tr>
                         <td>${idx + 1}</td>
                         <td>${fDate(item.fecha_pago_programada)}</td>
@@ -226,7 +231,8 @@
                             </a>
                         </td>
                     </tr>
-                `).join('');
+                    `;
+                }).join('');
                 
                 let schedulesHtml = '<tr><td colspan="6" class="text-muted">No hay calendario de pagos generado.</td></tr>';
                 if (p.schedules && p.schedules.length > 0) {
@@ -345,6 +351,14 @@
                                         </tr>
                                     </thead>
                                     <tbody>${historicoHtml}</tbody>
+                                    <tfoot>
+                                        <tr class="table-light fw-bold">
+                                            <td colspan="4" class="text-end">TOTALES:</td>
+                                            <td class="text-success">${fCurrency(totalAbonado)}</td>
+                                            <td class="text-danger">${fCurrency(totalInteres)}</td>
+                                            <td colspan="3" class="text-primary text-center">Falta por pagar: Cap. ${fCurrency(prog.saldo_pendiente || 0)} | Int. ${fCurrency(prog.interes_pendiente || 0)}</td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                         </div>

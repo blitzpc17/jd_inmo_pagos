@@ -93,7 +93,27 @@
             plugins: ['checkbox', 'wholerow', 'dnd', 'types'],
             checkbox: {
                 keep_selected_style: false,
-                three_state: true
+                three_state: false
+            }
+        });
+
+        // Eventos para comportamiento "inteligente" (cascada hacia abajo y arriba, pero permitiendo padres marcados sin hijos)
+        $(selector).on('check_node.jstree', function (e, data) {
+            // Si marcamos un nodo, asegurar que los padres estén marcados
+            if (data.node.parents.length > 0) {
+                const parents = data.node.parents.filter(p => p !== '#');
+                data.instance.check_node(parents);
+            }
+            // Y asegurar que los hijos se marquen por defecto (para facilitar la carga)
+            if (data.node.children_d && data.node.children_d.length > 0) {
+                data.instance.check_node(data.node.children_d);
+            }
+        });
+
+        $(selector).on('uncheck_node.jstree', function (e, data) {
+            // Si desmarcamos un padre, se desmarcan automáticamente sus hijos
+            if (data.node.children_d && data.node.children_d.length > 0) {
+                data.instance.uncheck_node(data.node.children_d);
             }
         });
     }
@@ -121,7 +141,7 @@
             return;
         }
 
-        const selected = $('#roleTree').jstree(true).get_checked();
+        const selected = $('#roleTree').jstree(true).get_checked(false, true);
 
         const res = await fetch(`/permisos/roles/${roleId}/save`, {
             method: 'POST',
@@ -149,7 +169,7 @@
             return;
         }
 
-        const selected = $('#userTree').jstree(true).get_checked();
+        const selected = $('#userTree').jstree(true).get_checked(false, true);
 
         const res = await fetch(`/permisos/usuarios/${userId}/save`, {
             method: 'POST',

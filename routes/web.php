@@ -375,7 +375,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::get('/options', [CreditorPaymentController::class, 'options'])->name('options');
         Route::post('/', [CreditorPaymentController::class, 'store'])->name('store');
         Route::get('/{id}', [CreditorPaymentController::class, 'show'])->name('show');
-        Route::post('/{id}/abono', [CreditorPaymentController::class, 'addAbono'])->name('add_abono');
+        Route::post('/{id}/abono', [CreditorPaymentController::class, 'storeAbonoInteres'])->name('add_abono');
         Route::get('/{id}/pdf/boleta', [CreditorPaymentController::class, 'pdfBoleta'])->name('pdf.boleta');
         Route::get('/{id}/pdf/recibo/{abonoId}', [CreditorPaymentController::class, 'pdfRecibo'])->name('pdf.recibo');
     });

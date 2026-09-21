@@ -136,7 +136,7 @@
 <div class="page-card mb-3">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div>
-            <h3 class="fw-bold mb-1">Cobros</h3>
+            <h3 class="fw-bold mb-1">Cobranza</h3>
             <div class="text-muted">
                 Cobranza automática por mensualidad, parcialidades, atrasos, recargos, adelantos y liquidación.
             </div>
@@ -206,6 +206,7 @@
         <div id="conceptList"></div>
     </div>
 
+    @if(in_array('charges_create_permission', $userPermissions ?? []))
     <div class="charge-card">
         <h5 class="charge-title mb-3">Registrar pago</h5>
 
@@ -253,6 +254,7 @@
             </div>
         </form>
     </div>
+    @endif
 
     <div class="charge-card">
         <h5 class="charge-title mb-3">Calendario de pagos</h5>

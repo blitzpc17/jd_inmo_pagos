@@ -485,12 +485,24 @@
             border-radius: 6px;
             transition: all 0.2s;
         }
-        .jstree-default .jstree-hovered {
+        .jstree-default .jstree-hovered:not(.jstree-disabled) {
             background: var(--hover-bg);
         }
-        .jstree-default .jstree-clicked {
-            background: var(--primary);
-            color: #fff;
+        .jstree-default .jstree-clicked:not(.jstree-disabled) {
+            background: rgba(59, 130, 246, 0.08);
+            color: var(--primary);
+            font-weight: 600;
+            box-shadow: inset 3px 0 0 var(--primary);
+        }
+        [data-bs-theme="dark"] .jstree-default .jstree-clicked:not(.jstree-disabled) {
+            background: linear-gradient(90deg, rgba(56,189,248,0.1), transparent);
+            color: #38bdf8;
+            box-shadow: inset 3px 0 0 #38bdf8;
+        }
+        .jstree-default .jstree-disabled {
+            color: var(--muted) !important;
+            opacity: 0.7;
+            background: transparent !important;
         }
 
         .drawer-footer {
