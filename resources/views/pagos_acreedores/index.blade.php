@@ -31,6 +31,16 @@
                     <th>Acciones</th>
                 </tr>
             </thead>
+            <tfoot>
+                <tr>
+                    <th colspan="4" class="text-end">Totales:</th>
+                    <th class="text-start"></th>
+                    <th class="text-start"></th>
+                    <th class="text-start"></th>
+                    <th class="text-start"></th>
+                    <th colspan="2"></th>
+                </tr>
+            </tfoot>
         </table>
     </div>
 </div>
@@ -285,7 +295,18 @@
                 { data: 'acciones', orderable: false, searchable: false }
             ],
             order: [[0, 'desc']],
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' }
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            footerCallback: function (row, data, start, end, display) {
+                let api = this.api();
+                let intVal = function (i) {
+                    return typeof i === 'string' ? i.replace(/[\$,]/g, '') * 1 : typeof i === 'number' ? i : 0;
+                };
+                
+                [4, 5, 6, 7].forEach(function(colIndex) {
+                    let total = api.column(colIndex, { search: 'applied' }).data().reduce((a, b) => intVal(a) + intVal(b), 0);
+                    $(api.column(colIndex).footer()).html(fCurrency(total));
+                });
+            }
         });
     }
     

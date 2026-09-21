@@ -34,6 +34,18 @@
                     <th>Acciones</th>
                 </tr>
             </thead>
+            <tfoot>
+                <tr>
+                    <th colspan="6" class="text-end">Totales:</th>
+                    <th class="text-end"></th>
+                    <th class="text-end"></th>
+                    <th></th>
+                    <th class="text-end"></th>
+                    <th class="text-end"></th>
+                    <th class="text-end"></th>
+                    <th colspan="2"></th>
+                </tr>
+            </tfoot>
         </table>
     </div>
 </div>
@@ -299,6 +311,17 @@
                 search: "Buscar:",
                 loadingRecords: "Cargando...",
                 paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" }
+            },
+            footerCallback: function (row, data, start, end, display) {
+                let api = this.api();
+                let intVal = function (i) {
+                    return typeof i === 'string' ? i.replace(/[\$,]/g, '') * 1 : typeof i === 'number' ? i : 0;
+                };
+                
+                [6, 7, 9, 10, 11].forEach(function(colIndex) {
+                    let total = api.column(colIndex, { search: 'applied' }).data().reduce((a, b) => intVal(a) + intVal(b), 0);
+                    $(api.column(colIndex).footer()).html(fCurrency(total));
+                });
             }
         });
     }
