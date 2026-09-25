@@ -16,11 +16,19 @@ class SupplierVoucherController extends Controller
 
     public function datatable()
     {
+        $userOffices = DB::table('office_user')
+            ->where('user_id', session('auth_user.id'))
+            ->pluck('office_id')
+            ->toArray();
+
         $rows = DB::table('supplier_vouchers as cv')
             ->join('suppliers as s', 's.id', '=', 'cv.supplier_id')
             ->leftJoin('developments as d', 'd.id', '=', 'cv.development_id')
             ->join('statuses as st', 'st.id', '=', 'cv.status_id')
             ->whereNull('cv.fecha_baja')
+            ->when(session('auth_user.role_id') !== 1, function($q) use ($userOffices) {
+                $q->whereIn('cv.office_id', $userOffices);
+            })
             ->select([
                 'cv.id',
                 'cv.numero_referencia',
@@ -105,9 +113,26 @@ class SupplierVoucherController extends Controller
                 'nombre as text',
             ]);
 
+        $userOffices = DB::table('office_user')->where('user_id', session('auth_user.id'))->pluck('office_id')->toArray();
+        $offices = DB::table('offices as o')
+            ->join('statuses as st', 'st.id', '=', 'o.status_id')
+            ->join('processes as p', 'p.id', '=', 'st.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('st.clave', 'ACTIVE')
+            ->whereNull('o.fecha_baja')
+            ->when(session('auth_user.role_id') !== 1, function($q) use ($userOffices) {
+                $q->whereIn('o.id', $userOffices);
+            })
+            ->orderBy('o.nombre')
+            ->get([
+                'o.id as value',
+                'o.nombre as text',
+            ]);
+
         return response()->json([
             'suppliers' => $suppliers,
             'developments' => $developments,
+            'offices' => $offices,
         ]);
     }
 
@@ -116,6 +141,7 @@ class SupplierVoucherController extends Controller
         $data = Validator::make($request->all(), [
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
             'development_id' => ['required', 'integer', 'exists:developments,id'],
+            'office_id' => ['required', 'integer', 'exists:offices,id'],
             'total' => ['required', 'numeric', 'min:0.01'],
             'enganche' => ['required', 'numeric', 'min:0'],
             'num_socios' => ['required', 'integer', 'min:1'],
@@ -130,6 +156,7 @@ class SupplierVoucherController extends Controller
             'partner_enganches' => ['nullable', 'array'],
             'partner_enganches.*' => ['numeric', 'min:0'],
             'titular_index' => ['nullable', 'integer', 'min:0'],
+            'office_id' => ['required', 'integer', 'exists:offices,id'],
         ])->validate();
 
         $statusId = $this->getActiveStatusId();
@@ -179,6 +206,7 @@ class SupplierVoucherController extends Controller
                 'numero_referencia' => '',
                 'supplier_id' => $data['supplier_id'],
                 'development_id' => $data['development_id'],
+                'office_id' => $data['office_id'],
                 'total' => $total,
                 'enganche' => $enganche,
                 'num_socios' => $numSocios,

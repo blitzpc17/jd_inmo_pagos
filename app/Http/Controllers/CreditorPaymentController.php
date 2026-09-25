@@ -17,10 +17,15 @@ class CreditorPaymentController extends Controller
 
     public function datatable()
     {
+        $userOffices = DB::table('office_user')->where('user_id', session('auth_user.id'))->pluck('office_id')->toArray();
+
         $rows = DB::table('creditor_payments as sp')
             ->join('creditors as c', 'c.id', '=', 'sp.creditor_id')
             ->join('statuses as st', 'st.id', '=', 'sp.status_id')
             ->whereNull('sp.fecha_baja')
+            ->when(session('auth_user.role_id') !== 1, function($q) use ($userOffices) {
+                $q->whereIn('sp.office_id', $userOffices);
+            })
             ->select([
                 'sp.id',
                 'sp.numero_referencia',
@@ -89,9 +94,26 @@ class CreditorPaymentController extends Controller
                 'nombre as text',
             ]);
 
+        $userOffices = DB::table('office_user')->where('user_id', session('auth_user.id'))->pluck('office_id')->toArray();
+        $offices = DB::table('offices as o')
+            ->join('statuses as st', 'st.id', '=', 'o.status_id')
+            ->join('processes as p', 'p.id', '=', 'st.process_id')
+            ->where('p.clave', 'GENERAL')
+            ->where('st.clave', 'ACTIVE')
+            ->whereNull('o.fecha_baja')
+            ->when(session('auth_user.role_id') !== 1, function($q) use ($userOffices) {
+                $q->whereIn('o.id', $userOffices);
+            })
+            ->orderBy('o.nombre')
+            ->get([
+                'o.id as value',
+                'o.nombre as text',
+            ]);
+
         return response()->json([
             'creditors' => $suppliers,
             'payment_methods' => $paymentMethods,
+            'offices' => $offices,
         ]);
     }
 
@@ -99,6 +121,7 @@ class CreditorPaymentController extends Controller
     {
         $data = Validator::make($request->all(), [
             'creditor_id' => ['required', 'integer', 'exists:creditors,id'],
+            'office_id' => ['required', 'integer', 'exists:offices,id'],
             'fecha_inicio' => ['required', 'date'],
             'total' => ['required', 'numeric', 'min:0'],
             'enganche' => ['required', 'numeric', 'min:0'],
@@ -117,6 +140,7 @@ class CreditorPaymentController extends Controller
             $paymentId = DB::table('creditor_payments')->insertGetId([
                 'numero_referencia' => '',
                 'creditor_id' => $data['creditor_id'],
+                'office_id' => $data['office_id'],
                 'concepto' => $data['concepto'] ?? null,
                 'fecha_inicio' => $data['fecha_inicio'],
                 'fecha_fin' => $data['fecha_inicio'], // without months, end date is basically start date or null

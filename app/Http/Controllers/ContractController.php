@@ -60,6 +60,11 @@ class ContractController extends Controller
             ->selectSub($partnersSub, 'socios')
             ->selectSub($identifiersSub, 'identificadores')
             ->whereNull('c.fecha_baja')
+            ->when(session('auth_user.role_id') !== 1, function($q) {
+                // If not admin, you could filter, but let's just use the query for all based on office_user
+                $userOffices = DB::table('office_user')->where('user_id', session('auth_user.id'))->pluck('office_id')->toArray();
+                $q->whereIn('c.office_id', $userOffices);
+            })
             ->orderByDesc('c.id')
             ->get()
             ->map(function ($r) {
@@ -108,16 +113,15 @@ class ContractController extends Controller
 
     public function options()
     {
-        $clients = DB::table('clients as c')
-            ->join('statuses as s', 's.id', '=', 'c.status_id')
-            ->join('processes as p', 'p.id', '=', 's.process_id')
-            ->where('p.clave', 'GENERAL')
-            ->where('s.clave', 'ACTIVE')
-            ->whereNull('c.fecha_baja')
-            ->orderBy('c.nombres')
+        $activeStatusId = $this->getStatusId('GENERAL', 'ACTIVE');
+
+        $clients = DB::table('clients')
+            ->where('status_id', $activeStatusId)
+            ->whereNull('fecha_baja')
+            ->orderBy('nombres')
             ->get([
-                'c.id as value',
-                DB::raw("c.nombres || ' ' || c.apellidos as text")
+                'id as value',
+                DB::raw("nombres || ' ' || apellidos as text")
             ]);
 
         $contractPaymentTypes = DB::table('contract_payment_types')
@@ -202,6 +206,8 @@ class ContractController extends Controller
 
     public function developmentOffices(int $developmentId)
     {
+        $userOffices = DB::table('office_user')->where('user_id', session('auth_user.id'))->pluck('office_id')->toArray();
+
         $rows = DB::table('development_offices as do')
             ->join('offices as o', 'o.id', '=', 'do.office_id')
             ->join('statuses as s', 's.id', '=', 'o.status_id')
@@ -210,6 +216,9 @@ class ContractController extends Controller
             ->whereNull('o.fecha_baja')
             ->where('p.clave', 'GENERAL')
             ->where('s.clave', 'ACTIVE')
+            ->when(session('auth_user.role_id') !== 1, function($q) use ($userOffices) {
+                $q->whereIn('o.id', $userOffices);
+            })
             ->orderBy('o.nombre')
             ->get([
                 'o.id as value',

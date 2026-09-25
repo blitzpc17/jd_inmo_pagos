@@ -825,10 +825,16 @@
             return;
         }
 
+        const officeId = $('#office_receives_charge_id').val();
+        if (!officeId) {
+            Swal.fire('Aviso', 'Por favor selecciona la oficina que recibe el cobro.', 'warning');
+            return;
+        }
+
         const payload = {
             monto: $('#monto').val(),
             payment_method_id: $('#payment_method_id').val(),
-            office_receives_charge_id: $('#office_receives_charge_id').val(),
+            office_receives_charge_id: officeId,
             observacion: $('#observacion').val(),
             fecha_cobro: $('#fecha_cobro').val(),
             waive_late_fee: $('#waive_late_fee').is(':checked') ? 1 : 0

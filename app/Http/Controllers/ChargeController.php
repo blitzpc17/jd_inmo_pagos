@@ -47,12 +47,17 @@ class ChargeController extends Controller
 
     public function clientContracts(int $clientId, ContractCollectionService $service)
     {
+        $userOffices = DB::table('office_user')->where('user_id', session('auth_user.id'))->pluck('office_id')->toArray();
+
         $rows = DB::table('contracts as c')
             ->join('statuses as s', 's.id', '=', 'c.status_id')
             ->join('developments as d', 'd.id', '=', 'c.development_id')
             ->leftJoin('contract_payment_types as cpt', 'cpt.id', '=', 'c.contract_payment_type_id')
             ->where('c.client_id', $clientId)
             ->whereNull('c.fecha_baja')
+            ->when(session('auth_user.role_id') !== 1, function($q) use ($userOffices) {
+                $q->whereIn('c.office_id', $userOffices);
+            })
             ->orderByDesc('c.id')
             ->get([
                 'c.id',
@@ -108,6 +113,8 @@ class ChargeController extends Controller
 
     public function contractOffices(int $contractId)
     {
+        $userOffices = DB::table('office_user')->where('user_id', session('auth_user.id'))->pluck('office_id')->toArray();
+
         $rows = DB::table('contracts as c')
             ->join('contract_lots as cl', 'cl.contract_id', '=', 'c.id')
             ->join('lots as l', 'l.id', '=', 'cl.lot_id')
@@ -120,6 +127,9 @@ class ChargeController extends Controller
             ->whereNull('o.fecha_baja')
             ->where('p.clave', 'GENERAL')
             ->where('s.clave', 'ACTIVE')
+            ->when(session('auth_user.role_id') !== 1, function($q) use ($userOffices) {
+                $q->whereIn('o.id', $userOffices);
+            })
             ->distinct()
             ->orderBy('o.nombre')
             ->get([
@@ -137,6 +147,9 @@ class ChargeController extends Controller
                 ->whereNull('o.fecha_baja')
                 ->where('p.clave', 'GENERAL')
                 ->where('s.clave', 'ACTIVE')
+                ->when(session('auth_user.role_id') !== 1, function($q) use ($userOffices) {
+                    $q->whereIn('o.id', $userOffices);
+                })
                 ->orderBy('o.nombre')
                 ->get([
                     'o.id as value',

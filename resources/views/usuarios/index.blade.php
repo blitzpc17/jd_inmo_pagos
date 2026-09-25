@@ -1,6 +1,20 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+/* Mejorar contraste de select2 multiple en modo oscuro */
+.select2-container--bootstrap4 .select2-selection--multiple .select2-selection__choice {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+    border: 1px solid #2563eb !important;
+    padding-left: 5px !important;
+    padding-right: 5px !important;
+}
+.select2-container--bootstrap4 .select2-selection--multiple .select2-selection__choice__remove {
+    color: #ffffff !important;
+    margin-right: 5px !important;
+}
+</style>
 <div class="page-card">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
@@ -90,9 +104,13 @@
                             <select class="form-select select2-user" id="status_id" name="status_id"></select>
                         </div>
 
-                        <div class="col-md-12">
+                        <div class="col-md-6">
                             <label class="form-label">Dirección</label>
                             <textarea class="form-control" id="direccion" name="direccion" rows="3"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Oficinas</label>
+                            <select class="form-select select2-user" id="offices" name="offices[]" multiple></select>
                         </div>
                     </div>
                 </div>
@@ -134,13 +152,14 @@
         fillSelect('role_id', optionsCache.roles);
         fillSelect('position_id', optionsCache.positions);
         fillSelect('status_id', optionsCache.statuses);
+        fillSelect('offices', optionsCache.offices, true);
 
         return optionsCache;
     }
 
-    function fillSelect(id, items) {
+    function fillSelect(id, items, isMultiple = false) {
         const el = document.getElementById(id);
-        el.innerHTML = '<option value="">Seleccione...</option>';
+        el.innerHTML = isMultiple ? '' : '<option value="">Seleccione...</option>';
         items.forEach(item => {
             el.innerHTML += `<option value="${item.value}">${item.text}</option>`;
         });
@@ -204,6 +223,7 @@
         $('#role_id').val(json.data.role_id).trigger('change');
         $('#position_id').val(json.data.position_id).trigger('change');
         $('#status_id').val(json.data.status_id).trigger('change');
+        $('#offices').val(json.data.offices || []).trigger('change');
 
         document.getElementById('password').required = false;
         document.getElementById('usuarioModalTitle').textContent = 'Editar usuario';

@@ -435,6 +435,12 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
             Route::get('/creditors', [\App\Http\Controllers\BulkModificationController::class, 'getCreditors'])->name('creditors');
             Route::get('/creditor/{creditorId}/boletas', [\App\Http\Controllers\BulkModificationController::class, 'getCreditorBoletas'])->whereNumber('creditorId')->name('creditor-boletas');
             Route::get('/acreedor-boleta/{boletaId}/partidas', [\App\Http\Controllers\BulkModificationController::class, 'getCreditorBoletaPartidas'])->whereNumber('boletaId')->name('acreedor-boleta-partidas');
+
+            // Reasignación Masiva de Oficinas
+            Route::get('/reasignar-oficinas', [\App\Http\Controllers\BulkOfficeReassignmentController::class, 'index'])->name('offices.index');
+            Route::get('/reasignar-oficinas/datatable', [\App\Http\Controllers\BulkOfficeReassignmentController::class, 'datatable'])->name('offices.datatable');
+            Route::post('/reasignar-oficinas/procesar', [\App\Http\Controllers\BulkOfficeReassignmentController::class, 'process'])->name('offices.process');
+            Route::get('/reasignar-oficinas/opciones', [\App\Http\Controllers\BulkOfficeReassignmentController::class, 'options'])->name('offices.options');
         });
 
     // =====================================================

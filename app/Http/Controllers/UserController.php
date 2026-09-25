@@ -64,10 +64,13 @@ class UserController extends Controller
             ->orderBy('s.nombre')
             ->get(['s.id as value', 's.nombre as text']);
 
+        $offices = DB::table('offices')->orderBy('nombre')->get(['id as value', 'nombre as text']);
+
         return response()->json([
             'roles' => $roles,
             'positions' => $positions,
             'statuses' => $statuses,
+            'offices' => $offices,
         ]);
     }
 
@@ -93,6 +96,11 @@ class UserController extends Controller
 
         abort_if(!$row, 404, 'Usuario no encontrado');
 
+        $row->offices = DB::table('office_user')
+            ->where('user_id', $id)
+            ->pluck('office_id')
+            ->toArray();
+
         return response()->json([
             'ok' => true,
             'data' => $row,
@@ -112,6 +120,8 @@ class UserController extends Controller
             'email' => ['nullable', 'email', 'max:150', 'unique:personal,email'],
             'direccion' => ['nullable', 'string'],
             'position_id' => ['required', 'integer', 'exists:positions,id'],
+            'offices' => ['nullable', 'array'],
+            'offices.*' => ['integer', 'exists:offices,id'],
         ]);
 
         $data = $validator->validate();
@@ -141,6 +151,21 @@ class UserController extends Controller
                 'updated_at' => now(),
             ]);
 
+            $userId = DB::getPdo()->lastInsertId();
+
+            if (!empty($data['offices'])) {
+                $userOffices = [];
+                foreach ($data['offices'] as $officeId) {
+                    $userOffices[] = [
+                        'user_id' => $userId,
+                        'office_id' => $officeId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                DB::table('office_user')->insert($userOffices);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -169,6 +194,8 @@ class UserController extends Controller
             'email' => ['nullable', 'email', 'max:150', Rule::unique('personal', 'email')->ignore($user->personal_id)],
             'direccion' => ['nullable', 'string'],
             'position_id' => ['required', 'integer', 'exists:positions,id'],
+            'offices' => ['nullable', 'array'],
+            'offices.*' => ['integer', 'exists:offices,id'],
         ]);
 
         $data = $validator->validate();
@@ -203,6 +230,20 @@ class UserController extends Controller
             DB::table('users')
                 ->where('id', $id)
                 ->update($updateUser);
+
+            DB::table('office_user')->where('user_id', $id)->delete();
+            if (!empty($data['offices'])) {
+                $userOffices = [];
+                foreach ($data['offices'] as $officeId) {
+                    $userOffices[] = [
+                        'user_id' => $id,
+                        'office_id' => $officeId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                DB::table('office_user')->insert($userOffices);
+            }
 
             DB::commit();
 

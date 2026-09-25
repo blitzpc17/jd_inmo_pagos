@@ -40,4 +40,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Status::class, 'status_id');
     }
+
+    public function offices()
+    {
+        return $this->belongsToMany(Office::class, 'office_user', 'user_id', 'office_id')->withTimestamps();
+    }
 }

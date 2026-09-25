@@ -57,11 +57,15 @@
 
                 <div class="modal-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-bold">Acreedor</label>
                             <select class="form-select select2-pp" id="creditor_id" name="creditor_id"></select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Oficina <span class="text-danger">*</span></label>
+                            <select class="form-select select2-pp" id="office_id" name="office_id" required></select>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label fw-bold">Concepto (Opcional)</label>
                             <textarea class="form-control" id="concepto" name="concepto" rows="1" maxlength="350"></textarea>
                         </div>
@@ -272,8 +276,18 @@
         
         const selCreditor = $('#creditor_id');
         selCreditor.empty();
+        selCreditor.append(new Option('Seleccione...', ''));
         json.creditors.forEach(c => selCreditor.append(new Option(c.text, c.value)));
+
+        const selOffice = $('#office_id');
+        selOffice.empty();
+        selOffice.append(new Option('Seleccione...', ''));
+        (json.offices || []).forEach(o => selOffice.append(new Option(o.text, o.value)));
         
+        if (json.offices && json.offices.length === 1) {
+            selOffice.val(json.offices[0].value).trigger('change');
+        }
+
         paymentMethods = json.payment_methods || [];
     }
 
@@ -314,12 +328,20 @@
 
     document.getElementById('btnNuevoPagoAcreedor').addEventListener('click', () => {
         formPago.reset();
-        $('#creditor_id').val(null).trigger('change');
+        $('#creditor_id').val('').trigger('change');
+        $('#office_id').val('').trigger('change');
         modalPago.show();
     });
 
     formPago.addEventListener('submit', async e => {
         e.preventDefault();
+
+        const officeId = document.getElementById('office_id').value;
+        if (!officeId) {
+            Swal.fire('Aviso', 'Por favor selecciona la oficina.', 'warning');
+            return;
+        }
+
         const payload = Object.fromEntries(new FormData(formPago));
         
         try {

@@ -61,14 +61,19 @@
 
                 <div class="modal-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">Proveedor</label>
                             <select class="form-select select2-proveedor" id="supplier_id" name="supplier_id"></select>
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">Lotificación</label>
                             <select class="form-select select2-proveedor" id="development_id" name="development_id"></select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Oficina <span class="text-danger">*</span></label>
+                            <select class="form-select select2-proveedor" id="office_id" name="office_id" required></select>
                         </div>
 
                         <div class="col-md-3">
@@ -268,6 +273,12 @@
         optionsCache = await res.json();
         fillSelect('supplier_id', optionsCache.suppliers);
         fillSelect('development_id', optionsCache.developments);
+        fillSelect('office_id', optionsCache.offices);
+        
+        if (optionsCache.offices && optionsCache.offices.length === 1) {
+            $('#office_id').val(optionsCache.offices[0].value).trigger('change');
+        }
+        
         return optionsCache;
     }
 
@@ -336,9 +347,16 @@
     async function saveItem(e) {
         e.preventDefault();
 
+        const officeId = document.getElementById('office_id').value;
+        if (!officeId) {
+            Swal.fire('Aviso', 'Por favor selecciona la oficina.', 'warning');
+            return;
+        }
+
         const payload = {
             supplier_id: document.getElementById('supplier_id').value,
             development_id: document.getElementById('development_id').value,
+            office_id: officeId,
             total: document.getElementById('total').value,
             enganche: document.getElementById('enganche').value,
             meses: document.getElementById('meses').value,
