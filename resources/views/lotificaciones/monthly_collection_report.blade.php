@@ -71,6 +71,22 @@
                     <th class="th-base">OBSERVACION</th>
                 </tr>
             </thead>
+            <tfoot>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th class="text-end fw-bold">TOTALES:</th>
+                    <th class="text-end fw-bold">0.00</th>
+                    <th class="text-end fw-bold">0.00</th>
+                    <th class="text-end fw-bold">0.00</th>
+                    <th class="text-end fw-bold">0.00</th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </tfoot>
         </table>
     </div>
 </div>
@@ -118,6 +134,13 @@
     #tblReporteCobrosMensuales tbody td.col-fee {
         background: rgba(217, 4, 43, .10);
         font-weight: 700;
+    }
+
+    #tblReporteCobrosMensuales tfoot th {
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+        font-weight: 800;
+        border-top: 2px solid #cbd5e1;
     }
 </style>
 @endpush
@@ -235,6 +258,25 @@
                 next: "Siguiente",
                 previous: "Anterior"
             }
+        },
+        footerCallback: function (row, data, start, end, display) {
+            const api = this.api();
+
+            const intVal = function (i) {
+                if (i === null || i === undefined) return 0;
+                return typeof i === 'string' ? i.replace(/[\$,]/g, '') * 1 : typeof i === 'number' ? i : 0;
+            };
+
+            [6, 7, 8, 9].forEach(function(index) {
+                const total = api
+                    .column(index, { search: 'applied' })
+                    .data()
+                    .reduce(function (a, b) {
+                        return intVal(a) + intVal(b);
+                    }, 0);
+
+                $(api.column(index).footer()).html(moneyRender(total));
+            });
         }
     });
 
