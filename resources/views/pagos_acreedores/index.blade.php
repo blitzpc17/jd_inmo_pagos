@@ -97,6 +97,8 @@
     </div>
 </div>
 
+
+
 <!-- Modal Detalle e Historial -->
 <div class="modal fade" id="modalDetalleBoletaAcreedor" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -158,9 +160,6 @@
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="fw-bold mb-0">Historial de Pagos y Movimientos</h6>
                         <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-success" id="btnAgregarAbono">
-                                <i class="fa-solid fa-plus me-1"></i> Registrar Operación
-                            </button>
                             <a href="#" id="btnImprimirBoletaAcreedor" target="_blank" class="btn btn-sm btn-outline-secondary">
                                 <i class="fa-solid fa-print me-1"></i> Boleta PDF
                             </a>
@@ -205,46 +204,6 @@
     </div>
 </div>
 
-<!-- Modal Registrar Abono/Interés -->
-<div class="modal fade" id="modalAbonoAcreedor" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <form class="modal-content" id="formAbonoAcreedor">
-            <div class="modal-header">
-                <h5 class="modal-title">Registrar Operación (Abono / Interés)</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="abono_boleta_id">
-                
-                <div class="table-responsive">
-                    <table class="table table-bordered table-sm align-middle" id="tblAbonosDynamic">
-                        <thead>
-                            <tr>
-                                <th style="min-width: 160px">Tipo de Operación</th>
-                                <th style="min-width: 120px">Monto</th>
-                                <th style="min-width: 140px">Fecha</th>
-                                <th style="min-width: 160px">Forma Pago</th>
-                                <th style="min-width: 180px">Observaciones</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Dynamic rows -->
-                        </tbody>
-                    </table>
-                </div>
-                <button type="button" class="btn btn-sm btn-outline-primary mt-1" id="btnAddAbonoRow">
-                    <i class="fa-solid fa-plus me-1"></i> Agregar Fila
-                </button>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cerrar</button>
-                <button class="btn btn-primary" type="submit">Guardar Operaciones</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 @endsection
 
 @push('scripts')
@@ -253,10 +212,8 @@
     let table;
     const modalPago = new bootstrap.Modal(document.getElementById('modalPagoAcreedor'));
     const modalDetalle = new bootstrap.Modal(document.getElementById('modalDetalleBoletaAcreedor'));
-    const modalAbono = new bootstrap.Modal(document.getElementById('modalAbonoAcreedor'));
     
     const formPago = document.getElementById('formPagoAcreedor');
-    const formAbono = document.getElementById('formAbonoAcreedor');
     
     let currentVoucherId = null;
     let paymentMethods = [];
@@ -377,7 +334,6 @@
             if(!res.ok) throw new Error();
             const d = json.data;
             
-            document.getElementById('abono_boleta_id').value = id;
             document.getElementById('btnImprimirBoletaAcreedor').href = `/pagos-acreedores/${id}/pdf/boleta`;
             
             document.getElementById('dpp_ref').innerText = d.numero_referencia;
@@ -411,7 +367,7 @@
             let allItems = [];
             (d.items || []).forEach(i => {
                 let rec = '';
-                if(i.id) rec = `<a href="/pagos-acreedores/${id}/pdf/recibo/${i.id}" target="_blank" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-file-pdf"></i></a>`;
+                if(i.id) rec = `<a href="/abonos-acreedores/${id}/pdf/recibo/${i.id}" target="_blank" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-file-pdf"></i></a>`;
                 
                 if (parseFloat(i.importe) > 0) {
                     allItems.push({ fecha: i.fecha, html: `
@@ -472,123 +428,7 @@
         }
     }
 
-    // Modal de Abonos y Generación de Interés
-    document.getElementById('btnAgregarAbono').addEventListener('click', () => {
-        document.querySelector('#tblAbonosDynamic tbody').innerHTML = '';
-        addAbonoRow();
-        modalAbono.show();
-    });
 
-    document.getElementById('btnAddAbonoRow').addEventListener('click', addAbonoRow);
-
-    function addAbonoRow() {
-        rowCount++;
-        const tbody = document.querySelector('#tblAbonosDynamic tbody');
-        
-        let pmOptions = '<option value="">(Ninguna)</option>';
-        paymentMethods.forEach(pm => {
-            pmOptions += `<option value="${pm.value}">${pm.text}</option>`;
-        });
-
-        const today = new Date().toISOString().slice(0, 10);
-        
-        const tr = document.createElement('tr');
-        tr.id = `row_abono_${rowCount}`;
-        tr.innerHTML = `
-            <td>
-                <select class="form-select form-select-sm" name="items[${rowCount}][tipo]" onchange="toggleAbonoRow(${rowCount}, this)">
-                    <option value="abono_capital">Abono a Capital</option>
-                    <option value="pago_interes">Pago de Interés</option>
-                    <option value="generar_interes">Generar Cargo por Interés</option>
-                </select>
-            </td>
-            <td>
-                <input type="number" step="0.01" class="form-control form-control-sm" name="items[${rowCount}][monto]" min="0.01" required>
-            </td>
-            <td>
-                <input type="date" class="form-control form-control-sm" name="items[${rowCount}][fecha_recibido]" value="${today}" required>
-            </td>
-            <td>
-                <select class="form-select form-select-sm row-pm" name="items[${rowCount}][payment_method_id]">
-                    ${pmOptions}
-                </select>
-            </td>
-            <td>
-                <input type="text" class="form-control form-control-sm" name="items[${rowCount}][observaciones]" placeholder="Opcional">
-            </td>
-            <td class="text-center">
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">
-                    <i class="fa-solid fa-trash"></i>
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    }
-    
-    window.toggleAbonoRow = function(id, sel) {
-        const tr = document.getElementById(`row_abono_${id}`);
-        const pmSel = tr.querySelector('.row-pm');
-        if (sel.value === 'generar_interes') {
-            pmSel.disabled = true;
-            pmSel.value = '';
-        } else {
-            pmSel.disabled = false;
-        }
-    };
-
-    formAbono.addEventListener('submit', async e => {
-        e.preventDefault();
-        const rows = document.querySelectorAll('#tblAbonosDynamic tbody tr');
-        if (rows.length === 0) {
-            Swal.fire('Atención', 'Debes agregar al menos una operación.', 'warning');
-            return;
-        }
-
-        const fd = new FormData(formAbono);
-        const payload = {
-            creditor_payment_id: document.getElementById('abono_boleta_id').value,
-            items: []
-        };
-        
-        // Parse Form Data arrays
-        const obj = Object.fromEntries(fd);
-        for(let key in obj) {
-            const match = key.match(/^items\[(\d+)\]\[(.+)\]$/);
-            if (match) {
-                const idx = match[1];
-                const prop = match[2];
-                let item = payload.items.find(i => i._idx === idx);
-                if (!item) {
-                    item = { _idx: idx };
-                    payload.items.push(item);
-                }
-                item[prop] = obj[key];
-            }
-        }
-
-        try {
-            const res = await fetch(`/pagos-acreedores/${payload.creditor_payment_id}/abono`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            const json = await res.json();
-            if(!res.ok) throw new Error(json.message || 'Error al procesar.');
-            
-            modalAbono.hide();
-            Swal.fire({ icon: 'success', title: 'Éxito', text: json.message, timer: 1500, showConfirmButton: false });
-            
-            table.ajax.reload(null, false);
-            viewDetails(payload.creditor_payment_id);
-            
-        } catch(err) {
-            Swal.fire('Error', err.message, 'error');
-        }
-    });
 
     $(document).ready(() => {
         $('.select2-pp').select2({ dropdownParent: $('#modalPagoAcreedor'), width: '100%' });

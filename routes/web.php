@@ -360,6 +360,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
 
 
     Route::prefix('acreedores')->name('acreedores.')->group(function () {
+
         Route::get('/', [CreditorController::class, 'index'])->name('index');
         Route::get('/datatable', [CreditorController::class, 'datatable'])->name('datatable');
         Route::get('/options', [CreditorController::class, 'options'])->name('options');
@@ -375,9 +376,16 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
         Route::get('/options', [CreditorPaymentController::class, 'options'])->name('options');
         Route::post('/', [CreditorPaymentController::class, 'store'])->name('store');
         Route::get('/{id}', [CreditorPaymentController::class, 'show'])->name('show');
-        Route::post('/{id}/abono', [CreditorPaymentController::class, 'storeAbonoInteres'])->name('add_abono');
         Route::get('/{id}/pdf/boleta', [CreditorPaymentController::class, 'pdfBoleta'])->name('pdf.boleta');
-        Route::get('/{id}/pdf/recibo/{abonoId}', [CreditorPaymentController::class, 'pdfRecibo'])->name('pdf.recibo');
+    });
+
+    Route::prefix('abonos-acreedores')->name('abonos_acreedores.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\CreditorPaymentAbonoController::class, 'index'])->name('index');
+        Route::get('/options', [\App\Http\Controllers\CreditorPaymentAbonoController::class, 'options'])->name('options');
+        Route::get('/creditor/{creditorId}/vouchers', [\App\Http\Controllers\CreditorPaymentAbonoController::class, 'creditorVouchers'])->name('creditor.vouchers');
+        Route::get('/voucher/{voucherId}/summary', [\App\Http\Controllers\CreditorPaymentAbonoController::class, 'voucherSummary'])->name('voucher.summary');
+        Route::post('/', [\App\Http\Controllers\CreditorPaymentAbonoController::class, 'store'])->name('store');
+        Route::get('/{id}/pdf/recibo/{abonoId}', [\App\Http\Controllers\CreditorPaymentAbonoController::class, 'pdfRecibo'])->name('pdf.recibo');
     });
 
     Route::prefix('abonos-proveedores')->name('abonos_proveedores.')->group(function () {
@@ -395,6 +403,7 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
     Route::get('/cobros/{id}/recibo', [ChargeController::class, 'receipt'])->name('cobros.receipt');
     Route::get('/abonos-proveedores/recibo/{itemId}', [SupplierVoucherPaymentController::class, 'receipt'])->name('abonos_proveedores.receipt');
     Route::get('/pagos-proveedores/{id}/recibo', [SupplierVoucherController::class, 'receipt'])->name('pagos_proveedores.receipt');
+    // The previous abonos-acreedores route wasn't in this generic block so we skip adding it here to keep it clean.
 
 
     Route::prefix('configuracion-cobranza')
@@ -442,6 +451,16 @@ Route::middleware(['auth.custom', 'share.menu'])->group(function () {
             Route::post('/reasignar-oficinas/procesar', [\App\Http\Controllers\BulkOfficeReassignmentController::class, 'process'])->name('offices.process');
             Route::get('/reasignar-oficinas/opciones', [\App\Http\Controllers\BulkOfficeReassignmentController::class, 'options'])->name('offices.options');
         });
+
+    Route::prefix('reporteria')->name('reporteria.')->group(function () {
+        Route::get('/acreedores', [\App\Http\Controllers\CreditorReportController::class, 'index'])->name('acreedores.index');
+        Route::get('/acreedores/data', [\App\Http\Controllers\CreditorReportController::class, 'data'])->name('acreedores.data');
+        Route::get('/acreedores/export', [\App\Http\Controllers\CreditorReportController::class, 'export'])->name('acreedores.export');
+
+        Route::get('/proveedores', [\App\Http\Controllers\SupplierReportController::class, 'index'])->name('proveedores.index');
+        Route::get('/proveedores/data', [\App\Http\Controllers\SupplierReportController::class, 'data'])->name('proveedores.data');
+        Route::get('/proveedores/export', [\App\Http\Controllers\SupplierReportController::class, 'export'])->name('proveedores.export');
+    });
 
     // =====================================================
     // GESTIÓN DE AUTORIZANTES (MODULO STANDALONE)

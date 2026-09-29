@@ -62,7 +62,7 @@ class CreditorPaymentController extends Controller
                 
                 $r->acciones = '
                     <div class="d-flex gap-1">
-                        <button class="btn btn-sm btn-outline-info btn-view" data-id="'.$r->id.'" title="Ver / Abonar">
+                        <button class="btn btn-sm btn-outline-info btn-view" data-id="'.$r->id.'" title="Ver Detalle">
                             <i class="fa-solid fa-eye"></i>
                         </button>
                     </div>
@@ -244,74 +244,6 @@ class CreditorPaymentController extends Controller
         ]);
     }
 
-    public function storeAbonoInteres(Request $request)
-    {
-        $data = Validator::make($request->all(), [
-            'creditor_payment_id' => ['required', 'integer', 'exists:creditor_payments,id'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.tipo' => ['required', 'string', 'in:abono_capital,pago_interes,generar_interes'],
-            'items.*.monto' => ['required', 'numeric', 'min:0'],
-            'items.*.fecha_recibido' => ['required', 'date'],
-            'items.*.payment_method_id' => ['nullable', 'integer', 'exists:payment_methods,id'],
-            'items.*.observaciones' => ['nullable', 'string'],
-        ])->validate();
-
-        $boleta = DB::table('creditor_payments')->where('id', $data['creditor_payment_id'])->first();
-        abort_if(!$boleta, 404, 'Boleta no encontrada');
-
-        DB::beginTransaction();
-        try {
-            foreach ($data['items'] as $item) {
-                if ($item['tipo'] === 'abono_capital') {
-                    DB::table('creditor_payment_concepts')->insert([
-                        'creditor_payment_id' => $boleta->id,
-                        'fecha' => $item['fecha_recibido'],
-                        'importe' => $item['monto'],
-                        'interes_pagado' => 0,
-                        'concepto' => $item['observaciones'] ?? 'Abono a capital',
-                        'payment_method_id' => $item['payment_method_id'] ?? null,
-                        'status_id' => $this->getActiveStatusId(),
-                        'usuario_genero_id' => session('auth_user.id'),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                } elseif ($item['tipo'] === 'pago_interes') {
-                    DB::table('creditor_payment_concepts')->insert([
-                        'creditor_payment_id' => $boleta->id,
-                        'fecha' => $item['fecha_recibido'],
-                        'importe' => 0,
-                        'interes_pagado' => $item['monto'],
-                        'concepto' => $item['observaciones'] ?? 'Pago de intereses',
-                        'payment_method_id' => $item['payment_method_id'] ?? null,
-                        'status_id' => $this->getActiveStatusId(),
-                        'usuario_genero_id' => session('auth_user.id'),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                } elseif ($item['tipo'] === 'generar_interes') {
-                    DB::table('creditor_payment_interests')->insert([
-                        'creditor_payment_id' => $boleta->id,
-                        'cantidad' => $item['monto'],
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
-
-            $this->recalculateVoucherTotals($boleta->id);
-
-            DB::commit();
-
-            return response()->json([
-                'ok' => true,
-                'message' => 'Operación registrada correctamente.',
-            ]);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            throw $e;
-        }
-    }
-
     protected function getActiveStatusId(): int
     {
         $id = DB::table('statuses as s')
@@ -459,43 +391,5 @@ class CreditorPaymentController extends Controller
         );
     }
 
-    public function pdfRecibo(int $id, int $abonoId, PdfReceiptService $pdf)
-    {
-        $voucher = DB::table('creditor_payments as cp')
-            ->join('creditors as c', 'c.id', '=', 'cp.creditor_id')
-            ->where('cp.id', $id)
-            ->select([
-                'cp.*',
-                'c.nombre as acreedor',
-            ])
-            ->first();
 
-        abort_if(!$voucher, 404, 'Boleta no encontrada');
-
-        $item = DB::table('creditor_payment_concepts')
-            ->where('id', $abonoId)
-            ->where('creditor_payment_id', $id)
-            ->whereNull('fecha_baja')
-            ->first();
-
-        abort_if(!$item, 404, 'Abono no encontrado');
-
-        $stats = [
-            'total_payments' => DB::table('creditor_payment_concepts')->where('creditor_payment_id', $id)->count(),
-            'paid_payments' => DB::table('creditor_payment_concepts')->where('creditor_payment_id', $id)->count(),
-            'pending_payments' => 0,
-        ];
-
-        return $pdf->stream(
-            'pdf.receipts.creditor_recibo',
-            [
-                'document_type' => 'RECIBO DE ABONO A ACREEDOR',
-                'folio' => 'REC-ACR-' . str_pad((string) $item->id, 6, '0', STR_PAD_LEFT),
-                'voucher' => $voucher,
-                'item' => $item,
-                'stats' => $stats,
-            ],
-            'recibo-acreedor-'.$item->id.'.pdf'
-        );
-    }
 }
