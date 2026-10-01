@@ -11,6 +11,10 @@
     $contractTotal = (float) data_get($stats, 'contract_total', 0);
     $paidTotal = (float) data_get($stats, 'paid_total', 0);
     $balance = (float) data_get($stats, 'balance', 0);
+    
+    $resTotal = (float) data_get($reservationStats ?? [], 'reservation_total', 0);
+    $resPaidTotal = (float) data_get($reservationStats ?? [], 'paid_total', 0);
+    $resBalance = (float) data_get($reservationStats ?? [], 'balance', 0);
     $lateFeeTotal = (float) data_get($stats, 'late_fee_total', 0);
     $realCollectedTotal = (float) data_get($stats, 'real_collected_total', $paidTotal + $lateFeeTotal);
     $progressPercent = (float) data_get($stats, 'progress_percent', 0);
@@ -433,6 +437,54 @@
             </tr>
         </table>
     @endif
+@elseif(!empty($reservation))
+    <div class="keep-together">
+        <div class="section-title">Resumen del apartado</div>
+
+        <table class="summary-table mb-12">
+            <tr>
+                <td>
+                    <div class="summary-box">
+                        <div class="small">Total apartado</div>
+                        <div class="big">${{ number_format($resTotal, 2) }}</div>
+                    </div>
+                </td>
+
+                <td>
+                    <div class="summary-box success">
+                        <div class="small">Total pagado</div>
+                        <div class="big">${{ number_format($resPaidTotal, 2) }}</div>
+                    </div>
+                </td>
+
+                <td>
+                    <div class="summary-box warning">
+                        <div class="small">Saldo pendiente</div>
+                        <div class="big">${{ number_format($resBalance, 2) }}</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        
+        <div class="card">
+            <table class="meta-table">
+                <tr>
+                    <td style="width: 33.333%;">
+                        <div class="label">Estado apartado</div>
+                        <div class="value">{{ $reservation->estado ?? 'N/A' }}</div>
+                    </td>
+
+                    <td style="width: 33.333%;">
+                        <div class="label">Fecha vencimiento</div>
+                        <div class="value">{{ $reservation->fecha_vencimiento ?? 'N/A' }}</div>
+                    </td>
+
+                    <td style="width: 33.333%;">
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
 @endif
 
 <div class="signature-wrap">

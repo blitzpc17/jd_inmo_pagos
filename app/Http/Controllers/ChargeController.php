@@ -394,6 +394,8 @@ class ChargeController extends Controller
             'left' => [],
             'right' => [],
         ];
+        $reservation = null;
+        $reservationStats = [];
 
         if (!empty($charge->contract_id)) {
             $contract = DB::table('contracts as c')
@@ -413,6 +415,33 @@ class ChargeController extends Controller
                 $scheduleGrid = $pdf->chargeScheduleGrid((int) $charge->contract_id);
                 $scheduleColumns = $pdf->splitGridInTwoColumns($scheduleGrid);
             }
+        } elseif (!empty($charge->reservation_id)) {
+            $reservation = DB::table('reservations as r')
+                ->leftJoin('statuses as s', 's.id', '=', 'r.status_id')
+                ->where('r.id', $charge->reservation_id)
+                ->select([
+                    'r.*',
+                    's.nombre as estado',
+                ])
+                ->first();
+
+            if ($reservation) {
+                $paidTotal = DB::table('charges as ch')
+                    ->leftJoin('statuses as s', 's.id', '=', 'ch.status_id')
+                    ->where('ch.reservation_id', $charge->reservation_id)
+                    ->where('s.clave', '!=', 'CANCELADO')
+                    ->whereNull('ch.fecha_baja')
+                    ->sum(DB::raw('ch.monto + ch.monto_recargo'));
+                    
+                $reservationTotal = (float) $reservation->importe_apartado;
+                $balance = $reservationTotal - (float) $paidTotal;
+                
+                $reservationStats = [
+                    'reservation_total' => $reservationTotal,
+                    'paid_total' => (float) $paidTotal,
+                    'balance' => $balance < 0 ? 0 : $balance,
+                ];
+            }
         }
 
         return $pdf->stream(
@@ -422,6 +451,8 @@ class ChargeController extends Controller
                 'folio' => $charge->numero_referencia,
                 'charge' => $charge,
                 'contract' => $contract,
+                'reservation' => $reservation,
+                'reservationStats' => $reservationStats,
                 'stats' => $stats,
                 'scheduleGrid' => $scheduleGrid,
                 'scheduleColumns' => $scheduleColumns,

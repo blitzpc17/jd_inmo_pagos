@@ -28,6 +28,7 @@
                     <th>Tipo</th>
                     <th>Forma pago</th>
                     <th>Monto</th>
+                    <th class="text-center">Opciones</th>
                 </tr>
             </thead>
         </table>
@@ -137,7 +138,19 @@
                 { data: 'lotificacion' },
                 { data: 'tipo_cobro' },
                 { data: 'forma_pago' },
-                { data: 'monto' }
+                { data: 'monto', render: (val) => '$ ' + parseFloat(val).toFixed(2) },
+                {
+                    data: null,
+                    orderable: false,
+                    className: 'text-center',
+                    render: function(data) {
+                        return `
+                            <a href="/cobros/${data.charge_id}/recibo" target="_blank" class="btn btn-sm btn-outline-danger" title="Generar Recibo">
+                                <i class="fa-solid fa-file-pdf"></i> Recibo
+                            </a>
+                        `;
+                    }
+                }
             ],
             pageLength: 10,
             order: [],

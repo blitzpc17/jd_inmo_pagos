@@ -24,6 +24,7 @@ class ReservationComplementController extends Controller
             ->join('payment_methods as pm', 'pm.id', '=', 'c.payment_method_id')
             ->select([
                 'rc.id',
+                'c.id as charge_id',
                 'r.numero_referencia as apartado_referencia',
                 'c.numero_referencia as cobro_referencia',
                 'c.fecha_emision',
@@ -73,7 +74,6 @@ class ReservationComplementController extends Controller
             ->get(['id as value', 'nombre as text']);
 
         $chargeTypes = DB::table('charge_types')
-            ->whereIn('nombre', ['Complemento de apartado', 'Enganche', 'Liquidación contado', 'Otro'])
             ->orderBy('nombre')
             ->get(['id as value', 'nombre as text']);
 
